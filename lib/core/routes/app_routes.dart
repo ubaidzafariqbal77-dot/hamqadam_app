@@ -28,7 +28,11 @@ class AppRoutes {
   static const String partnerPreferences = '/register/partner'; // 18
 
   static const String finalizing = '/register/finalizing';
-  static const String registrationCompleted = '/register/complete';
+
+  /// Email OTP screen shown after the single `register/complete` submission.
+  static const String verifyEmail = '/register/verify-email';
+
+  static const String registrationCompleted = '/register/completed';
   static const String home = '/home';
 
   /// "Complete your profile" — hub for the sections skipped during signup.

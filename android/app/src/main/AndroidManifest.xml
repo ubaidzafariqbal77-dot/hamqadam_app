@@ -1,4 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Uploads (profile photos) and the registration identity step. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Voice introduction recording (`record` package). image_picker takes
+         photos through a camera intent, so it needs no CAMERA permission of its
+         own; the feature flags below just keep the app installable on devices
+         without a camera. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.microphone" android:required="false"/>
+
     <application
         android:label="hamqadam"
         android:name="${applicationName}"

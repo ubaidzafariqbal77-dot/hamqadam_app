@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 
-import '../constants/app_colors.dart';
-import '../constants/app_dimensions.dart';
-import '../constants/app_text_styles.dart';
 import '../controllers/lookup_controller.dart';
-import '../core/api/api_response.dart';
 import '../models/lookup_item_model.dart';
+import 'app_picker_field.dart';
 import 'form_field_container.dart';
-import 'state_widgets.dart';
 
 /// Generic dropdown for a fixed list of string options.
 class AppOptionDropdown extends StatelessWidget {
@@ -37,31 +32,27 @@ class AppOptionDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? effective = options.contains(value) ? value : null;
-    return FormFieldContainer(
+    // Renders as the same searchable bottom sheet as every other picker in the
+    // flow, so no dropdown in registration is ever an unsearchable menu.
+    final List<String> labels =
+        labelBuilder == null ? options : options.map(labelBuilder!).toList();
+    final String? shown = options.contains(value)
+        ? (labelBuilder?.call(value!) ?? value)
+        : null;
+    return AppStringPicker(
       label: label,
+      value: shown,
+      options: labels,
       requirement: requirement,
+      hint: hint,
       errorText: errorText,
-      disabled: !enabled,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: effective,
-          isExpanded: true,
-          hint: Text(hint, style: AppTextStyles.body.copyWith(color: AppColors.primaryDark),),
-          icon: const Icon(Icons.keyboard_arrow_down_rounded,color: AppColors.primaryDark),
-          borderRadius: AppRadius.mdAll,
-          onChanged: enabled ? onChanged : null,
-          items: options
-              .map(
-                (String o) => DropdownMenuItem<String>(
-                  value: o,
-                  child: Text(labelBuilder?.call(o) ?? o, style: AppTextStyles.body),
-                ),
-              )
-              .toList(),
-        ),
-      ),
+      enabled: enabled,
+      onChanged: (String? picked) {
+        if (picked == null || labelBuilder == null) return onChanged(picked);
+        // Map the chosen label back to the option it was built from.
+        final int i = labels.indexOf(picked);
+        onChanged(i >= 0 ? options[i] : picked);
+      },
     );
   }
 }
@@ -98,97 +89,20 @@ class AppLookupDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final ApiState<List<LookupItem>> state = controller.stateOf(lookupKey, parentId: parentId);
-      return FormFieldContainer(
-        label: label,
-        requirement: requirement,
-        errorText: errorText,
-        disabled: !enabled,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
-        child: _buildContent(context, state),
-      );
-    });
-  }
-
-  Widget _buildContent(BuildContext context, ApiState<List<LookupItem>> state) {
-    if (!enabled) {
-      return _InlineHint(text: disabledHint ?? 'Select the previous field first');
-    }
-    switch (state.status) {
-      case ApiStatus.loading:
-        return const _InlineLoading();
-      case ApiStatus.serverError:
-      case ApiStatus.noInternet:
-      case ApiStatus.unauthorized:
-        return RetryWidget(
-          onRetry: () => controller.load(lookupKey, parentId: parentId, force: true),
-          message: state.message ?? 'Could not load options.',
-        );
-      case ApiStatus.empty:
-        return const _InlineHint(text: 'No options available');
-      case ApiStatus.initial:
-      case ApiStatus.validationError:
-      case ApiStatus.success:
-        final List<LookupItem> items = state.data ?? const <LookupItem>[];
-        final LookupItem? effective = _match(items, selected);
-        return DropdownButtonHideUnderline(
-          child: DropdownButton<LookupItem>(
-            value: effective,
-            isExpanded: true,
-            hint: Text(
-              hint,
-              style: AppTextStyles.body.copyWith(color: AppColors.primaryDark),
-            ),
-            icon: const Icon(Icons.keyboard_arrow_down_rounded,color: AppColors.primaryDark),
-            borderRadius: AppRadius.mdAll,
-            onChanged: onChanged,
-            items: items
-                .map(
-                  (LookupItem i) => DropdownMenuItem<LookupItem>(
-                    value: i,
-                    child: Text(i.name, style: AppTextStyles.body),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-    }
-  }
-
-  LookupItem? _match(List<LookupItem> items, LookupItem? sel) {
-    if (sel == null) return null;
-    for (final LookupItem i in items) {
-      if (i.id == sel.id) return i;
-    }
-    return null;
-  }
-}
-
-class _InlineLoading extends StatelessWidget {
-  const _InlineLoading();
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        const SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        Text('Loading…', style: AppTextStyles.body.copyWith(color: Theme.of(context).hintColor)),
-      ],
+    // Delegates to [AppLookupPicker] so every lookup dropdown opens the same
+    // searchable sheet. Loading, retry and empty states are handled inside it.
+    return AppLookupPicker(
+      label: label,
+      lookupKey: lookupKey,
+      controller: controller,
+      selected: selected,
+      onChanged: onChanged,
+      parentId: parentId,
+      requirement: requirement,
+      hint: hint,
+      errorText: errorText,
+      enabled: enabled,
+      disabledHint: disabledHint,
     );
   }
-}
-
-class _InlineHint extends StatelessWidget {
-  const _InlineHint({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 14),
-    child: Text(text, style: AppTextStyles.body.copyWith(color: Theme.of(context).hintColor)),
-  );
 }

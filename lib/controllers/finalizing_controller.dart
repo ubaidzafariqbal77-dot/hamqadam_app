@@ -1,13 +1,13 @@
 import 'package:get/get.dart';
 
-import '../core/api/api_client.dart';
+import '../constants/api_options.dart';
+import '../core/routes/app_routes.dart';
 import '../core/storage/registration_buffer.dart';
 import '../exceptions/app_exceptions.dart';
 import '../repositories/registration_repository.dart';
 import 'registration_controller.dart';
-import 'registration_payload.dart';
 
-/// One backend submission during finalization.
+/// One task shown on the finalizing screen.
 class FinalizeStep {
   FinalizeStep(this.label, this.action);
 
@@ -19,9 +19,16 @@ class FinalizeStep {
   final RxString message = ''.obs;
 }
 
-/// Submits the buffered profile to the backend step-endpoints once the account
-/// has been created. Runs sequentially, is resilient to individual failures,
-/// and lets the user retry the failed steps.
+/// Closes the signup flow.
+///
+/// Nothing was sent while the user walked the 18 steps, so this screen performs
+/// the whole submission: it uploads the complete payload
+/// (`POST /auth/register/complete`, one multipart request carrying the photos
+/// and identity documents), then asks the backend to email the verification
+/// code (`POST /auth/register/request-otp`) and hands over to the OTP screen.
+///
+/// Both tasks are retryable: a failed upload leaves every answer in the buffer,
+/// so tapping retry re-sends exactly the same payload.
 class FinalizingController extends GetxController {
   RegistrationRepository get repo => Get.find<RegistrationRepository>();
   RegistrationBuffer get buffer => Get.find<RegistrationBuffer>();
@@ -31,44 +38,35 @@ class FinalizingController extends GetxController {
   final RxBool running = false.obs;
   final RxBool finished = false.obs;
 
+  /// Mandatory screens the user never filled in. Non-empty means the payload
+  /// would be rejected, so the flow sends them back instead of submitting.
+  final RxList<int> missing = <int>[].obs;
+
   bool get hasFailures => steps.any((FinalizeStep s) => s.status.value == 3);
+
+  /// Upload progress of the multipart request (0..1).
+  RxDouble get uploadProgress => reg.uploadProgress;
 
   @override
   void onInit() {
     super.onInit();
+    missing.assignAll(reg.missingMandatorySteps);
     _build();
-    run();
+    if (missing.isEmpty) run();
   }
 
   void _build() {
-    final List<FinalizeStep> list = <FinalizeStep>[];
-
-    void add(String label, int step, Map<String, dynamic> payload) {
-      if (payload.isEmpty) return;
-      list.add(FinalizeStep(label, () => _submit(step, payload)));
-    }
-
-    add('Basic profile', 2, RegPayload.basic(buffer));
-    add('About you', 3, RegPayload.about(buffer));
-    add('Religion & culture', 4, RegPayload.religion(buffer));
-    add('Education & career', 5, RegPayload.education(buffer));
-    add('Family details', 6, RegPayload.family(buffer));
-    add('Marriage plans', 7, RegPayload.future(buffer));
-    add('Lifestyle & interests', 8, RegPayload.lifestyle(buffer));
-    add('Photos', 9, RegPayload.media(buffer));
-    add('Partner preferences', 10, RegPayload.partner(buffer));
-
-    if (RegPayload.hasVerification(buffer)) {
-      list.add(FinalizeStep('Identity verification', _submitVerification));
-    }
-
-    steps.assignAll(list);
+    steps.assignAll(<FinalizeStep>[
+      FinalizeStep('Creating your account', _submitRegistration),
+      FinalizeStep('Sending your verification code', _requestOtp),
+    ]);
   }
 
   Future<void> run() async {
-    if (running.value) return;
+    if (running.value || missing.isNotEmpty) return;
     running.value = true;
     finished.value = false;
+    bool ok = true;
     for (final FinalizeStep s in steps) {
       if (s.status.value == 2) continue; // already succeeded (retry case)
       s.status.value = 1;
@@ -79,17 +77,21 @@ class FinalizingController extends GetxController {
       } on AppException catch (e) {
         s.status.value = 3;
         s.message.value = e.message;
+        ok = false;
+        break; // the OTP request is pointless without an account
       } catch (e) {
         s.status.value = 3;
         s.message.value = 'Something went wrong.';
+        ok = false;
+        break;
       }
     }
     running.value = false;
     finished.value = true;
-    if (!hasFailures) await reg.finishRegistration();
+    if (ok && !hasFailures) _goToVerification();
   }
 
-  /// Re-run a single step (used when the user taps a failed row to retry it).
+  /// Re-run a single task (used when the user taps a failed row to retry it).
   Future<void> runOne(FinalizeStep s) async {
     if (running.value || s.status.value == 1) return;
     s.status.value = 1;
@@ -104,28 +106,88 @@ class FinalizingController extends GetxController {
       s.status.value = 3;
       s.message.value = 'Something went wrong.';
     }
-    if (!hasFailures) await reg.finishRegistration();
-  }
-
-  Future<void> _submit(int step, Map<String, dynamic> payload) async {
-    final ApiEnvelope res = await repo.submitStep(step, payload);
-    if (!res.success) {
-      throw ApiException(res.message.isEmpty ? 'Could not save this step.' : res.message);
+    if (!hasFailures && steps.every((FinalizeStep e) => e.status.value == 2)) {
+      _goToVerification();
     }
   }
 
-  Future<void> _submitVerification() async {
-    final ApiEnvelope res = await repo.submitVerification(
-      cnicNumber: buffer.getString('cnic_number') ?? '',
-      cnicFrontPath: buffer.getString('cnic_front') ?? '',
-      cnicBackPath: buffer.getString('cnic_back') ?? '',
-      selfiePath: buffer.getString('selfie') ?? '',
+  /// The one and only registration request.
+  Future<void> _submitRegistration() async {
+    // An account created by an earlier attempt must not be created twice — the
+    // email would already be taken.
+    if (buffer.awaitingEmailOtp) return;
+    final bool ok = await reg.submitRegistration();
+    if (!ok) {
+      throw ApiException(
+        reg.stepError.value.isEmpty
+            ? 'Could not submit your registration.'
+            : reg.stepError.value,
+      );
+    }
+  }
+
+  Future<void> _requestOtp() => reg.requestEmailOtp();
+
+  void _goToVerification() {
+    Get.offNamed<void>(
+      AppRoutes.verifyEmail,
+      arguments: <String, dynamic>{'codeAlreadySent': true},
     );
-    if (!res.success) {
-      throw ApiException(res.message.isEmpty ? 'Verification upload failed.' : res.message);
-    }
   }
 
-  /// Skip the remaining failed steps and enter the app (account already exists).
-  Future<void> continueAnyway() => reg.finishRegistration();
+  /// Sends the user back to the first mandatory screen they left empty.
+  void fixMissingStep() {
+    if (missing.isEmpty) return;
+    final int step = missing.first;
+    reg.currentStep.value = step;
+    Get.offNamed<void>(AppRoutes.routeForStep(step));
+  }
+
+  /// Titles of the screens still missing data, for the on-screen message.
+  List<String> get missingTitles => missing
+      .map((int s) => RegistrationController.steps[s - 1].title)
+      .toList();
+
+  /// Field errors the backend returned for the whole payload, resolved back to
+  /// the screen that owns each one so the user can jump straight there.
+  List<RejectedField> get rejectedFields {
+    final List<RejectedField> out = <RejectedField>[];
+    reg.fieldErrors.forEach((String field, String message) {
+      final int? step = RegSteps.uiStepForField(field);
+      out.add(
+        RejectedField(
+          field: field,
+          message: message,
+          uiStep: step,
+          stepTitle: step == null ? null : RegistrationController.steps[step - 1].title,
+        ),
+      );
+    });
+    out.sort((RejectedField a, RejectedField b) =>
+        (a.uiStep ?? 99).compareTo(b.uiStep ?? 99));
+    return out;
+  }
+
+  /// Sends the user back to the screen that owns a rejected field.
+  void goToRejected(RejectedField f) {
+    final int? step = f.uiStep;
+    if (step == null) return;
+    reg.currentStep.value = step;
+    Get.offNamed<void>(AppRoutes.routeForStep(step));
+  }
+}
+
+/// One field the backend rejected, tied to the screen that collected it.
+class RejectedField {
+  const RejectedField({
+    required this.field,
+    required this.message,
+    this.uiStep,
+    this.stepTitle,
+  });
+
+  final String field;
+  final String message;
+  final int? uiStep;
+  final String? stepTitle;
 }

@@ -12,6 +12,8 @@ import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 12 — Photos, the API's step 11
+/// (`POST /auth/register/step/11`, `multipart/form-data`).
 class Step12Controller extends StepController {
   Step12Controller() : super(12);
 
@@ -46,10 +48,15 @@ class Step12Controller extends StepController {
     return m;
   }
 
+  /// The API takes `profile_photo` plus 2–4 `additional_photos` (5 MB each).
   @override
   bool extraValidate() {
-    if (photoCount < 3) {
-      error.value = 'Please add at least 3 photos (1 main + 2 more).';
+    if (profile.value == null) {
+      error.value = 'Please add a main photo.';
+      return false;
+    }
+    if (gallery.length < 2) {
+      error.value = 'Please add at least 2 more photos (1 main + 2 more).';
       return false;
     }
     return true;

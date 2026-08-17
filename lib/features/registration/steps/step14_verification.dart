@@ -8,18 +8,20 @@ import '../../../controllers/step_controller.dart';
 import '../../../core/utils/cnic_ocr_service.dart';
 import '../../../core/utils/media_picker_helper.dart';
 import '../../../widgets/app_snackbar.dart';
+import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
-import '../../../widgets/form_field_container.dart';
 import '../../../widgets/media_upload_card.dart';
 import '../../../widgets/step_scaffold.dart';
 
-/// Step 14 — Identity verification. CNIC front/back and the selfie are captured
-/// from the camera, one after another (like step 1): the back card is only
-/// revealed once the front is captured, and the selfie once the back is done.
-/// The CNIC number is auto-read from BOTH the front and the back with on-device
-/// OCR and the two are compared to confirm the same card was photographed.
-/// Documents are held in the buffer (memory only) and uploaded on the
-/// Finalizing screen.
+/// Step 14 — Identity verification. CNIC front/back and the selfie can each be
+/// shot with the camera or picked from the gallery, one after another (like
+/// step 1): the back card is only revealed once the front is captured, and the
+/// selfie once the back is done.
+/// On-device OCR pre-fills the CNIC number from the front and cross-checks the
+/// back, but the number stays editable: a card OCR cannot read must not
+/// dead-end signup. Only a positive front/back MISMATCH blocks the step.
+/// Documents are held in the buffer (memory only) and submitted with the rest
+/// of the payload from the Finalizing screen.
 class Step14Controller extends StepController {
   Step14Controller() : super(14);
 
@@ -30,8 +32,28 @@ class Step14Controller extends StepController {
   final Rxn<PickedMedia> cnicBack = Rxn<PickedMedia>();
   final Rxn<PickedMedia> selfie = Rxn<PickedMedia>();
 
-  /// CNIC number read from the FRONT image (the one we keep/submit).
+  /// CNIC number for the FRONT image (the one we keep/submit). Pre-filled by
+  /// OCR and editable — OCR assists, it does not gate the step.
   final RxString cnicNumber = ''.obs;
+
+  /// Backing controller for the editable CNIC field.
+  final TextEditingController cnicCtrl = TextEditingController();
+
+  /// True once OCR filled the field, so the label can say so.
+  final RxBool cnicAutoRead = false.obs;
+
+  void onCnicTyped(String raw) {
+    final String formatted = CnicOcrService.format(raw);
+    if (formatted != raw) {
+      cnicCtrl.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+    cnicAutoRead.value = false;
+    cnicNumber.value = formatted;
+    _compareBack();
+  }
 
   /// CNIC number read from the BACK image (used only to compare with the front).
   final RxString cnicBackNumber = ''.obs;
@@ -45,14 +67,14 @@ class Step14Controller extends StepController {
   final Rxn<bool> backMatches = Rxn<bool>();
 
   Future<void> pickFront() async {
-    final PickedMedia? m = await _capture();
+    final PickedMedia? m = await _capture(highRes: true);
     if (m == null) return;
     front.value = m;
     await _scanFront(m.path);
   }
 
   Future<void> pickBack() async {
-    final PickedMedia? m = await _capture();
+    final PickedMedia? m = await _capture(highRes: true);
     if (m == null) return;
     cnicBack.value = m;
     await _scanBack(m.path);
@@ -62,6 +84,9 @@ class Step14Controller extends StepController {
     final PickedMedia? m = await _capture();
     if (m != null) selfie.value = m;
   }
+
+  @override
+  void disposeFields() => cnicCtrl.dispose();
 
   void removeFront() {
     front.value = null;
@@ -75,8 +100,13 @@ class Step14Controller extends StepController {
     backMatches.value = null;
   }
 
-  Future<PickedMedia?> _capture() async {
-    final PickedMedia? m = await picker.pickImage(fromCamera: true);
+  /// Asks whether to shoot the document now or pick an existing photo, then
+  /// returns the validated image. Returns null if the user backs out.
+  Future<PickedMedia?> _capture({bool highRes = false}) async {
+    final bool? fromCamera = await _askSource();
+    if (fromCamera == null) return null;
+    final PickedMedia? m =
+        await picker.pickImage(fromCamera: fromCamera, highRes: highRes);
     if (m == null) return null;
     final MediaValidation v = MediaPickerHelper.validateImage(m);
     if (!v.isValid) {
@@ -86,16 +116,66 @@ class Step14Controller extends StepController {
     return m;
   }
 
+  /// true = camera, false = gallery, null = dismissed.
+  Future<bool?> _askSource() => Get.bottomSheet<bool>(
+    SafeArea(
+      child: Container(
+        margin: const EdgeInsets.all(AppSpacing.md),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Get.theme.colorScheme.surface,
+          borderRadius: AppRadius.lgAll,
+        ),
+        // ListTile needs a Material ancestor or Flutter warns that its
+        // background and ink splashes may be invisible.
+        child: Material(
+          type: MaterialType.transparency,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: BiText('Add photo', style: AppTextStyles.subtitle),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_camera_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text('Take a photo', style: AppTextStyles.body),
+                onTap: () => Get.back<bool>(result: true),
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library_rounded,
+                  color: AppColors.primary,
+                ),
+                title: Text('Choose from gallery', style: AppTextStyles.body),
+                onTap: () => Get.back<bool>(result: false),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+            ],
+          ),
+        ),
+      ),
+    ),
+    isScrollControlled: true,
+  );
+
   Future<void> _scanFront(String path) async {
     scanning.value = true;
     try {
       final String? cnic = await _ocr.extractCnic(path);
       if (cnic != null) {
         cnicNumber.value = cnic;
+        cnicCtrl.text = cnic;
+        cnicAutoRead.value = true;
         AppSnackbar.success('CNIC number detected: $cnic');
-      } else {
-        cnicNumber.value = '';
-        AppSnackbar.info('Could not read the CNIC number — please retake a clear photo.');
+      } else if (cnicNumber.value.trim().isEmpty) {
+        // Never wipe a number the user typed themselves.
+        cnicAutoRead.value = false;
+        AppSnackbar.info('Could not read the number — please type it below.');
       }
       // A re-taken front may change the number, so re-check any existing back.
       _compareBack();
@@ -133,19 +213,18 @@ class Step14Controller extends StepController {
       error.value = 'Please capture the CNIC front, back and a selfie.';
       return false;
     }
-    if (cnicNumber.value.trim().isEmpty) {
-      error.value = 'CNIC number could not be read — retake a clearer front photo.';
+    if (!CnicOcrService.isValid(cnicNumber.value)) {
+      error.value = 'Enter the 13-digit CNIC number as XXXXX-XXXXXXX-X.';
       return false;
     }
-    // The back must carry the SAME number as the front before continuing.
-    // A mismatch (false) or an unreadable back (null) both block the step so
-    // the user re-uploads a proper, clear back image of the same card.
-    if (backMatches.value != true) {
-      error.value = backMatches.value == false
-          ? 'The CNIC number on the back does not match the front. Please '
-              'upload the back of the SAME card.'
-          : 'Couldn\'t read the CNIC number on the back. Please upload a '
-              'clear back image so it can be matched with the front.';
+    // Only a POSITIVE mismatch blocks: both sides were read and they disagree,
+    // which means two different cards. An unreadable back does not block —
+    // the number is confirmed by the (editable) field above, and many cards do
+    // not print it on the back at all.
+    if (backMatches.value == false) {
+      error.value =
+          'The CNIC number on the back does not match the front. '
+          'Please upload the back of the SAME card.';
       return false;
     }
     return true;
@@ -193,7 +272,8 @@ class _Step14ViewState extends State<Step14View> {
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
-      helpText: 'Capture your CNIC front, then the back, then a selfie. Your '
+      helpText:
+          'Capture your CNIC front, then the back, then a selfie. Your '
           'CNIC number is read automatically and both sides are matched.',
       children: <Widget>[
         // 1 — CNIC FRONT + its auto-read number (always visible).
@@ -211,15 +291,21 @@ class _Step14ViewState extends State<Step14View> {
               if (c.scanning.value) ...<Widget>[
                 const SizedBox(height: AppSpacing.sm),
                 const _ScanningRow(label: 'Reading CNIC number…'),
-              ] else if (c.cnicNumber.value.isNotEmpty) ...<Widget>[
+              ] else if (c.front.value != null) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
-                FormFieldContainer(
-                  label: 'CNIC number (auto-detected)',
-                  requirement: FieldRequirement.required,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(c.cnicNumber.value, style: AppTextStyles.bodyStrong),
-                  ),
+                // Editable: OCR pre-fills it when it can, but a card it cannot
+                // read must never dead-end the flow.
+                AppTextFormField(
+                  label: c.cnicAutoRead.value
+                      ? 'CNIC number (auto-detected — check it)'
+                      : 'CNIC number',
+                  controller: c.cnicCtrl,
+                  hint: 'XXXXX-XXXXXXX-X',
+                  keyboardType: TextInputType.number,
+                  onChanged: c.onCnicTyped,
+                  validator: (String? v) => CnicOcrService.isValid(v ?? '')
+                      ? null
+                      : 'Enter the 13-digit number as XXXXX-XXXXXXX-X',
                 ),
               ],
             ],
@@ -315,7 +401,8 @@ class _MatchBanner extends StatelessWidget {
       default:
         color = AppColors.warning;
         icon = Icons.info_outline_rounded;
-        message = 'Couldn\'t read the number on the back — upload a clearer '
+        message =
+            'Couldn\'t read the number on the back — upload a clearer '
             'back image of the same card to continue.';
     }
 

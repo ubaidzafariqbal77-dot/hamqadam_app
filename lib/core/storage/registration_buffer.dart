@@ -44,6 +44,19 @@ class RegistrationBuffer {
     persist();
   }
 
+  /// True once `POST /auth/register/complete` succeeded but the emailed OTP has
+  /// not been verified yet — the app must reopen the verification screen.
+  bool get awaitingEmailOtp => _data['__awaiting_otp'] == true;
+  set awaitingEmailOtp(bool v) {
+    _data['__awaiting_otp'] = v;
+    persist();
+  }
+
+  /// True while the user is part-way through the 18 local steps and nothing has
+  /// been sent to the backend yet.
+  bool get hasDraftInProgress =>
+      !registrationDone && !awaitingEmailOtp && !accountCreated && completedSteps.isNotEmpty;
+
   /// Furthest UI step the user reached (1-based). Used to resume.
   int get lastStep => (_data['__last_step'] as int?) ?? 1;
   set lastStep(int v) {
@@ -76,6 +89,19 @@ class RegistrationBuffer {
     _data['__completed'] = s.toList()..sort();
     persist();
   }
+
+  /// Steps whose payload the backend has accepted (`POST /auth/register/...`).
+  /// A completed-but-unsent step (e.g. the upload failed while offline) is
+  /// re-sent from the Finalizing screen.
+  Set<int> get submittedSteps => _intSet('__submitted');
+
+  void markSubmitted(int step) {
+    final Set<int> s = submittedSteps..add(step);
+    _data['__submitted'] = s.toList()..sort();
+    persist();
+  }
+
+  bool isSubmitted(int step) => submittedSteps.contains(step);
 
   /// Steps the user explicitly skipped (kept so the profile-completion picture
   /// can tell "skipped" apart from "never reached").

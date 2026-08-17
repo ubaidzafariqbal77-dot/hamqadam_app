@@ -9,6 +9,8 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 16 — Family information, the API's step 15
+/// (`POST /auth/register/step/15`, skippable).
 class Step16Controller extends StepController {
   Step16Controller() : super(16);
 

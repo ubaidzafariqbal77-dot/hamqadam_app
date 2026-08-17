@@ -3,22 +3,45 @@ import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../constants/registration_options.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_chip_selector.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 15 — Interests & hobbies, the API's step 14
+/// (`POST /auth/register/step/14` → `{"hobbies": ["Reading", …]}`, skippable).
+///
+/// The chips come from the dynamic `hobbies` list when the backend provides one
+/// and fall back to the bundled categories otherwise.
 class Step15Controller extends StepController {
   Step15Controller() : super(15);
 
+  LookupController get lookup => Get.find<LookupController>();
+
   final RxList<String> selected = <String>[].obs;
 
+  /// Chip groups to show: one group per bundled category, or a single group
+  /// holding whatever the API returned.
+  Map<String, List<String>> get categories {
+    final List<LookupItem> items = lookup.itemsOf(LookupKeys.hobbies);
+    if (items.isEmpty) return RegOptions.interestCategories;
+    return <String, List<String>>{
+      'Interests': items.map((LookupItem i) => i.name).toList(),
+    };
+  }
+
   @override
-  void restore() => selected.assignAll(buffer.getStringList('interests'));
+  void restore() {
+    lookup.ensure(LookupKeys.hobbies);
+    selected.assignAll(buffer.getStringList('interests'));
+  }
 
   void toggle(String chip) {
     if (selected.contains(chip)) {
@@ -33,7 +56,12 @@ class Step15Controller extends StepController {
   }
 
   @override
-  Map<String, dynamic> collect() => <String, dynamic>{'interests': selected.toList()};
+  Map<String, dynamic> collect() => <String, dynamic>{
+    // Display labels (may carry an emoji) are kept for the UI; the API gets the
+    // plain names it lists in `hobbies`.
+    'interests': selected.toList(),
+    'hobbies': selected.map(RegOptions.plain).toList(),
+  };
 }
 
 class Step15View extends StatefulWidget {
@@ -149,8 +177,7 @@ class _Step15ViewState extends State<Step15View> {
                     controller: scroll,
                     padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
                     children: <Widget>[
-                      for (final MapEntry<String, List<String>> e
-                          in RegOptions.interestCategories.entries)
+                      for (final MapEntry<String, List<String>> e in c.categories.entries)
                         Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                           child: Obx(

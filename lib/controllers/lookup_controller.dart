@@ -1,7 +1,9 @@
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
+import '../constants/app_lookups.dart';
 import '../core/api/api_response.dart';
+import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/lookup_item_model.dart';
 import '../repositories/lookup_repository.dart';
@@ -23,6 +25,34 @@ class LookupController extends GetxController {
 
   List<LookupItem> itemsOf(String key, {int? parentId}) =>
       stateOf(key, parentId: parentId).data ?? const <LookupItem>[];
+
+  /// Fetches the whole `dropdown-reference-data` payload once, then warms the
+  /// lists the registration flow opens with. Safe to call repeatedly.
+  Future<void> preloadReference({bool force = false}) async {
+    // A forced refresh happens when a token appears, i.e. when everything
+    // cached so far may be bundled fallback data. Drop the per-list states too,
+    // otherwise `ensure` short-circuits on their stale "success" and dropdowns
+    // keep showing ids the server does not recognise.
+    if (force) states.clear();
+    try {
+      await _repo.preload(force: force);
+    } catch (e) {
+      AppLogger.w('Dropdown reference preload failed (bundled data will be used): $e');
+    }
+    for (final String key in LookupKeys.preload) {
+      if (force) {
+        await load(key);
+      } else {
+        await ensure(key);
+      }
+    }
+  }
+
+  /// Forgets every cached list (new signup / logout).
+  void resetAll() {
+    _repo.clear();
+    states.clear();
+  }
 
   /// Loads only if not already loaded/loading.
   Future<void> ensure(String key, {int? parentId}) async {

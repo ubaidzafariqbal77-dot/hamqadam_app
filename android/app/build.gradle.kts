@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "com.example.hamqadam"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_plugin_android_lifecycle and file_picker require API 36 to
+    // compile against. This only affects which APIs are available at compile
+    // time — runtime behaviour still follows targetSdk below.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -63,7 +63,9 @@ class AuthRepository {
       body: <String, dynamic>{
         'phone': phone,
         'country_code': countryCode,
-        // Backend expects the OTP under `code` (verified).
+        // The docs name this field `otp`, the live API reads `code` — send both
+        // so either implementation accepts the request.
+        'otp': otp,
         'code': otp,
         'device_name': deviceName,
         'device_type': ApiConfig.deviceType,
@@ -91,18 +93,23 @@ class AuthRepository {
   /// Deactivates (soft-deletes) the current account.
   Future<void> deactivateAccount() => _client.delete(ApiEndpoints.deleteAccount);
 
-  /// Sends a password-reset OTP. The live API expects `identifier` + `channel`
-  /// (verified) rather than a bare `email`.
+  /// Sends a password-reset OTP. The docs document a bare `email`; the live API
+  /// reads `identifier` + `channel` — both are sent.
   Future<String> forgotPassword(String email, {String channel = 'email'}) async {
     final ApiEnvelope res = await _client.post(
       ApiEndpoints.forgotPassword,
-      body: <String, dynamic>{'identifier': email, 'channel': channel},
+      body: <String, dynamic>{
+        'email': email,
+        'identifier': email,
+        'channel': channel,
+      },
     );
     return res.message;
   }
 
-  /// Resets the password using the OTP. Live fields: identifier, channel,
-  /// `code` (the OTP), password, password_confirmation (verified).
+  /// Resets the password using the OTP. Documented fields: email, otp, password,
+  /// password_confirmation; the live API reads identifier/channel/code — both
+  /// spellings are sent.
   Future<String> resetPassword({
     required String email,
     required String otp,
@@ -113,8 +120,10 @@ class AuthRepository {
     final ApiEnvelope res = await _client.post(
       ApiEndpoints.resetPassword,
       body: <String, dynamic>{
+        'email': email,
         'identifier': email,
         'channel': channel,
+        'otp': otp,
         'code': otp,
         'password': password,
         'password_confirmation': passwordConfirmation,

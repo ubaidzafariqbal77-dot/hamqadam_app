@@ -19,6 +19,11 @@ class UserModel {
   final String? gender;
   final Map<String, dynamic> raw;
 
+  /// True once the backend has stamped `email_verified_at`.
+  bool get isEmailVerified =>
+      (raw['email_verified_at']?.toString() ?? '').isNotEmpty &&
+      raw['email_verified_at'] != 'null';
+
   String get fullName =>
       <String?>[firstName, lastName].where((String? s) => (s ?? '').isNotEmpty).join(' ').trim();
 

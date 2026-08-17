@@ -2,44 +2,71 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-import '../../../constants/registration_options.dart';
+import '../../../constants/api_options.dart';
+import '../../../constants/app_lookups.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../core/validators/app_validators.dart';
-import '../../../widgets/app_picker_field.dart';
+import '../../../models/lookup_item_model.dart';
+import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
+import '../../../widgets/form_field_container.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 10 — `POST /auth/register/step/10`.
+///
+/// `employment_status` is hardcoded (government, private, civil, defence,
+/// self_employed, unemployed, retired); `profession_category_id` →
+/// `profession_id` is a dependent dynamic dropdown pair.
 class Step10Controller extends StepController {
   Step10Controller() : super(10);
 
+  LookupController get lookup => Get.find<LookupController>();
+
   final TextEditingController annualIncome = TextEditingController();
-  final RxnString workCategory = RxnString();
-  final RxnString profession = RxnString();
+  final TextEditingController jobTitle = TextEditingController();
+  final TextEditingController organization = TextEditingController();
+  final TextEditingController yearsOfExperience = TextEditingController();
+  final RxnString employmentStatus = RxnString();
+  final Rxn<LookupItem> category = Rxn<LookupItem>();
+  final Rxn<LookupItem> profession = Rxn<LookupItem>();
 
-  List<String> get professions =>
-      RegOptions.professionsByCategory[workCategory.value] ?? const <String>[];
+  bool get hasProfessions =>
+      category.value != null &&
+      lookup.itemsOf(LookupKeys.professions, parentId: category.value!.id).isNotEmpty;
 
-  void onCategory(String? v) {
-    workCategory.value = v;
+  void onCategory(LookupItem? v) {
+    category.value = v;
     profession.value = null;
+    if (v != null) lookup.ensure(LookupKeys.professions, parentId: v.id);
   }
 
   @override
   void restore() {
-    annualIncome.text = buffer.getString('annual_income') ?? '';
-    workCategory.value = buffer.getString('work_category');
-    profession.value = buffer.getString('profession');
+    lookup.ensure(LookupKeys.professionCategories);
+    annualIncome.text = buffer.getInt('annual_income')?.toString() ?? '';
+    jobTitle.text = buffer.getString('job_title') ?? '';
+    organization.text = buffer.getString('organization') ?? '';
+    yearsOfExperience.text = buffer.getInt('years_of_experience')?.toString() ?? '';
+    employmentStatus.value = buffer.getString('employment_status');
+    final int? cat = buffer.getInt('profession_category_id');
+    if (cat != null) {
+      category.value = LookupItem(id: cat, name: '');
+      lookup.ensure(LookupKeys.professions, parentId: cat);
+    }
+    final int? prof = buffer.getInt('profession_id');
+    if (prof != null) profession.value = LookupItem(id: prof, name: '');
   }
 
   @override
   bool extraValidate() {
-    if (workCategory.value == null) {
-      error.value = 'Please select your work category.';
+    if (employmentStatus.value == null) {
+      error.value = 'Please select your employment status.';
       return false;
     }
-    if (profession.value == null) {
-      error.value = 'Please select your profession.';
+    if (category.value == null) {
+      error.value = 'Please select your profession category.';
       return false;
     }
     return true;
@@ -48,12 +75,23 @@ class Step10Controller extends StepController {
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
     'annual_income': int.tryParse(annualIncome.text.trim()),
-    'work_category': workCategory.value,
-    'profession': profession.value,
+    'employment_status': employmentStatus.value,
+    'profession_category_id': category.value?.id,
+    'profession_id': profession.value?.id,
+    'job_title': jobTitle.text.trim(),
+    'organization': organization.text.trim(),
+    // Always a number: the `careers` table rejects a null here, so a blank
+    // field must post 0 rather than being omitted from the payload.
+    'years_of_experience': int.tryParse(yearsOfExperience.text.trim()) ?? 0,
   };
 
   @override
-  void disposeFields() => annualIncome.dispose();
+  void disposeFields() {
+    annualIncome.dispose();
+    jobTitle.dispose();
+    organization.dispose();
+    yearsOfExperience.dispose();
+  }
 }
 
 class Step10View extends StatefulWidget {
@@ -97,7 +135,7 @@ class _Step10ViewState extends State<Step10View> {
           hint: 'e.g. 1200000',
           keyboardType: TextInputType.number,
           inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-          textInputAction: TextInputAction.done,
+          textInputAction: TextInputAction.next,
           validator: (String? v) =>
               AppValidators.numberInRange(v, 0, 100000000, field: 'Annual income'),
         ),
@@ -105,20 +143,69 @@ class _Step10ViewState extends State<Step10View> {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              AppStringPicker(
-                label: 'Work category',
-                value: c.workCategory.value,
-                options: RegOptions.workCategory,
-                onChanged: c.onCategory,
+              AppOptionDropdown(
+                label: 'Employment status',
+                value: ApiOptions.labelOf(ApiOptions.employmentStatus, c.employmentStatus.value),
+                options: ApiOptions.labelsOf(ApiOptions.employmentStatus),
+                onChanged: (String? v) => c.employmentStatus.value =
+                    ApiOptions.valueOfLabel(ApiOptions.employmentStatus, v),
               ),
-              if (c.workCategory.value != null) ...<Widget>[
+              if (c.employmentStatus.value != null) ...<Widget>[
                 const SizedBox(height: 20),
                 Reveal(
-                  child: AppStringPicker(
+                  child: AppLookupDropdown(
+                    label: 'Profession category',
+                    lookupKey: LookupKeys.professionCategories,
+                    controller: c.lookup,
+                    selected: c.category.value,
+                    onChanged: c.onCategory,
+                  ),
+                ),
+              ],
+              if (c.hasProfessions) ...<Widget>[
+                const SizedBox(height: 20),
+                Reveal(
+                  child: AppLookupDropdown(
                     label: 'Profession',
-                    value: c.profession.value,
-                    options: c.professions,
-                    onChanged: (String? v) => c.profession.value = v,
+                    lookupKey: LookupKeys.professions,
+                    controller: c.lookup,
+                    parentId: c.category.value?.id,
+                    selected: c.profession.value,
+                    requirement: FieldRequirement.optional,
+                    onChanged: (LookupItem? v) => c.profession.value = v,
+                  ),
+                ),
+              ],
+              if (c.category.value != null) ...<Widget>[
+                const SizedBox(height: 20),
+                Reveal(
+                  child: AppTextFormField(
+                    label: 'Job title',
+                    controller: c.jobTitle,
+                    requirement: FieldRequirement.optional,
+                    hint: 'e.g. Software Engineer',
+                    textInputAction: TextInputAction.next,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Reveal(
+                  child: AppTextFormField(
+                    label: 'Organization',
+                    controller: c.organization,
+                    requirement: FieldRequirement.optional,
+                    hint: 'Where you work',
+                    textInputAction: TextInputAction.next,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Reveal(
+                  child: AppTextFormField(
+                    label: 'Years of experience',
+                    controller: c.yearsOfExperience,
+                    requirement: FieldRequirement.optional,
+                    hint: 'e.g. 4',
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
                   ),
                 ),
               ],

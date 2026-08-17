@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/api_options.dart';
 import '../../../constants/registration_options.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../models/lookup_item_model.dart';
@@ -8,6 +9,8 @@ import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 9 — `POST /auth/register/step/9` → `{height, diet}`.
+/// The picker works in centimetres; the API stores feet (168 cm -> 5.6).
 class Step09Controller extends StepController {
   Step09Controller() : super(9);
 
@@ -107,7 +110,9 @@ class _Step09ViewState extends State<Step09View> {
         Obx(
           () => AppCardSelector(
             label: 'Diet',
-            options: RegOptions.diet.map((String d) => CardOption(d, d)).toList(),
+            options: ApiOptions.diet
+                .map((LookupItem d) => CardOption(d.code!, d.name))
+                .toList(),
             selected: c.diet.value,
             onSelect: (CardOption o) => c.diet.value = o.value as String,
           ),

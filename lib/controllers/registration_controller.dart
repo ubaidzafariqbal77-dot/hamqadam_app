@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../constants/api_options.dart';
 import '../constants/app_constants.dart';
-import '../constants/app_lookups.dart';
 import '../constants/registration_sections.dart';
 import '../core/api/api_client.dart';
 import '../core/routes/app_routes.dart';
 import '../core/storage/profile_completion_service.dart';
 import '../core/storage/registration_buffer.dart';
-import '../core/validators/app_validators.dart';
+import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/auth_response_model.dart';
+import '../models/registration_status_model.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/registration_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -35,15 +36,23 @@ class StepMeta {
 
   /// Whether the user may skip this step during signup and fill it in later.
   bool get skippable => RegSections.canSkip(number);
+
+  /// The backend step this screen posts to.
+  int get apiStep => RegSteps.apiStep(number);
 }
 
-/// Orchestrates the 18-step registration journey.
+/// Orchestrates the documented 18-step registration journey.
 ///
-/// Steps 1–11 buffer their fields locally (no network). Step 11 (Account
-/// Security) creates the real account via `POST /auth/register` using the
-/// buffered account fields and stores the token. Steps 12–18 keep buffering,
-/// and the buffered profile is submitted to the backend step-endpoints on the
-/// Finalizing screen.
+/// The backend no longer stores registration step by step. Every screen writes
+/// its answers to the local [RegistrationBuffer] and the flow advances without
+/// touching the network; once the last step is done, the whole payload goes out
+/// in a single `POST /auth/register/complete`, which returns the Sanctum token.
+/// The account is then verified with an emailed OTP
+/// (`request-otp` → `verify-otp`) before the user reaches the app.
+///
+/// Because the draft lives on the device, going back, closing the app and
+/// resuming later never loses an answer — but it also means nothing is stored
+/// server-side until the final submission.
 class RegistrationController extends GetxController {
   RegistrationController({
     required this.buffer,
@@ -61,9 +70,14 @@ class RegistrationController extends GetxController {
 
   final RxInt currentStep = 1.obs;
 
-  /// Account-creation error surfaced on the Security step.
-  final RxString accountError = ''.obs;
-  final RxMap<String, String> accountFieldErrors = <String, String>{}.obs;
+  /// Error from the last step submission, surfaced on the step screen.
+  final RxString stepError = ''.obs;
+
+  /// Field-level validation errors returned by the backend (`errors` node).
+  final RxMap<String, String> fieldErrors = <String, String>{}.obs;
+
+  /// Server-authoritative progress from `GET /auth/register/status`.
+  final Rxn<RegistrationStatusModel> status = Rxn<RegistrationStatusModel>();
 
   /// The section currently being edited from "Complete your profile" (null
   /// during the normal signup flow).
@@ -76,20 +90,22 @@ class RegistrationController extends GetxController {
 
   int get totalSteps => AppConstants.totalRegistrationSteps;
 
+  /// Kept for the screens that still read the old name.
+  RxString get accountError => stepError;
+
   @override
   void onInit() {
     super.onInit();
-    // Warm the lookups the early steps need so no dropdown shows a spinner.
+    // Warm the dropdown reference data so no lookup shows a spinner. Before
+    // step 1 there is no token, so this may fall back to the bundled lists and
+    // is refreshed as soon as step 1 returns the token.
     preloadLookups();
   }
 
-  /// Preloads (and caches) the parent-less lookups used across the flow.
-  void preloadLookups() {
+  /// Fetches `GET /profile/dropdown-reference-data` and warms the common lists.
+  void preloadLookups({bool force = false}) {
     if (!Get.isRegistered<LookupController>()) return;
-    final LookupController lookup = Get.find<LookupController>();
-    lookup.ensure(LookupKeys.religions);
-    lookup.ensure(LookupKeys.languages);
-    lookup.ensure(LookupKeys.countries);
+    Get.find<LookupController>().preloadReference(force: force);
   }
 
   /// Completion is driven by steps actually finished with data — skipped steps
@@ -97,7 +113,11 @@ class RegistrationController extends GetxController {
   double get completedFraction =>
       (buffer.completedSteps.length / totalSteps).clamp(0.0, 1.0);
 
-  int get completionPercent => (completedFraction * 100).round();
+  int get completionPercent {
+    final int? server = status.value?.completionPercentage;
+    if (server != null && server > 0) return server;
+    return (completedFraction * 100).round();
+  }
 
   /// Progress shown in the step header: signup progress while registering, and
   /// the profile-completion percentage while editing one section afterwards.
@@ -108,7 +128,7 @@ class RegistrationController extends GetxController {
   StepMeta metaFor(int step) => steps[step - 1];
   StepMeta get currentMeta => metaFor(currentStep.value);
 
-  /// Whether [step] may be skipped (everything except the account steps).
+  /// Whether [step] may be skipped (the three optional API steps).
   bool canSkip(int step) => RegSections.canSkip(step);
 
   static const List<StepMeta> steps = <StepMeta>[
@@ -132,20 +152,17 @@ class RegistrationController extends GetxController {
     StepMeta(number: 18, title: 'Partner preferences', subtitle: 'Your ideal match'),
   ];
 
-  // ---- Navigation -----------------------------------------------------------
+  // ---- Local step progression ------------------------------------------------
 
   /// Called by a step once its fields are validated and written to the buffer.
-  /// Returns false only when account creation (step 11) fails, so the caller
-  /// stays on the screen.
+  /// Nothing is sent to the backend here — the answers are kept locally and the
+  /// flow simply advances. The last step opens the finalizing screen, which
+  /// performs the one and only submission.
   Future<bool> completeStep(int step) async {
+    stepError.value = '';
+    fieldErrors.clear();
+
     buffer.lastStep = step < totalSteps ? step + 1 : totalSteps;
-
-    if (step == 11 && !buffer.accountCreated) {
-      final bool created = await _createAccount();
-      if (!created) return false;
-    }
-
-    // Count this step as completed (raises the percentage). Idempotent.
     buffer.markCompleted(step);
 
     if (step >= totalSteps) {
@@ -156,8 +173,177 @@ class RegistrationController extends GetxController {
     return true;
   }
 
-  /// Skips a step (no data recorded, percentage unchanged). The step is
-  /// remembered as skipped so the user can complete it later from their profile.
+  /// Posts a single UI step to the deprecated step endpoint. Only used when one
+  /// section is re-saved after signup ([saveSection]). Sets [stepError] and
+  /// [fieldErrors] on failure.
+  Future<bool> submitStep(int step) async {
+    stepError.value = '';
+    fieldErrors.clear();
+    try {
+      final ApiEnvelope res = await _postStep(step);
+      if (!res.success) {
+        stepError.value = res.message.isEmpty
+            ? 'Could not save this step. Please try again.'
+            : res.message;
+        return false;
+      }
+      buffer.markSubmitted(step);
+      _refreshStatusInBackground();
+      return true;
+    } on ValidationException catch (e) {
+      _applyValidationErrors(e);
+      return false;
+    } on AppException catch (e) {
+      stepError.value = e.message;
+      return false;
+    } catch (e) {
+      AppLogger.w('Registration step $step failed: $e');
+      stepError.value = 'Something went wrong. Please try again.';
+      return false;
+    }
+  }
+
+  Future<ApiEnvelope> _postStep(int step) {
+    final int apiStep = RegSteps.apiStep(step);
+    final MultipartPayload? multipart = RegPayload.multipartForUiStep(step, buffer);
+    if (multipart != null) {
+      return registrationRepository.submitStepMultipart(
+        apiStep,
+        fields: multipart.fields,
+        files: multipart.files,
+        arrayFiles: multipart.arrayFiles,
+      );
+    }
+    return registrationRepository.submitStep(apiStep, RegPayload.forUiStep(step, buffer));
+  }
+
+  // ---- The single submission + email OTP ------------------------------------
+
+  /// Bytes uploaded / total for the one big multipart request, so the
+  /// finalizing screen can show real progress instead of a spinner.
+  final RxDouble uploadProgress = 0.0.obs;
+
+  /// Mandatory steps the user has not filled in. The backend validates the
+  /// whole payload at once, so an incomplete draft is caught here first and the
+  /// user is sent back to the offending screen instead of reading a wall of
+  /// field errors.
+  List<int> get missingMandatorySteps => RegSections.mandatory
+      .where((int s) => !buffer.completedSteps.contains(s))
+      .toList()
+    ..sort();
+
+  /// Submits every buffered answer in one `POST /auth/register/complete` and
+  /// stores the returned session. Returns false with [stepError] set on failure.
+  Future<bool> submitRegistration() async {
+    stepError.value = '';
+    fieldErrors.clear();
+    uploadProgress.value = 0;
+    try {
+      final Map<String, dynamic> payload = await RegPayload.complete(buffer);
+      final ApiEnvelope res = await registrationRepository.submitComplete(
+        payload,
+        onProgress: (int sent, int total) {
+          if (total > 0) uploadProgress.value = (sent / total).clamp(0.0, 1.0);
+        },
+      );
+      if (!res.success) {
+        stepError.value = res.message.isEmpty
+            ? 'Could not submit your registration. Please try again.'
+            : res.message;
+        return false;
+      }
+      await _onRegistrationAccepted(res);
+      return true;
+    } on ValidationException catch (e) {
+      _applyValidationErrors(e);
+      return false;
+    } on AppException catch (e) {
+      stepError.value = e.message;
+      return false;
+    } catch (e) {
+      AppLogger.w('Complete registration failed: $e');
+      stepError.value = 'Something went wrong. Please try again.';
+      return false;
+    }
+  }
+
+  /// The complete-registration response carries the Sanctum token the OTP calls
+  /// need, plus the server's view of which steps were recorded.
+  Future<void> _onRegistrationAccepted(ApiEnvelope res) async {
+    final AuthResponseModel auth = AuthResponseModel.fromJson(res.dataMap);
+    if (auth.hasToken) {
+      // persistSession also refetches the dropdown lists, which are only
+      // reachable once a token exists.
+      await authController.persistSession(auth);
+      buffer.accountCreated = true;
+    } else {
+      AppLogger.w('register/complete succeeded without a token — OTP calls will 401.');
+    }
+    buffer.awaitingEmailOtp = true;
+    _readRegistrationNode(res.dataMap['registration']);
+  }
+
+  /// Email the verification code. Returns the API message, or throws.
+  /// [email] overrides the buffered address (used when the user switches to a
+  /// different one on the verification screen).
+  Future<String> requestEmailOtp({String? email}) async {
+    final ApiEnvelope res = await registrationRepository.requestRegistrationOtp(
+      email: (email == null || email.isEmpty) ? registrationEmail : email,
+    );
+    if (!res.success) {
+      throw ApiException(res.message.isEmpty ? 'Could not send the code.' : res.message);
+    }
+    return res.message;
+  }
+
+  /// Confirm the emailed code. On success the account is verified and the
+  /// signup flow ends.
+  Future<String> verifyEmailOtp(String code, {String? email}) async {
+    final ApiEnvelope res = await registrationRepository.verifyRegistrationOtp(
+      code: code,
+      email: (email == null || email.isEmpty) ? registrationEmail : email,
+    );
+    if (!res.success) {
+      throw ApiException(res.message.isEmpty ? 'That code is not valid.' : res.message);
+    }
+    buffer.awaitingEmailOtp = false;
+    await authController.refreshUser();
+    return res.message;
+  }
+
+  /// The address the OTP is sent to — the one captured on the contact step.
+  String? get registrationEmail => buffer.getString('email')?.trim().toLowerCase();
+
+  void _readRegistrationNode(dynamic node) {
+    if (node is Map<String, dynamic>) {
+      status.value = RegistrationStatusModel.fromJson(node);
+    }
+  }
+
+  void _applyValidationErrors(ValidationException e) {
+    e.errors.forEach((String field, List<String> messages) {
+      if (messages.isNotEmpty) fieldErrors[field] = messages.first;
+    });
+    stepError.value = fieldErrors.values.isNotEmpty
+        ? fieldErrors.values.first
+        : (e.message.isEmpty ? 'Please check the highlighted fields.' : e.message);
+    // Email/phone already registered → offer a shortcut back to the contact
+    // step. A plain format error stays as an inline message.
+    if (_isDuplicateContactError()) _showDuplicateDialog();
+  }
+
+  bool _isDuplicateContactError() {
+    for (final String field in <String>['email', 'phone']) {
+      final String? msg = fieldErrors[field]?.toLowerCase();
+      if (msg == null) continue;
+      if (msg.contains('taken') || msg.contains('already') || msg.contains('exists')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Skips an optional step (no data recorded, percentage unchanged).
   Future<void> skipStep(int step) async {
     if (!canSkip(step)) return;
     buffer.lastStep = step < totalSteps ? step + 1 : totalSteps;
@@ -189,8 +375,6 @@ class RegistrationController extends GetxController {
   /// Opens a single registration step in edit mode so the user can fill in (or
   /// change) a section they skipped. Saving submits only that section.
   Future<void> openSection(int step) async {
-    // Only profile sections are editable this way — name, contact and password
-    // belong to the account and are changed from Edit Profile.
     if (!RegSections.isProfileSection(step)) return;
     sectionError.value = '';
     editingStep.value = step;
@@ -198,120 +382,42 @@ class RegistrationController extends GetxController {
     editingStep.value = null;
   }
 
-  /// Submits the buffered fields of a single step to the backend endpoints that
-  /// step feeds, marks the section complete and pops back to the caller.
-  /// Returns false (with [sectionError] set) when nothing could be saved.
+  /// Submits one step's payload on its own and pops back to the caller.
   Future<bool> saveSection(int step) async {
     sectionError.value = '';
-    try {
-      if (step == 14) {
-        if (!RegPayload.hasVerification(buffer)) {
-          sectionError.value = 'Please capture the CNIC front, back and a selfie.';
-          return false;
-        }
-        await _submitVerificationDocs();
-      } else {
-        bool sentSomething = false;
-        for (final int endpoint in RegPayload.endpointsForStep(step)) {
-          final Map<String, dynamic> payload = RegPayload.forEndpoint(endpoint, buffer);
-          if (payload.isEmpty) continue;
-          final ApiEnvelope res = await registrationRepository.submitStep(endpoint, payload);
-          if (!res.success) {
-            throw ApiException(
-              res.message.isEmpty ? 'Could not save this section.' : res.message,
-            );
-          }
-          sentSomething = true;
-        }
-        if (!sentSomething) {
-          sectionError.value = 'Please fill in at least one field before saving.';
-          return false;
-        }
-      }
-
-      completion.markDone(step);
-      if (Get.isRegistered<ProfileController>()) {
-        Get.find<ProfileController>().reload();
-      }
-      AppSnackbar.success('Saved — your profile is now ${completion.percent}% complete.');
-      Get.back<void>();
-      return true;
-    } on AppException catch (e) {
-      sectionError.value = e.message;
-      return false;
-    } catch (_) {
-      sectionError.value = 'Something went wrong. Please try again.';
+    final MultipartPayload? multipart = RegPayload.multipartForUiStep(step, buffer);
+    final bool hasData = multipart != null
+        ? !multipart.isEmpty
+        : RegPayload.forUiStep(step, buffer).isNotEmpty;
+    if (!hasData) {
+      sectionError.value = 'Please fill in at least one field before saving.';
       return false;
     }
-  }
 
-  Future<void> _submitVerificationDocs() async {
-    final ApiEnvelope res = await registrationRepository.submitVerification(
-      cnicNumber: buffer.getString('cnic_number') ?? '',
-      cnicFrontPath: buffer.getString('cnic_front') ?? '',
-      cnicBackPath: buffer.getString('cnic_back') ?? '',
-      selfiePath: buffer.getString('selfie') ?? '',
-    );
-    if (!res.success) {
-      throw ApiException(res.message.isEmpty ? 'Verification upload failed.' : res.message);
-    }
-  }
-
-  // ---- Account creation (step 11) -------------------------------------------
-
-  Map<String, dynamic> _accountBody() {
-    final String phone = buffer.getString('phone') ?? '';
-    return <String, dynamic>{
-      'first_name': buffer.getString('first_name'),
-      'last_name': buffer.getString('last_name'),
-      'email': (buffer.getString('email') ?? '').toLowerCase(),
-      'phone': AppValidators.normalizePakPhone(phone) ?? phone,
-      'password': buffer.getString('password'),
-      'password_confirmation': buffer.getString('password_confirmation'),
-      'gender': buffer.getInt('gender')?.toString(),
-      'date_of_birth': buffer.getString('date_of_birth'),
-      'on_behalf': buffer.getInt('on_behalf'),
-    };
-  }
-
-  Future<bool> _createAccount() async {
-    accountError.value = '';
-    accountFieldErrors.clear();
-    try {
-      final AuthResponseModel res = await authRepository.register(_accountBody());
-      if (!res.hasToken) {
-        accountError.value = 'Registration succeeded but no token was returned.';
-        return false;
-      }
-      await authController.persistSession(res);
-      buffer.accountCreated = true;
-      // Drop the plaintext password from memory the moment it is no longer
-      // needed (the account now exists).
-      buffer.put(<String, dynamic>{'password': null, 'password_confirmation': null});
-      return true;
-    } on ValidationException catch (e) {
-      e.errors.forEach((String field, List<String> messages) {
-        if (messages.isNotEmpty) accountFieldErrors[field] = messages.first;
-      });
-      accountError.value = e.message;
-      // Email/phone already registered → show a clear popup with a shortcut back
-      // to the Contact step so the user can fix it.
-      if (accountFieldErrors.containsKey('email') || accountFieldErrors.containsKey('phone')) {
-        _showDuplicateDialog();
-      }
-      return false;
-    } on AppException catch (e) {
-      accountError.value = e.message;
+    final bool ok = await submitStep(step);
+    if (!ok) {
+      sectionError.value = stepError.value.isEmpty
+          ? 'Could not save this section.'
+          : stepError.value;
       return false;
     }
+
+    buffer.markCompleted(step);
+    completion.markDone(step);
+    if (Get.isRegistered<ProfileController>()) {
+      Get.find<ProfileController>().reload();
+    }
+    AppSnackbar.success('Saved — your profile is now ${completion.percent}% complete.');
+    Get.back<void>();
+    return true;
   }
 
   void _showDuplicateDialog() {
-    final String msg = accountFieldErrors['email'] ??
-        accountFieldErrors['phone'] ??
-        (accountError.value.isEmpty
+    final String msg = fieldErrors['email'] ??
+        fieldErrors['phone'] ??
+        (stepError.value.isEmpty
             ? 'This email or phone number is already registered.'
-            : accountError.value);
+            : stepError.value);
     Get.dialog<void>(
       AlertDialog(
         title: const Text('Account already exists'),
@@ -330,40 +436,83 @@ class RegistrationController extends GetxController {
     );
   }
 
-  /// Jumps back to the Contact-information step (5) to fix a duplicate email/phone.
+  /// Jumps back to the Contact-information step (5) to fix a duplicate
+  /// email/phone. Uses `offNamed` rather than popping to a route that may not
+  /// be on the stack (the failure now surfaces from the finalizing screen).
   void goToContactStep() {
     currentStep.value = 5;
-    Get.until((Route<dynamic> route) => route.settings.name == AppRoutes.contact);
+    Get.offNamed<void>(AppRoutes.contact);
   }
 
-  // ---- Resume / finish ------------------------------------------------------
+  // ---- Status / resume / finish ---------------------------------------------
 
-  /// Decides the entry screen on launch when a token already exists.
+  /// Pulls `GET /auth/register/status` without blocking the UI.
+  void _refreshStatusInBackground() {
+    if (!authController.hasToken) return;
+    refreshStatus().catchError((_) => null);
+  }
+
+  Future<RegistrationStatusModel?> refreshStatus() async {
+    try {
+      final RegistrationStatusModel res = await registrationRepository.status();
+      status.value = res;
+      return res;
+    } on AppException catch (e) {
+      AppLogger.d('Registration status unavailable: $e');
+      return null;
+    }
+  }
+
+  /// Decides the entry screen on launch.
+  ///
+  /// Progress now lives on the device until the single submission, so the local
+  /// buffer — not the server — decides where the user lands:
+  /// verified account → home, submitted but unverified → the OTP screen,
+  /// part-way through the steps → the furthest screen reached.
   Future<void> resume() async {
-    if (!buffer.registrationDone && buffer.accountCreated && !buffer.isEmpty) {
-      final int step = buffer.lastStep.clamp(12, totalSteps);
+    if (buffer.registrationDone) {
+      Get.offAllNamed(AppRoutes.home);
+      return;
+    }
+
+    // Registered but the emailed code was never entered.
+    if (buffer.awaitingEmailOtp && authController.hasToken) {
+      Get.offAllNamed(AppRoutes.verifyEmail);
+      return;
+    }
+
+    // A local draft that never reached the backend — pick the steps back up.
+    if (buffer.hasDraftInProgress) {
+      final int step = buffer.lastStep.clamp(1, totalSteps);
       currentStep.value = step;
       Get.offAllNamed(AppRoutes.routeForStep(step));
       return;
     }
-    Get.offAllNamed(AppRoutes.home);
+
+    Get.offAllNamed(authController.hasToken ? AppRoutes.home : AppRoutes.login);
   }
 
   /// Ends the signup flow. The buffered answers are deliberately KEPT (minus the
   /// sensitive ones, which never touch disk) so a section opened later from
-  /// "Complete your profile" still shows what the user entered; the completion
-  /// record remembers what was filled and what was skipped.
-  Future<void> finishRegistration() async {
+  /// "Complete your profile" still shows what the user entered.
+  Future<void> finishRegistration({bool navigate = true}) async {
     completion.seedFromRegistration(buffer.completedSteps);
     buffer.registrationDone = true;
-    Get.offAllNamed(AppRoutes.registrationCompleted);
+    buffer.awaitingEmailOtp = false;
+    if (navigate) Get.offAllNamed(AppRoutes.registrationCompleted);
   }
 
   /// Wipes the buffered draft + completion record (new signup / logout).
   Future<void> resetForNewAccount() async {
     editingStep.value = null;
     currentStep.value = 1;
+    stepError.value = '';
+    fieldErrors.clear();
+    status.value = null;
     await buffer.clear();
     await completion.clear();
+    if (Get.isRegistered<LookupController>()) {
+      Get.find<LookupController>().resetAll();
+    }
   }
 }

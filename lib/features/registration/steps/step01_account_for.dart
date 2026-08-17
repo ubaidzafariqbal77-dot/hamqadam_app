@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/api_options.dart';
+import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
-import '../../../constants/registration_options.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 1 — the opening questions of the local 18-step flow.
+///
+/// `on_behalf` is a dynamic dropdown (`on_behalves`); gender, marriage timeline
+/// and the two work-intent questions are the documented hardcoded options.
+/// Nothing is sent here — the answers are buffered and submitted with the rest
+/// of the payload in `POST /auth/register/complete`.
 class Step01Controller extends StepController {
   Step01Controller() : super(1);
+
+  LookupController get lookup => Get.find<LookupController>();
 
   final Rxn<int> onBehalf = Rxn<int>();
   final Rxn<int> gender = Rxn<int>();
@@ -18,12 +28,30 @@ class Step01Controller extends StepController {
   final RxnString willingToWork = RxnString();
   final RxnString expectsSpouseWork = RxnString();
 
-  bool get showGender =>
-      onBehalf.value != null && RegOptions.needsExplicitGender.contains(onBehalf.value);
+  List<LookupItem> get accountForOptions => lookup.itemsOf(LookupKeys.onBehalf);
+
+  LookupItem? get selectedOption {
+    for (final LookupItem i in accountForOptions) {
+      if (i.id == onBehalf.value) return i;
+    }
+    return null;
+  }
+
+  /// The server owns the `on_behalves` ids, so the gender a choice implies is
+  /// derived from its label rather than from a hardcoded id.
+  static const List<String> _maleWords = <String>['son', 'brother', 'father'];
+  static const List<String> _femaleWords = <String>['daughter', 'sister', 'mother'];
+
+  String get _selectedName => (selectedOption?.name ?? '').toLowerCase();
+
+  bool get _impliesMale => _maleWords.any(_selectedName.contains);
+  bool get _impliesFemale => _femaleWords.any(_selectedName.contains);
+
+  bool get showGender => onBehalf.value != null && !_impliesMale && !_impliesFemale;
 
   int? get effectiveGender {
-    if (RegOptions.impliesMale.contains(onBehalf.value)) return 1;
-    if (RegOptions.impliesFemale.contains(onBehalf.value)) return 2;
+    if (_impliesMale) return 1;
+    if (_impliesFemale) return 2;
     return gender.value;
   }
 
@@ -66,11 +94,12 @@ class Step01Controller extends StepController {
 
   @override
   void restore() {
+    lookup.ensure(LookupKeys.onBehalf);
     onBehalf.value = buffer.getInt('on_behalf');
     gender.value = buffer.getInt('gender');
     marriageTimeline.value = buffer.getString('marriage_timeline');
-    willingToWork.value = buffer.getString('willing_to_work');
-    expectsSpouseWork.value = buffer.getString('expects_spouse_work');
+    willingToWork.value = buffer.getString('willing_to_work_after_marriage');
+    expectsSpouseWork.value = buffer.getString('expects_spouse_to_work');
   }
 
   @override
@@ -103,21 +132,23 @@ class Step01Controller extends StepController {
     'on_behalf': onBehalf.value,
     'gender': effectiveGender,
     'marriage_timeline': marriageTimeline.value,
-    'willing_to_work': isFemale ? willingToWork.value : null,
-    'expects_spouse_work': expectsSpouseWork.value,
+    // Sent only when it was asked; the API keeps the same allowed values for both.
+    'willing_to_work_after_marriage': isFemale ? willingToWork.value : null,
+    'expects_spouse_to_work': expectsSpouseWork.value,
   };
 }
 
-/// Icons for the account-for cards, keyed by [RegOptions.accountFor] id.
-const Map<int, IconData> _accountIcons = <int, IconData>{
-  1: Icons.person_rounded, // Myself
-  2: Icons.boy_rounded, // Son
-  3: Icons.girl_rounded, // Daughter
-  4: Icons.man_rounded, // Brother
-  5: Icons.woman_rounded, // Sister
-  7: Icons.diversity_3_rounded, // Friend
-  6: Icons.family_restroom_rounded, // Relative
-};
+/// Icon for an "account for" card, chosen from its label (ids are server-side).
+IconData _iconFor(String name) {
+  final String n = name.toLowerCase();
+  if (n.contains('self') || n.contains('myself')) return Icons.person_rounded;
+  if (n.contains('son')) return Icons.boy_rounded;
+  if (n.contains('daughter')) return Icons.girl_rounded;
+  if (n.contains('brother')) return Icons.man_rounded;
+  if (n.contains('sister')) return Icons.woman_rounded;
+  if (n.contains('friend')) return Icons.diversity_3_rounded;
+  return Icons.family_restroom_rounded;
+}
 
 class Step01View extends StatefulWidget {
   const Step01View({super.key});
@@ -184,7 +215,7 @@ class _Step01ViewState extends State<Step01View> {
         return _wrap(
           'Gender',
           AppCardSelector(
-            options: RegOptions.gender
+            options: ApiOptions.gender
                 .map((LookupItem i) => CardOption(
                       i.id,
                       i.name,
@@ -198,38 +229,44 @@ class _Step01ViewState extends State<Step01View> {
       case 'marriage':
         return _wrap(
           'When are you planning to get married?',
-          _stringCards(RegOptions.marriageTimeline, c.marriageTimeline.value,
+          _optionCards(ApiOptions.marriageTimeline, c.marriageTimeline.value,
               (String v) => c.marriageTimeline.value = v),
         );
       case 'work':
         return _wrap(
           'Will you continue working after marriage?',
-          _stringCards(RegOptions.workIntent, c.willingToWork.value,
+          _optionCards(ApiOptions.workIntent, c.willingToWork.value,
               (String v) => c.willingToWork.value = v),
         );
       case 'spouseWork':
         return _wrap(
           'Do you expect your spouse to work after marriage?',
-          _stringCards(RegOptions.workIntent, c.expectsSpouseWork.value,
+          _optionCards(ApiOptions.workIntent, c.expectsSpouseWork.value,
               (String v) => c.expectsSpouseWork.value = v),
         );
       case 'accountFor':
       default:
+        final List<LookupItem> options = c.accountForOptions;
         return _head(
           'Account for',
           subtitle: 'Who is this profile being created for?',
-          child: AppCardSelector(
-            options: RegOptions.accountFor
-                .map((LookupItem i) => CardOption(i.id, i.name, icon: _accountIcons[i.id]))
-                .toList(),
-            selected: c.onBehalf.value,
-            onSelect: (CardOption o) {
-              c.onBehalf.value = o.value as int;
-              if (!c.showGender) c.gender.value = null;
-              // currentQuestion recomputes to the next unanswered question, so
-              // the switcher auto-advances (the "Account for" heading disappears).
-            },
-          ),
+          child: options.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : AppCardSelector(
+                  options: options
+                      .map((LookupItem i) => CardOption(i.id, i.name, icon: _iconFor(i.name)))
+                      .toList(),
+                  selected: c.onBehalf.value,
+                  onSelect: (CardOption o) {
+                    c.onBehalf.value = o.value as int;
+                    if (!c.showGender) c.gender.value = null;
+                    // currentQuestion recomputes to the next unanswered question, so
+                    // the switcher auto-advances (the "Account for" heading disappears).
+                  },
+                ),
         );
     }
   }
@@ -261,10 +298,15 @@ class _Step01ViewState extends State<Step01View> {
     );
   }
 
-  Widget _stringCards(List<String> options, String? selected, ValueChanged<String> onSelect) {
+  /// Cards for a hardcoded option list: the label is shown, the API value is kept.
+  Widget _optionCards(
+    List<LookupItem> options,
+    String? selectedValue,
+    ValueChanged<String> onSelect,
+  ) {
     return AppCardSelector(
-      options: options.map((String s) => CardOption(s, s)).toList(),
-      selected: selected,
+      options: options.map((LookupItem o) => CardOption(o.code!, o.name)).toList(),
+      selected: selectedValue,
       onSelect: (CardOption o) => onSelect(o.value as String),
     );
   }

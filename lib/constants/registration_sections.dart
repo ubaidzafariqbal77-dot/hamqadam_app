@@ -1,19 +1,23 @@
+import 'api_options.dart';
+
 /// Which registration steps must be filled, which ones may be skipped, and
 /// which ones make up the profile-completion picture.
 ///
-/// The 18-step signup flow spreads the account-creation fields across steps 1
-/// (who the profile is for + gender), 2 (name + date of birth), 5 (email +
-/// phone) and 11 (password) — the account cannot exist without them, so those
-/// four are the only mandatory steps. Everything else can be skipped during
-/// signup and completed later from "Complete your profile".
+/// The API marks exactly three steps skippable — Interests & Hobbies, Family
+/// Information and Family Details (API steps 14/15/16, screens 15/16/17). Every
+/// other step is mandatory before the registration counts as complete and the
+/// Basic Free package is applied, so the flow no longer offers a skip on them.
 class RegSections {
   const RegSections._();
 
-  /// Steps required to create the account — never skippable.
-  static const Set<int> mandatory = <int>{1, 2, 5, 11};
+  /// True when [step] (a UI step) may be skipped during signup.
+  static bool canSkip(int step) => RegSteps.isOptional(step);
 
-  /// True when [step] may be skipped during signup.
-  static bool canSkip(int step) => !mandatory.contains(step);
+  /// Steps the API requires before registration completes.
+  static Set<int> get mandatory => <int>{
+    for (int step = 1; step <= RegSteps.total; step++)
+      if (!canSkip(step)) step,
+  };
 
   /// Sections counted by the completion graph, in display order. The pure
   /// account steps (2 name/dob, 5 contact, 11 password) are left out: they are

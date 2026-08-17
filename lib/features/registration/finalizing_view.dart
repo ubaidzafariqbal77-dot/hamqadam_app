@@ -43,20 +43,37 @@ class _FinalizingViewState extends State<FinalizingView> {
                 Text('Finalizing your profile', style: AppTextStyles.display),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Saving your details securely. This will only take a moment.',
+                  'Sending your answers, photos and documents securely. Keep the '
+                  'app open — this only takes a moment.',
                   style: AppTextStyles.body.copyWith(
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xl),
+                const SizedBox(height: AppSpacing.lg),
+                _UploadProgress(controller: c),
+                const SizedBox(height: AppSpacing.md),
                 Expanded(
                   child: Obx(() {
+                    if (c.missing.isNotEmpty) return _MissingSteps(controller: c);
                     final List<FinalizeStep> items = c.steps.toList();
-                    return ListView.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xs),
-                      itemBuilder: (BuildContext ctx, int i) =>
+                    final List<RejectedField> rejected = c.rejectedFields;
+                    return ListView(
+                      children: <Widget>[
+                        for (int i = 0; i < items.length; i++) ...<Widget>[
                           _StepRow(step: items[i], controller: c),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                        if (rejected.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            'Please fix these before trying again:',
+                            style: AppTextStyles.bodyStrong,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          for (final RejectedField f in rejected)
+                            _RejectedRow(field: f, controller: c),
+                        ],
+                      ],
                     );
                   }),
                 ),
@@ -151,6 +168,130 @@ class _StatusIcon extends StatelessWidget {
   }
 }
 
+/// One backend-rejected field, tappable to jump back to its screen.
+class _RejectedRow extends StatelessWidget {
+  const _RejectedRow({required this.field, required this.controller});
+  final RejectedField field;
+  final FinalizingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool canJump = field.uiStep != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: AppRadius.mdAll,
+          onTap: canJump ? () => controller.goToRejected(field) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.06),
+              borderRadius: AppRadius.mdAll,
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(field.message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                      if (field.stepTitle != null)
+                        Text(
+                          'Tap to edit “${field.stepTitle}”',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+                        ),
+                    ],
+                  ),
+                ),
+                if (canJump)
+                  const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Real byte progress for the single multipart upload.
+class _UploadProgress extends StatelessWidget {
+  const _UploadProgress({required this.controller});
+  final FinalizingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      if (controller.missing.isNotEmpty) return const SizedBox.shrink();
+      final double value = controller.uploadProgress.value;
+      final bool active = controller.running.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              // An indeterminate bar while the server processes the finished
+              // upload, a real one while bytes are still going out.
+              value: active && value > 0 && value < 1 ? value : (active ? null : value),
+              minHeight: 6,
+              backgroundColor: Theme.of(context).dividerColor,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            value >= 1
+                ? 'Upload complete — waiting for confirmation…'
+                : 'Uploading ${(value * 100).round()}%',
+            style: AppTextStyles.caption.copyWith(
+              color: Theme.of(context).textTheme.bodyMedium?.color,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+/// Shown when a mandatory screen was never filled in: the backend validates the
+/// whole payload at once, so it is caught here before the request goes out.
+class _MissingSteps extends StatelessWidget {
+  const _MissingSteps({required this.controller});
+  final FinalizingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'A few required sections are still empty:',
+          style: AppTextStyles.bodyStrong,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        for (final String title in controller.missingTitles)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.circle_outlined, size: 16, color: AppColors.error),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(child: Text(title, style: AppTextStyles.body)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _Footer extends StatelessWidget {
   const _Footer({required this.controller});
   final FinalizingController controller;
@@ -158,19 +299,21 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      if (controller.missing.isNotEmpty) {
+        return Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.md),
+          child: AppButton(
+            label: 'Complete the missing sections',
+            onPressed: controller.fixMissingStep,
+          ),
+        );
+      }
       if (controller.running.value || !controller.hasFailures) {
         return const SizedBox.shrink();
       }
-      return Column(
-        children: <Widget>[
-          const SizedBox(height: AppSpacing.md),
-          AppButton(label: 'Retry failed steps', onPressed: controller.run),
-          const SizedBox(height: AppSpacing.xs),
-          TextButton(
-            onPressed: controller.continueAnyway,
-            child: const Text('Continue to app anyway'),
-          ),
-        ],
+      return Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.md),
+        child: AppButton(label: 'Try again', onPressed: controller.run),
       );
     });
   }

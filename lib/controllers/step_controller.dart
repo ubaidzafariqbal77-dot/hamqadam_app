@@ -4,12 +4,16 @@ import 'package:get/get.dart';
 import '../core/storage/registration_buffer.dart';
 import 'registration_controller.dart';
 
-/// Base class for every buffered registration step.
+/// Base class for every registration step.
 ///
 /// A step gathers its fields, writes them to the shared [RegistrationBuffer] and
 /// hands control back to the [RegistrationController], which advances the flow
-/// (and, at step 11, creates the account). No step except the finalize screen
-/// talks to the network directly.
+/// without touching the network — everything is submitted at once from the
+/// finalizing screen (`POST /auth/register/complete`). The buffer keeps the
+/// answers so back-navigation and resume never lose data.
+///
+/// The exception is [reg.saveSection], used when one section is re-opened
+/// AFTER signup: that still posts just that section.
 abstract class StepController extends GetxController {
   StepController(this.stepNumber);
 
@@ -67,7 +71,7 @@ abstract class StepController extends GetxController {
           ? await reg.saveSection(stepNumber)
           : await reg.completeStep(stepNumber);
       if (!ok && error.value.isEmpty) {
-        error.value = editing ? reg.sectionError.value : reg.accountError.value;
+        error.value = editing ? reg.sectionError.value : reg.stepError.value;
       }
     } finally {
       busy.value = false;

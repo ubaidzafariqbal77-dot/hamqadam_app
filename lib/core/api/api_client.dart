@@ -37,6 +37,10 @@ class ApiClient {
     _configure();
   }
 
+  /// `RequestOptions.extra` flag that suppresses the Authorization header.
+  static const String _skipAuthKey = 'skip_auth';
+  static const Map<String, dynamic> _skipAuthExtra = <String, dynamic>{_skipAuthKey: true};
+
   final SecureStorageService _storage;
   final NetworkInfo _networkInfo;
   final Dio _dio;
@@ -63,7 +67,10 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (RequestOptions options, RequestInterceptorHandler handler) {
           final String? token = _storage.cachedToken;
-          if (token != null && token.isNotEmpty) {
+          // Public endpoints (registration step 1, login, …) must never carry a
+          // stale token: it would 401 and tear the session down mid-signup.
+          final bool skipAuth = options.extra[_skipAuthKey] == true;
+          if (!skipAuth && token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           AppLogger.i('➡️ ${options.method} ${options.uri}');
@@ -92,6 +99,11 @@ class ApiClient {
   }
 
   Future<void> _fireUnauthorized() async {
+    // A 401 on a request that carried no token (e.g. the dropdown reference
+    // data warmed up before registration step 1) means "sign in first", not
+    // "your session died" — there is nothing to clear and nowhere to redirect.
+    final String? token = _storage.cachedToken;
+    if (token == null || token.isEmpty) return;
     if (_handlingUnauthorized) return;
     _handlingUnauthorized = true;
     try {
@@ -109,13 +121,24 @@ class ApiClient {
   Future<ApiEnvelope> get(String path, {Map<String, dynamic>? query, CancelToken? cancelToken}) =>
       _send(() => _dio.get<dynamic>(path, queryParameters: query, cancelToken: cancelToken));
 
+  /// [authenticated] = false sends the request without the bearer token (used
+  /// by the public endpoints such as registration step 1).
   Future<ApiEnvelope> post(
     String path, {
     Object? body,
     Map<String, dynamic>? query,
     CancelToken? cancelToken,
+    bool authenticated = true,
+    void Function(int sent, int total)? onProgress,
   }) => _send(
-    () => _dio.post<dynamic>(path, data: body, queryParameters: query, cancelToken: cancelToken),
+    () => _dio.post<dynamic>(
+      path,
+      data: body,
+      queryParameters: query,
+      cancelToken: cancelToken,
+      onSendProgress: onProgress,
+      options: authenticated ? null : Options(extra: _skipAuthExtra),
+    ),
   );
 
   Future<ApiEnvelope> put(String path, {Object? body, CancelToken? cancelToken}) =>
@@ -129,6 +152,9 @@ class ApiClient {
 
   /// Multipart upload. [fields] are simple values; [files] map field -> path.
   /// [arrayFiles] map field -> list of paths (sent as `field[]`).
+  ///
+  /// [authenticated] = false sends the request without the bearer token (used by
+  /// the public `POST /auth/register/complete`).
   Future<ApiEnvelope> multipart(
     String path, {
     Map<String, dynamic> fields = const <String, dynamic>{},
@@ -136,6 +162,7 @@ class ApiClient {
     Map<String, List<String>> arrayFiles = const <String, List<String>>{},
     void Function(int sent, int total)? onProgress,
     CancelToken? cancelToken,
+    bool authenticated = true,
   }) async {
     final FormData form = FormData();
     fields.forEach((String key, dynamic value) {
@@ -169,6 +196,7 @@ class ApiClient {
         data: form,
         cancelToken: cancelToken,
         onSendProgress: onProgress,
+        options: authenticated ? null : Options(extra: _skipAuthExtra),
       ),
     );
   }

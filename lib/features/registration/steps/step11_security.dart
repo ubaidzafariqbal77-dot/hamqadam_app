@@ -6,9 +6,10 @@ import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_password_field.dart';
 import '../../../widgets/step_scaffold.dart';
 
-/// Step 11 — Account Security. Completing this step assembles the buffered
-/// account fields (name, DOB, email, phone, gender, on_behalf) with the
-/// password entered here and creates the real account via `POST /auth/register`.
+/// Screen 11 — Account Security. Contributes `email_verify`, `password` and
+/// `password_confirmation` to the single `POST /auth/register/complete` payload.
+/// `email_verify` re-confirms the address captured on the contact step (it is
+/// also where the verification code is emailed), so the two must match.
 class Step11Controller extends StepController {
   Step11Controller() : super(11);
 
@@ -77,11 +78,11 @@ class _Step11ViewState extends State<Step11View> {
       busy: c.busy,
       error: c.error,
       formKey: c.formKey,
-      primaryLabel: 'Create account',
+      primaryLabel: 'Save password',
       onPrimary: c.submit,
       onBack: c.back,
-      helpText: 'Your account is created at this step. If your email or phone is '
-          'already registered, go back and update it.',
+      helpText: 'This password will secure your account once the last step is '
+          'submitted. You will sign in with the email you entered earlier.',
       children: <Widget>[
         const SizedBox(height: 40),
         AppPasswordField(

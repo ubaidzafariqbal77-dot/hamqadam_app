@@ -32,11 +32,18 @@ class MediaPickerHelper {
 
   final ImagePicker _imagePicker;
 
-  Future<PickedMedia?> pickImage({bool fromCamera = false}) async {
+  /// [highRes] keeps more detail for document scans. A CNIC number is small
+  /// print — at 1600px/q85 the digits soften enough for OCR to miss them.
+  /// Deliberately capped rather than full-size: the originals off a modern
+  /// phone camera routinely exceed the 5 MB the app and the API both enforce.
+  Future<PickedMedia?> pickImage({
+    bool fromCamera = false,
+    bool highRes = false,
+  }) async {
     final XFile? file = await _imagePicker.pickImage(
       source: fromCamera ? ImageSource.camera : ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1600,
+      imageQuality: highRes ? 95 : 85,
+      maxWidth: highRes ? 2400 : 1600,
     );
     return _wrap(file?.path);
   }
@@ -60,12 +67,13 @@ class MediaPickerHelper {
   }
 
   Future<PickedMedia?> pickAudio() async {
-    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+    // file_picker 12 replaced `FilePicker.platform.pickFiles` with a static
+    // `pickFile` that returns the single file directly.
+    final PlatformFile? file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: AppConstants.allowedAudioExt,
     );
-    final String? path = result?.files.single.path;
-    return _wrap(path);
+    return _wrap(file?.path);
   }
 
   Future<PickedMedia?> _wrap(String? path) async {

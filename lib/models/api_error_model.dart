@@ -4,10 +4,18 @@
 ///   Laravel default: `{ message, errors: { field: [..] } }`
 ///   HamQadam v1:     `{ success:false, message, error: { code, errors: {..} } }`
 class ApiErrorModel {
-  const ApiErrorModel({required this.message, this.errors = const <String, List<String>>{}});
+  const ApiErrorModel({
+    required this.message,
+    this.errors = const <String, List<String>>{},
+    this.code,
+  });
 
   final String message;
   final Map<String, List<String>> errors;
+
+  /// Machine-readable `error.code` (e.g. `email_already_verified`), when the
+  /// v1 envelope supplies one. The human [message] is not safe to branch on.
+  final String? code;
 
   bool get hasFieldErrors => errors.isNotEmpty;
 
@@ -37,6 +45,10 @@ class ApiErrorModel {
     }
     if (message.isEmpty) message = 'Request failed.';
 
-    return ApiErrorModel(message: message, errors: parsed);
+    return ApiErrorModel(
+      message: message,
+      errors: parsed,
+      code: errorNode is Map ? errorNode['code']?.toString() : null,
+    );
   }
 }

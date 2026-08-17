@@ -11,6 +11,8 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 4 — `POST /auth/register/step/4` → `{country_id, state_id, city_id,
+/// area}`. country → state → city is the documented dependent chain.
 class Step04Controller extends StepController {
   Step04Controller() : super(4);
 

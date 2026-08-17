@@ -95,9 +95,11 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
     await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
 
-    if (auth.hasToken) {
-      // Server status is the source of truth for where to resume.
-      await Get.find<RegistrationController>().resume();
+    final RegistrationController reg = Get.find<RegistrationController>();
+    // Registration is now filled in locally and submitted in one go, so a
+    // half-finished signup has no token yet — the local draft decides too.
+    if (auth.hasToken || reg.buffer.hasDraftInProgress) {
+      await reg.resume();
     } else {
       // First launch → onboarding; afterwards go straight to login.
       final SharedPreferences prefs = Get.find<SharedPreferences>();

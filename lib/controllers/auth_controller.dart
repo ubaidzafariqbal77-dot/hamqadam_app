@@ -10,6 +10,7 @@ import '../models/auth_response_model.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
+import 'lookup_controller.dart';
 import 'registration_controller.dart';
 
 /// App-wide session state. The token is kept in secure storage; the current
@@ -38,7 +39,8 @@ class AuthController extends GetxController {
     isAuthenticated.value = storage.hasToken;
   }
 
-  /// Called after step 1 / login: save token securely + full user in prefs.
+  /// Called after login / mobile OTP / registration: save token securely + full
+  /// user in prefs.
   Future<void> persistSession(AuthResponseModel res) async {
     await storage.saveToken(res.token);
     if (res.user != null) {
@@ -47,6 +49,16 @@ class AuthController extends GetxController {
     }
     isAuthenticated.value = true;
     AppLogger.i('Session persisted for user ${res.user?.id ?? '?'}');
+    _refreshLookups();
+  }
+
+  /// `GET /profile/dropdown-reference-data` needs a bearer token, so every list
+  /// warmed before this point is a bundled fallback with ids that do NOT match
+  /// the server's. The moment a session exists, throw that away and refetch —
+  /// otherwise the app keeps showing (and submitting) the wrong ids.
+  void _refreshLookups() {
+    if (!Get.isRegistered<LookupController>()) return;
+    Get.find<LookupController>().preloadReference(force: true);
   }
 
   /// Invoked by the API client on HTTP 401. Clears the session but preserves

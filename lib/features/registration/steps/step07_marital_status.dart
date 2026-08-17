@@ -1,19 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../constants/registration_options.dart';
+import '../../../constants/app_lookups.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 7 — `POST /auth/register/step/7` → `{marital_status_id}`.
+/// `marital_status_id` is a dynamic dropdown (`marital_statuses`).
 class Step07Controller extends StepController {
   Step07Controller() : super(7);
 
+  LookupController get lookup => Get.find<LookupController>();
+
   final Rxn<int> maritalStatus = Rxn<int>();
 
+  List<LookupItem> get options => lookup.itemsOf(LookupKeys.maritalStatuses);
+
   @override
-  void restore() => maritalStatus.value = buffer.getInt('marital_status_id');
+  void restore() {
+    lookup.ensure(LookupKeys.maritalStatuses);
+    maritalStatus.value = buffer.getInt('marital_status_id');
+  }
 
   @override
   bool extraValidate() {
@@ -62,16 +72,21 @@ class _Step07ViewState extends State<Step07View> {
       onPrimary: c.submit,
       onBack: c.back,
       children: <Widget>[
-         SizedBox(height: 32),
-        Obx(
-          () => AppCardSelector(
-            options: RegOptions.maritalStatus
-                .map((LookupItem i) => CardOption(i.id, i.name))
-                .toList(),
+        const SizedBox(height: 32),
+        Obx(() {
+          final List<LookupItem> options = c.options;
+          if (options.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          return AppCardSelector(
+            options: options.map((LookupItem i) => CardOption(i.id, i.name)).toList(),
             selected: c.maritalStatus.value,
             onSelect: (CardOption o) => c.maritalStatus.value = o.value as int,
-          ),
-        ),
+          );
+        }),
       ],
     );
   }

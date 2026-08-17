@@ -9,6 +9,8 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Step 2 — `POST /auth/register/step/2`. The API stores one `full_name`,
+/// so the two name fields are joined on the way out.
 class Step02Controller extends StepController {
   Step02Controller() : super(2);
 

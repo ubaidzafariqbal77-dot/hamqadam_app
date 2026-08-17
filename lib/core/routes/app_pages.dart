@@ -9,6 +9,7 @@ import '../../features/auth/views/registration_completed_view.dart';
 import '../../features/auth/views/splash_view.dart';
 import '../../features/profile/views/profile_completion_view.dart';
 import '../../features/registration/finalizing_view.dart';
+import '../../features/registration/verify_email_view.dart';
 import '../../features/registration/steps/step01_account_for.dart';
 import '../../features/registration/steps/step02_basic_info.dart';
 import '../../features/registration/steps/step03_religion_language.dart';
@@ -80,6 +81,7 @@ class AppPages {
     _page(AppRoutes.partnerPreferences, () => const Step18View()),
 
     _page(AppRoutes.finalizing, () => const FinalizingView()),
+    _page(AppRoutes.verifyEmail, () => const VerifyEmailView()),
     _page(AppRoutes.registrationCompleted, () => const RegistrationCompletedView()),
     _page(AppRoutes.home, () => const HomeView()),
     _page(AppRoutes.profileCompletion, () => const ProfileCompletionView()),

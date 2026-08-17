@@ -6,6 +6,8 @@ import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 13 — About yourself, the API's step 12
+/// (`POST /auth/register/step/12` → `{about_me}`, max 300 characters).
 class Step13Controller extends StepController {
   Step13Controller() : super(13);
 

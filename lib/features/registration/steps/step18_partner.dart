@@ -15,6 +15,13 @@ import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 18 — Partner preferences, the API's step 17
+/// (`POST /auth/register/step/17`).
+///
+/// Dynamic dropdowns: `partner_marital_status_id`, `partner_religion_id`,
+/// `partner_caste_id`, `partner_language_id`, `partner_country_id` →
+/// `partner_state_id` → `partner_city_id`. Heights are converted to feet and
+/// the age/income ranges are sent as plain numbers.
 class Step18Controller extends StepController {
   Step18Controller() : super(18);
 
@@ -78,9 +85,12 @@ class Step18Controller extends StepController {
 
   @override
   void restore() {
-    lookup.ensure(LookupKeys.religions);
-    lookup.ensure(LookupKeys.languages);
-    lookup.ensure(LookupKeys.countries);
+    lookup
+      ..ensure(LookupKeys.religions)
+      ..ensure(LookupKeys.languages)
+      ..ensure(LookupKeys.countries)
+      ..ensure(LookupKeys.castes)
+      ..ensure(LookupKeys.maritalStatuses);
     ageMin.value = buffer.getInt('partner_age_min');
     ageMax.value = buffer.getInt('partner_age_max');
     heightMinCm.value = buffer.getInt('partner_height_min');
@@ -95,11 +105,7 @@ class Step18Controller extends StepController {
     _syncLabel();
   }
 
-  void onReligion(LookupItem? v) {
-    religion.value = v;
-    caste.value = null;
-    if (v != null) lookup.ensure(LookupKeys.castes, parentId: v.id);
-  }
+  void onReligion(LookupItem? v) => religion.value = v;
 
   void onCountry(LookupItem? v) {
     country.value = v;
@@ -306,8 +312,10 @@ class _Step18ViewState extends State<Step18View> {
         return Obx(
           () => AppCardSelector(
             label: 'Preferred marital status',
-            options:
-                RegOptions.maritalStatus.map((LookupItem i) => CardOption(i.id, i.name)).toList(),
+            options: c.lookup
+                .itemsOf(LookupKeys.maritalStatuses)
+                .map((LookupItem i) => CardOption(i.id, i.name))
+                .toList(),
             selected: c.maritalStatus.value,
             onSelect: (CardOption o) {
               c.maritalStatus.value = o.value as int;
@@ -331,11 +339,8 @@ class _Step18ViewState extends State<Step18View> {
             label: 'Preferred caste',
             lookupKey: LookupKeys.castes,
             controller: c.lookup,
-            parentId: c.religion.value?.id,
             selected: c.caste.value,
-            enabled: c.religion.value != null,
             requirement: FieldRequirement.optional,
-            disabledHint: 'Select a religion first',
             onChanged: (LookupItem? v) => c.caste.value = v,
           ),
         );

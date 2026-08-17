@@ -56,7 +56,10 @@ class ServerException extends AppException {
 
 /// Any other API-level failure (4xx that is not 401/422, parsing issues, etc.).
 class ApiException extends AppException {
-  const ApiException(super.message, {super.statusCode});
+  const ApiException(super.message, {super.statusCode, this.code});
+
+  /// Machine-readable error code from the API envelope, when present.
+  final String? code;
 }
 
 /// The request was cancelled (e.g. widget disposed) — usually swallowed.

@@ -236,7 +236,9 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
   @override
   Widget build(BuildContext context) {
     // Search when the list is long, or whenever the user may type a custom entry.
-    final bool searchable = widget.allowCustom || widget.options.length > 8;
+    // Every picker carries a search box, however short the list — the
+    // registration flow is meant to look and behave identically everywhere.
+    const bool searchable = true;
     final String q = _query.trim();
     final List<String> filtered = q.isEmpty
         ? widget.options
@@ -248,7 +250,7 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
         !widget.options.any((String o) => o.toLowerCase() == q.toLowerCase());
 
     final double screenH = MediaQuery.of(context).size.height;
-    final double estContent = 96 + (searchable ? 60 : 0) + widget.options.length * 56.0;
+    final double estContent = 96 + 60 + widget.options.length * 56.0;
     final double initial = (estContent / screenH).clamp(0.32, 0.9);
 
     return DraggableScrollableSheet(
@@ -380,18 +382,19 @@ class _PickerSheetState extends State<_PickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bool searchable = widget.items.length > 10;
+    // Search is always available — see [_StringPickerSheetState].
+    const bool searchable = true;
     final List<LookupItem> filtered = _query.isEmpty
         ? widget.items
         : widget.items
             .where((LookupItem i) => i.name.toLowerCase().contains(_query.toLowerCase()))
             .toList();
+    final bool noMatches = filtered.isEmpty && _query.isNotEmpty;
 
     // Size the sheet to its content so short lists don't leave a big empty gap
     // below (grab handle + title ≈ 96, optional search ≈ 60, ~56 per row).
     final double screenH = MediaQuery.of(context).size.height;
-    final double estContent =
-        96 + (searchable ? 60 : 0) + widget.items.length * 56.0;
+    final double estContent = 96 + 60 + widget.items.length * 56.0;
     final double initial = (estContent / screenH).clamp(0.32, 0.9);
 
     return DraggableScrollableSheet(
@@ -448,7 +451,17 @@ class _PickerSheetState extends State<_PickerSheet> {
               Expanded(
                 child: widget.loading
                     ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-                    : filtered.isEmpty
+                    // A search that matches nothing is not a load failure, so it
+                    // must not offer "retry" — only a genuinely empty list does.
+                    : noMatches
+                        ? Center(
+                            child: Text(
+                              'No matches for “$_query”',
+                              style: AppTextStyles.body
+                                  .copyWith(color: Theme.of(context).hintColor),
+                            ),
+                          )
+                        : filtered.isEmpty
                         ? RetryWidget(
                             onRetry: widget.onRetry ?? () {},
                             message: 'No options found.',

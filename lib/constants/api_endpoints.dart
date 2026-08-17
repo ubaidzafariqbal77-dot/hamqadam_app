@@ -5,7 +5,7 @@ class ApiEndpoints {
   const ApiEndpoints._();
 
   // ---- Auth -----------------------------------------------------------------
-  static const String register = '/auth/register'; // step 1
+  static const String register = '/auth/register'; // legacy full-payload signup
   static const String loginEmail = '/auth/login/email';
   static const String requestMobileOtp = '/auth/otp/mobile';
   static const String loginMobile = '/auth/login/mobile';
@@ -17,26 +17,44 @@ class ApiEndpoints {
   static const String resetPassword = '/auth/reset-password';
   static const String deleteAccount = '/auth/account';
 
-  // ---- Step-wise registration ----------------------------------------------
+  // ---- Registration (single complete submission + email OTP) ----------------
+  /// The whole 18-step payload in ONE `multipart/form-data` request. Public:
+  /// it creates the draft account and returns the Sanctum token.
+  static const String registerComplete = '/auth/register/complete';
+
+  /// Emails a verification code to the freshly registered account (bearer).
+  static const String registerRequestOtp = '/auth/register/request-otp';
+
+  /// Confirms that code and finalises the registration (bearer).
+  static const String registerVerifyOtp = '/auth/register/verify-otp';
+
+  // ---- Step-wise registration (deprecated, kept for section edits) ----------
+  /// Metadata for the whole flow (`GET`).
+  static const String registerSteps = '/auth/register/steps';
+
+  /// Server-authoritative progress (`GET`).
   static const String registerStatus = '/auth/register/status';
 
-  /// Steps 2..10 follow the `/auth/register/stepN` pattern.
-  static String registerStep(int step) => '/auth/register/step$step';
+  /// The public legacy step 1 (creates a draft member). The app no longer calls
+  /// it — registration goes through [registerComplete].
+  static const String registerStep1 = '/auth/register/step1';
 
-  // ---- Verification (step 11) -----------------------------------------------
+  /// Authenticated per-step save, used to re-save one profile section after
+  /// signup. Step 1 uses this form too, so editing a section can never create a
+  /// second account.
+  static String registerStep(int step) => '/auth/register/step/$step';
+
+  // ---- Verification ---------------------------------------------------------
   static const String verificationCurrent = '/verification/current';
   static const String verificationHistory = '/verification/history';
   static const String verificationSubmit = '/verification/submit';
 
-  // ---- Profile / Privacy (step 12) ------------------------------------------
+  // ---- Profile / Privacy ----------------------------------------------------
   static const String profile = '/profile';
   static const String profilePrivacy = '/profile/privacy';
   static const String profileVisibility = '/profile/visibility';
 
-  // ---- Lookups (not officially documented — see LookupRepository) -----------
-  // The app tries these conventional endpoints first and falls back to bundled
-  // data when the backend returns 404/redirect. Keep them centralised so a
-  // future backend rollout is a one-line change.
-  static const String lookupBase = '/lookups';
-  static String lookup(String key) => '$lookupBase/$key';
+  // ---- Dropdowns ------------------------------------------------------------
+  /// Single endpoint that returns EVERY dropdown list (dynamic + hardcoded).
+  static const String dropdownReferenceData = '/profile/dropdown-reference-data';
 }

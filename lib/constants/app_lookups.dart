@@ -971,17 +971,12 @@ static const List<Map<String, dynamic>> subCastes =
   {'id': 143, 'name': 'Other Hindu', 'parent_id': 101},
 ];
 
-  static const List<Map<String, dynamic>> familyValues = <Map<String, dynamic>>[
-    {'id': 1, 'name': 'Traditional'},
-    {'id': 2, 'name': 'Moderate'},
-    {'id': 3, 'name': 'Liberal'},
-    {'id': 4, 'name': 'Religious'},
-  ];
-
-  /// Maps a logical lookup key to its bundled dataset.
+  /// Maps a logical lookup key to its bundled dataset. Keys are the ones the
+  /// API's `dropdown-reference-data` payload uses, so a bundled list is a
+  /// drop-in replacement whenever that endpoint is unreachable.
   static const Map<String, List<Map<String, dynamic>>> byKey = <String, List<Map<String, dynamic>>>{
-    'on_behalf': onBehalf,
-    'genders': gender,
+    'on_behalves': onBehalf,
+    'gender': gender,
     'marital_statuses': maritalStatus,
     'languages': languages,
     'countries': countries,
@@ -990,24 +985,59 @@ static const List<Map<String, dynamic>> subCastes =
     'religions': religions,
     'castes': castes,
     'sub_castes': subCastes,
-    'family_values': familyValues,
   };
 }
 
-/// Canonical lookup keys (match [BundledLookups.byKey] and `/lookups/{key}`).
+/// Canonical lookup keys — these are the exact keys returned by
+/// `GET /api/v1/profile/dropdown-reference-data`.
 class LookupKeys {
   const LookupKeys._();
-  static const String onBehalf = 'on_behalf';
-  static const String genders = 'genders';
+
+  // ---- Dynamic (database-backed) -------------------------------------------
+  static const String onBehalf = 'on_behalves';
+  static const String genders = 'gender';
   static const String maritalStatuses = 'marital_statuses';
   static const String languages = 'languages';
   static const String countries = 'countries';
   static const String states = 'states';
   static const String cities = 'cities';
+  static const String areas = 'areas';
   static const String religions = 'religions';
   static const String castes = 'castes';
   static const String subCastes = 'sub_castes';
+  static const String sectMain = 'sect_main';
+  static const String schoolOfThought = 'school_of_thought';
+  static const String traditions = 'traditions';
+  static const String educationLevels = 'education_levels';
+  static const String degrees = 'degrees';
+  static const String fieldsOfStudy = 'fields_of_study';
+  static const String institutions = 'institutions';
+  static const String professionCategories = 'profession_categories';
+  static const String professions = 'professions';
+  static const String hobbies = 'hobbies';
+
+  // ---- Hardcoded lists (also served by the same endpoint) -------------------
+  static const String marriageTimeline = 'marriage_timeline';
+  static const String willingToWork = 'willing_to_work_after_marriage';
+  static const String expectsSpouseToWork = 'expects_spouse_to_work';
+  static const String diet = 'diet';
+  static const String employmentStatus = 'employment_status';
+  static const String educationStatus = 'education_status';
+  static const String liveWithFamily = 'live_with_family';
   static const String familyValues = 'family_values';
+
+  /// Lists that are safe (and useful) to warm up as soon as a token exists.
+  static const List<String> preload = <String>[
+    onBehalf,
+    religions,
+    languages,
+    countries,
+    maritalStatuses,
+    castes,
+    educationLevels,
+    professionCategories,
+    hobbies,
+  ];
 }
 
 /// Fixed enum option lists for free-choice (non-ID) fields. These come straight

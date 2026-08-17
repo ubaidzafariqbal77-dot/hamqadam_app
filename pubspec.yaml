@@ -40,20 +40,23 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   connectivity_plus: ^7.2.0
   image_picker: ^1.2.3
-  file_picker: 10.0.0
+  # 10.0.0 compiled against android-34, which clashes with
+  # flutter_plugin_android_lifecycle's API-36 requirement and fails the build.
+  file_picker: ^12.0.0
   mime: ^2.0.0
   path: ^1.9.1
   intl: ^0.20.3
-  shared_preferences: ^2.5.5
-  flutter_launcher_icons: ^0.14.4
+  shared_preferences: ^2.5.5 
   record: ^7.1.1
-  # TEMP: disabled for Simulator testing — no arm64-simulator slice and this
-  # Xcode has no x86_64 simulator runtime to fall back to. Re-enable for
-  # real-device builds (see lib/core/utils/cnic_ocr_service.dart).
-  # google_mlkit_text_recognition: ^0.16.0
+  # Reads the CNIC number off the document photo on-device.
+  # NOTE: the iOS pod ships no arm64-simulator slice, so `flutter run` on an
+  # iOS Simulator needs the arm64 exclusion in ios/Podfile. Android and real
+  # iOS devices are unaffected.
+  google_mlkit_text_recognition: ^0.16.0
   path_provider: ^2.1.6
   animate_do: ^3.3.4
   lottie: ^3.1.3
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -69,7 +72,7 @@ dev_dependencies:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/icons/logo.png"
+  image_path: "assets/icons/app_icon.jpeg"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -87,6 +90,10 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/lottie/
+    # Offline copy of `GET /profile/dropdown-reference-data`. The endpoint is
+    # bearer-only and registration has no token until its final submit, so this
+    # is what every signup dropdown reads from. Ids are the server's, verbatim.
+    - assets/lookups/dropdown_reference.json
 
   fonts:
     # Plus Jakarta Sans — PRIMARY family: headings, body, buttons, everything Latin.

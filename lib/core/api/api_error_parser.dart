@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../exceptions/app_exceptions.dart';
 import '../../models/api_error_model.dart';
+import '../utils/app_logger.dart';
 
 /// Converts any [DioException] / bad HTTP response into a typed [AppException].
 class ApiErrorParser {
@@ -36,9 +37,18 @@ class ApiErrorParser {
     if (status == 422 || (status == 400 && model.hasFieldErrors)) {
       return ValidationException(model.message, errors: model.errors, statusCode: status);
     }
-    if (status >= 500) return ServerException(model.message, status);
-    return ApiException(model.message, statusCode: status);
+    if (status >= 500) {
+      // A 5xx body can be a raw stack trace / SQL statement (Laravel with debug
+      // on). Log it for developers, but never put it in front of a user.
+      AppLogger.w('Server error $status: ${model.message}');
+      return ServerException(_serverMessage, status);
+    }
+    return ApiException(model.message, statusCode: status, code: model.code);
   }
+
+  /// What the user sees for any 5xx.
+  static const String _serverMessage =
+      'Something went wrong on our side. Please try again in a moment.';
 
   static ApiErrorModel _extractModel(Response<dynamic>? response) {
     final dynamic data = response?.data;

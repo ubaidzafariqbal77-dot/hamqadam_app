@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/api_options.dart';
 import '../../../constants/app_lookups.dart';
-import '../../../constants/registration_options.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../models/lookup_item_model.dart';
@@ -12,6 +12,12 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 
+/// Screen 17 — Family details, the API's step 16
+/// (`POST /auth/register/step/16`, skippable).
+///
+/// `live_with_family` (yes/no) and `family_values` (Elite…Poor) are hardcoded
+/// options; `family_country_id` is a dynamic dropdown, while the API stores the
+/// family's state and city as plain names.
 class Step17Controller extends StepController {
   Step17Controller() : super(17);
 
@@ -19,20 +25,25 @@ class Step17Controller extends StepController {
 
   final TextEditingController familyLocation = TextEditingController();
   final RxnString liveWithFamily = RxnString();
-  final RxnString financialStatus = RxnString();
+  final RxnString familyValues = RxnString();
   final Rxn<LookupItem> country = Rxn<LookupItem>();
   final Rxn<LookupItem> state = Rxn<LookupItem>();
   final Rxn<LookupItem> city = Rxn<LookupItem>();
 
-  bool get showExtraLocation => liveWithFamily.value == 'No';
+  /// The family's own location is only asked when the member lives apart.
+  bool get showExtraLocation => liveWithFamily.value == 'no';
 
   @override
   void restore() {
     familyLocation.text = buffer.getString('family_location') ?? '';
-    financialStatus.value = buffer.getString('family_financial_status');
-    final bool? live = buffer.get<bool>('live_with_family');
-    if (live != null) liveWithFamily.value = live ? 'Yes' : 'No';
+    familyValues.value = buffer.getString('family_values');
+    liveWithFamily.value = buffer.getString('live_with_family');
     lookup.ensure(LookupKeys.countries);
+    final int? co = buffer.getInt('family_country_id');
+    if (co != null) {
+      country.value = LookupItem(id: co, name: '');
+      lookup.ensure(LookupKeys.states, parentId: co);
+    }
   }
 
   void onCountry(LookupItem? v) {
@@ -51,11 +62,13 @@ class Step17Controller extends StepController {
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
     'family_location': familyLocation.text.trim(),
-    'live_with_family': liveWithFamily.value == null ? null : liveWithFamily.value == 'Yes',
-    'family_financial_status': financialStatus.value,
-    if (showExtraLocation) 'family_country_id': country.value?.id,
-    if (showExtraLocation) 'family_state_id': state.value?.id,
-    if (showExtraLocation) 'family_city_id': city.value?.id,
+    'live_with_family': liveWithFamily.value,
+    'family_values': familyValues.value,
+    if (showExtraLocation) ...<String, dynamic>{
+      'family_country_id': country.value?.id,
+      'family_state': state.value?.name,
+      'family_city': city.value?.name,
+    },
   };
 
   @override
@@ -109,7 +122,9 @@ class _Step17ViewState extends State<Step17View> {
         Obx(
           () => AppCardSelector(
             label: 'Do you live with your family?',
-            options: RegOptions.yesNo.map((String s) => CardOption(s, s)).toList(),
+            options: ApiOptions.liveWithFamily
+                .map((LookupItem o) => CardOption(o.code!, o.name))
+                .toList(),
             selected: c.liveWithFamily.value,
             onSelect: (CardOption o) => c.liveWithFamily.value = o.value as String,
           ),
@@ -117,10 +132,11 @@ class _Step17ViewState extends State<Step17View> {
         Obx(
           () => AppCardSelector(
             label: 'Family financial status',
-            options:
-                RegOptions.familyFinancialStatus.map((String s) => CardOption(s, s)).toList(),
-            selected: c.financialStatus.value,
-            onSelect: (CardOption o) => c.financialStatus.value = o.value as String,
+            options: ApiOptions.familyValues
+                .map((LookupItem o) => CardOption(o.code!, o.name))
+                .toList(),
+            selected: c.familyValues.value,
+            onSelect: (CardOption o) => c.familyValues.value = o.value as String,
           ),
         ),
         Obx(

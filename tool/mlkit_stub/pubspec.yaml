@@ -1,0 +1,22 @@
+# Drop-in stand-in for `google_mlkit_text_recognition`, used ONLY so the app can
+# run on an Apple Silicon iOS simulator.
+#
+# Google ships no arm64-simulator slice for the ML Kit pods (MLImage, MLKitVision,
+# MLKitCommon, GoogleMLKit), and Xcode 26 removed Rosetta simulator destinations,
+# so every iOS 26 simulator is arm64-only and the real plugin cannot link. This
+# package has the same name and the same public API but NO native side, so
+# CocoaPods never installs those frameworks.
+#
+# Activated by `pubspec_overrides.yaml` in the project root. See tool/simulator.sh.
+name: google_mlkit_text_recognition
+description: Native-free stub of the ML Kit text recognition plugin, for simulator builds only.
+version: 0.16.0
+publish_to: none
+
+environment:
+  sdk: ^3.12.1
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter

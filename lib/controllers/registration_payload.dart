@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../constants/api_options.dart';
 import '../core/storage/registration_buffer.dart';
 import '../core/utils/app_logger.dart';
+import '../core/validators/app_validators.dart';
 
 /// A `multipart/form-data` body for the two upload steps (photos, identity).
 class MultipartPayload {
@@ -313,11 +314,19 @@ class RegPayload {
     return m;
   }
 
+  /// The name as the API wants it, and the single source of truth for reading it
+  /// back out of the buffer.
+  ///
+  /// Step 2 collects one `full_name` field. The legacy `first_name`/`last_name`
+  /// pair is still read as a fallback so a draft started before that change
+  /// resumes with the name intact.
   static String? fullName(RegistrationBuffer b) {
-    final String first = (b.getString('first_name') ?? '').trim();
-    final String last = (b.getString('last_name') ?? '').trim();
-    final String full = '$first $last'.trim();
-    return full.isEmpty ? null : full;
+    final String stored = AppValidators.collapseSpaces(b.getString('full_name'));
+    if (stored.isNotEmpty) return stored;
+    final String legacy = AppValidators.collapseSpaces(
+      '${b.getString('first_name') ?? ''} ${b.getString('last_name') ?? ''}',
+    );
+    return legacy.isEmpty ? null : legacy;
   }
 
   // ---- API step 3 — Religion & Language -------------------------------------

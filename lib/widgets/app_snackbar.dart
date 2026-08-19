@@ -9,6 +9,9 @@ class AppSnackbar {
   const AppSnackbar._();
 
   static void _show(String message, Color color, IconData icon) {
+    // An empty message would show an icon and a blank bar — worse than nothing.
+    // Callers pass server text straight through, which is sometimes empty.
+    if (message.trim().isEmpty) return;
     if (Get.isSnackbarOpen) Get.closeAllSnackbars();
     Get.rawSnackbar(
       messageText: Row(

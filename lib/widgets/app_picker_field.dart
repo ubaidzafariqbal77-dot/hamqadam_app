@@ -380,16 +380,58 @@ class _PickerSheet extends StatefulWidget {
 class _PickerSheetState extends State<_PickerSheet> {
   String _query = '';
 
+  /// Lower-cased names, aligned with `widget.items`. The city list has ~48 000
+  /// rows, and lower-casing every one of them on each keystroke made typing in
+  /// the search box crawl — so it is done once per sheet instead.
+  late List<String> _searchIndex;
+
+  /// Result of the last search, so a rebuild that did not change the query
+  /// (keyboard opening, sheet drag) does not re-filter the list.
+  late List<LookupItem> _filtered;
+  String _filteredFor = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _buildIndex();
+  }
+
+  @override
+  void didUpdateWidget(_PickerSheet old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.items, widget.items)) _buildIndex();
+  }
+
+  void _buildIndex() {
+    _searchIndex = <String>[for (final LookupItem i in widget.items) i.name.toLowerCase()];
+    _filtered = widget.items;
+    _filteredFor = '';
+  }
+
+  void _onQueryChanged(String value) {
+    final String q = value.trim().toLowerCase();
+    if (q == _filteredFor) return;
+    setState(() {
+      _query = value;
+      _filteredFor = q;
+      if (q.isEmpty) {
+        _filtered = widget.items;
+        return;
+      }
+      final List<LookupItem> out = <LookupItem>[];
+      for (int i = 0; i < widget.items.length; i++) {
+        if (_searchIndex[i].contains(q)) out.add(widget.items[i]);
+      }
+      _filtered = out;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     // Search is always available — see [_StringPickerSheetState].
     const bool searchable = true;
-    final List<LookupItem> filtered = _query.isEmpty
-        ? widget.items
-        : widget.items
-            .where((LookupItem i) => i.name.toLowerCase().contains(_query.toLowerCase()))
-            .toList();
-    final bool noMatches = filtered.isEmpty && _query.isNotEmpty;
+    final List<LookupItem> filtered = _filtered;
+    final bool noMatches = filtered.isEmpty && _query.trim().isNotEmpty;
 
     // Size the sheet to its content so short lists don't leave a big empty gap
     // below (grab handle + title ≈ 96, optional search ≈ 60, ~56 per row).
@@ -428,7 +470,7 @@ class _PickerSheetState extends State<_PickerSheet> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
                   child: TextField(
                     autofocus: false,
-                    onChanged: (String v) => setState(() => _query = v),
+                    onChanged: _onQueryChanged,
                     style: AppTextStyles.body.copyWith(
                       color: Theme.of(context).brightness == Brightness.dark
                           ? AppColors.darkInputText

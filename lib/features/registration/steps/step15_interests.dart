@@ -134,6 +134,7 @@ class _Step15ViewState extends State<Step15View> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
       ),
       builder: (BuildContext ctx) {
+        final RxString query = ''.obs;
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.85,
@@ -171,17 +172,67 @@ class _Step15ViewState extends State<Step15View> {
                     ],
                   ),
                 ),
+                // Same searchable sheet as every other picker in the flow: with
+                // ~50 interests spread over five categories, scanning the
+                // categories is not the only way anyone should have to find one.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                  child: TextField(
+                    autofocus: false,
+                    onChanged: (String v) => query.value = v,
+                    style: AppTextStyles.body.copyWith(
+                      color: Theme.of(ctx).brightness == Brightness.dark
+                          ? AppColors.darkInputText
+                          : AppColors.lightInputText,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Search interests…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.mdAll,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
                 const Divider(height: 1),
                 Expanded(
-                  child: ListView(
-                    controller: scroll,
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
-                    children: <Widget>[
-                      for (final MapEntry<String, List<String>> e in c.categories.entries)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                          child: Obx(
-                            () => AppChipSelector(
+                  child: Obx(() {
+                    final String q = query.value.trim().toLowerCase();
+                    // While searching, the categories are dropped for one flat
+                    // list of matches — a match's category is not what the user
+                    // is looking for at that point.
+                    final Map<String, List<String>> groups = q.isEmpty
+                        ? c.categories
+                        : <String, List<String>>{
+                            'Matches': <String>[
+                              for (final List<String> options in c.categories.values)
+                                for (final String option in options)
+                                  if (option.toLowerCase().contains(q)) option,
+                            ],
+                          };
+                    if (groups.values.every((List<String> o) => o.isEmpty)) {
+                      return Center(
+                        child: Text(
+                          'No matches for “${query.value.trim()}”',
+                          style: AppTextStyles.body
+                              .copyWith(color: Theme.of(ctx).hintColor),
+                        ),
+                      );
+                    }
+                    return ListView(
+                      controller: scroll,
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
+                      children: <Widget>[
+                        for (final MapEntry<String, List<String>> e in groups.entries)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                            child: AppChipSelector(
                               label: e.key,
                               options: e.value,
                               selected: c.selected.toList(),
@@ -189,9 +240,9 @@ class _Step15ViewState extends State<Step15View> {
                               onToggle: c.toggle,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    );
+                  }),
                 ),
               ],
             );

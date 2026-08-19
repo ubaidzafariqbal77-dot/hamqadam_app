@@ -86,6 +86,11 @@ class RegistrationController extends GetxController {
   /// Error surfaced while saving a single section.
   final RxString sectionError = ''.obs;
 
+  /// True when the last failure already put itself in front of the user (the
+  /// duplicate email/phone dialog). Callers use it to avoid stacking a snackbar
+  /// on top of a dialog that says the same thing.
+  bool errorSurfaced = false;
+
   bool get isEditingSection => editingStep.value != null;
 
   int get totalSteps => AppConstants.totalRegistrationSteps;
@@ -179,6 +184,7 @@ class RegistrationController extends GetxController {
   Future<bool> submitStep(int step) async {
     stepError.value = '';
     fieldErrors.clear();
+    errorSurfaced = false;
     try {
       final ApiEnvelope res = await _postStep(step);
       if (!res.success) {
@@ -237,6 +243,7 @@ class RegistrationController extends GetxController {
   Future<bool> submitRegistration() async {
     stepError.value = '';
     fieldErrors.clear();
+    errorSurfaced = false;
     uploadProgress.value = 0;
     try {
       final Map<String, dynamic> payload = await RegPayload.complete(buffer);
@@ -329,7 +336,10 @@ class RegistrationController extends GetxController {
         : (e.message.isEmpty ? 'Please check the highlighted fields.' : e.message);
     // Email/phone already registered → offer a shortcut back to the contact
     // step. A plain format error stays as an inline message.
-    if (_isDuplicateContactError()) _showDuplicateDialog();
+    if (_isDuplicateContactError()) {
+      errorSurfaced = true;
+      _showDuplicateDialog();
+    }
   }
 
   bool _isDuplicateContactError() {

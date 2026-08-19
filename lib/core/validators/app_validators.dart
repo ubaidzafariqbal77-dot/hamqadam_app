@@ -28,6 +28,28 @@ class AppValidators {
     return null;
   }
 
+  /// Full name, as the API stores it (`full_name`) and as the flow now asks for
+  /// it — one field instead of two.
+  ///
+  /// Both parts stay required: a single word is rejected exactly as leaving the
+  /// old "Last name" field empty was. Runs of spaces are collapsed first, so
+  /// "Ahmed   Khan" is two words, not three.
+  static String? fullName(String? value) {
+    final String v = collapseSpaces(value);
+    if (v.isEmpty) return 'Full name is required';
+    if (v.length < 3) return 'Full name must be at least 3 characters';
+    if (v.length > 100) return 'Full name must be under 100 characters';
+    if (RegExp(r'[0-9]').hasMatch(v)) return 'Full name cannot contain numbers';
+    if (!_name.hasMatch(v)) return "Full name may only contain letters, spaces, - and '";
+    if (!v.contains(' ')) return 'Please enter your first and last name';
+    return null;
+  }
+
+  /// Trims and collapses internal whitespace — what gets validated is what gets
+  /// stored, so both use this.
+  static String collapseSpaces(String? value) =>
+      (value ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
+
   static String? email(String? value, {bool isRequired = true}) {
     final String v = value?.trim() ?? '';
     if (v.isEmpty) return isRequired ? 'Email is required' : null;

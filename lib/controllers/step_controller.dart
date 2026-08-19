@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../core/storage/registration_buffer.dart';
+import '../widgets/app_snackbar.dart';
 import 'registration_controller.dart';
 
 /// Base class for every registration step.
@@ -51,11 +52,26 @@ abstract class StepController extends GetxController {
     super.onClose();
   }
 
+  /// Shown when the form itself is invalid. Flutter's [FormState] does not hand
+  /// back the individual messages, and those are already under each field, so
+  /// the snackbar only has to say where to look.
+  static const String _formInvalid = 'Please fix the highlighted fields.';
+
   bool _validate() {
     error.value = '';
     final bool formOk = formKey.currentState?.validate() ?? true;
     final bool extraOk = extraValidate();
-    return formOk && extraOk;
+    if (formOk && extraOk) return true;
+    // The inline banner sits at the top of the step, which is off-screen once
+    // the user has scrolled down to the Continue button — so every failure is
+    // also announced in a snackbar.
+    if (!extraOk && error.value.isNotEmpty) {
+      AppSnackbar.error(error.value);
+    } else {
+      if (error.value.isEmpty) error.value = _formInvalid;
+      AppSnackbar.error(_formInvalid);
+    }
+    return false;
   }
 
   Future<void> submit() async {
@@ -70,9 +86,13 @@ abstract class StepController extends GetxController {
       final bool ok = editing
           ? await reg.saveSection(stepNumber)
           : await reg.completeStep(stepNumber);
-      if (!ok && error.value.isEmpty) {
+      if (ok) return;
+      if (error.value.isEmpty) {
         error.value = editing ? reg.sectionError.value : reg.stepError.value;
       }
+      // A rejected field can raise its own dialog (duplicate email/phone offers
+      // a jump back to the contact step); a snackbar on top of that is noise.
+      if (!reg.errorSurfaced) AppSnackbar.error(error.value);
     } finally {
       busy.value = false;
     }

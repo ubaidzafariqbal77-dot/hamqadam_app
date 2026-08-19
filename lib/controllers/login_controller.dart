@@ -47,7 +47,7 @@ class LoginController extends GetxController {
         deviceName: 'flutter-app',
       );
       if (!res.hasToken) {
-        generalError.value = 'Login failed. Please try again.';
+        _fail('Login failed. Please try again.');
         return;
       }
       await authController.persistSession(res);
@@ -59,13 +59,23 @@ class LoginController extends GetxController {
       e.errors.forEach((String k, List<String> v) {
         if (v.isNotEmpty) serverErrors[k] = v.first;
       });
-      generalError.value = e.message;
+      // Prefer the field message ("These credentials do not match…") over the
+      // generic "Validation failed." wrapper.
+      _fail(serverErrors.values.isNotEmpty ? serverErrors.values.first : e.message);
     } on AppException catch (e) {
-      generalError.value = e.message;
-      if (e is! UnauthorizedException) AppSnackbar.error(e.message);
+      // A 401 here is a wrong password, not a dead session: this request carried
+      // no token, so nothing cleared the session or routed away, and without a
+      // snackbar the only feedback was an inline line the keyboard often covers.
+      _fail(e.message);
     } finally {
       submitting.value = false;
     }
+  }
+
+  /// Every login failure lands here, so none of them can be silent.
+  void _fail(String message) {
+    generalError.value = message;
+    AppSnackbar.error(message);
   }
 
   ApiStatus get status => submitting.value ? ApiStatus.loading : ApiStatus.initial;

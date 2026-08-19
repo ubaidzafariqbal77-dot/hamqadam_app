@@ -33,6 +33,7 @@ class AppTextFormField extends StatelessWidget {
     this.serverError,
     this.showCounter = false,
     this.autofillHints,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final String label;
@@ -56,6 +57,9 @@ class AppTextFormField extends StatelessWidget {
   final String? serverError;
   final bool showCounter;
   final Iterable<String>? autofillHints;
+
+  /// Names are typed in words case; most other fields want none.
+  final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +96,7 @@ class AppTextFormField extends StatelessWidget {
       obscureText: obscureText,
       enabled: enabled,
       autofillHints: autofillHints,
+      textCapitalization: textCapitalization,
       textInputAction: textInputAction,
       onChanged: onChanged,
       onFieldSubmitted: onSubmitted,

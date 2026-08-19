@@ -1,0 +1,9 @@
+name: google_mlkit_text_recognition
+description: >
+  Local no-op stand-in for the real google_mlkit_text_recognition plugin.
+  Used only via dependency_overrides to build for the iOS Simulator on
+  machines where Xcode can't provide an arm64-simulator (or x86_64
+  fallback) runtime for Google ML Kit. Do not publish.
+version: 0.16.0
+environment:
+  sdk: ^3.5.4

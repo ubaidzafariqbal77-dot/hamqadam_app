@@ -173,6 +173,16 @@ class AppUrdu {
     'Confirm new password': 'نئے پاس ورڈ کی تصدیق',
     'Change email / resend OTP': 'ای میل تبدیل کریں / او ٹی پی دوبارہ بھیجیں',
 
+    // ---- Onboarding -----------------------------------------------------------
+    'Find Your Perfect Match': 'اپنا مثالی جوڑ تلاش کریں',
+    'Meet Couples on Our App': 'ہمارے ایپ پر جوڑے تلاش کریں',
+    'Revitalize Your Marriage': 'اپنی ازدواجی زندگی کو نئی زندگی دیں',
+    'Marriage Made Easy': 'شادی کو آسان بنائیں',
+    'Forever and always, together as one': 'ہمیشہ اور ہمیشہ کے لیے، ایک ساتھ',
+    'We may not have it all together, but together we have it all':
+        'شاید ہمارے پاس سب کچھ نہ ہو، لیکن ساتھ مل کر ہمارے پاس سب کچھ ہے',
+    'Get Started': 'شروع کریں',
+
     // ---- Buttons & common UI ------------------------------------------------
     'Continue': 'جاری رکھیں',
     'Back': 'واپس',

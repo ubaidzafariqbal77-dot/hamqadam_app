@@ -105,7 +105,7 @@ class VerifyEmailController extends GetxController {
     if (verifying.value) return;
     final String code = codeCtrl.text.trim();
     if (code.length < codeLength) {
-      error.value = 'Enter the complete $codeLength-digit code.';
+      _fail('Enter the complete $codeLength-digit code.');
       return;
     }
     verifying.value = true;
@@ -125,7 +125,7 @@ class VerifyEmailController extends GetxController {
       // actual state is before telling the user something went wrong.
       AppLogger.w('verify-otp failed (${e.statusCode} ${e.message}) — checking /auth/me');
       if (await _finishIfAlreadyVerified()) return;
-      error.value = e.message;
+      _fail(e.message);
     } finally {
       verifying.value = false;
     }
@@ -136,11 +136,11 @@ class VerifyEmailController extends GetxController {
     final String next = newEmailCtrl.text.trim().toLowerCase();
     final String? invalid = AppValidators.email(next);
     if (invalid != null) {
-      error.value = invalid;
+      _fail(invalid);
       return;
     }
     if (next == email.value) {
-      error.value = 'That is the address the code was already sent to.';
+      _fail('That is the address the code was already sent to.');
       return;
     }
     error.value = '';
@@ -150,6 +150,14 @@ class VerifyEmailController extends GetxController {
     codeCtrl.clear();
     resendIn.value = 0;
     await sendCode();
+  }
+
+  /// Every failure the user can act on lands here, so it is never inline-only.
+  /// The one deliberate exception is the code request fired as this screen opens
+  /// ([sendCode] with `silent: true`) — an error banner on arrival is enough.
+  void _fail(String message) {
+    error.value = message;
+    AppSnackbar.error(message);
   }
 
   /// Asks the server whether the account is verified; finishes signup if so.

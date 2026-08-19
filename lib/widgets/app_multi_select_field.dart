@@ -86,6 +86,7 @@ class AppLookupMultiSelect extends StatelessWidget {
       isScrollControlled: true,
       builder: (BuildContext ctx) {
         final RxList<LookupItem> temp = <LookupItem>[...selected].obs;
+        final RxString query = ''.obs;
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.6,
@@ -106,6 +107,33 @@ class AppLookupMultiSelect extends StatelessWidget {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Text(label, style: AppTextStyles.title),
                 ),
+                // Same searchable sheet as every other picker in the flow — a
+                // lookup list can be long, so it is never an unsearchable list.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                  child: TextField(
+                    autofocus: false,
+                    onChanged: (String v) => query.value = v,
+                    style: AppTextStyles.body.copyWith(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.darkInputText
+                          : AppColors.lightInputText,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Search…',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      border: OutlineInputBorder(
+                        borderRadius: AppRadius.mdAll,
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
                 Expanded(
                   child: Obx(() {
                     final ApiState<List<LookupItem>> state = controller.stateOf(
@@ -124,7 +152,24 @@ class AppLookupMultiSelect extends StatelessWidget {
                         onRetry: () => controller.load(lookupKey, parentId: parentId, force: true),
                       );
                     }
-                    final List<LookupItem> items = state.data ?? const <LookupItem>[];
+                    final List<LookupItem> all = state.data ?? const <LookupItem>[];
+                    final String q = query.value.trim().toLowerCase();
+                    final List<LookupItem> items = q.isEmpty
+                        ? all
+                        : all
+                            .where((LookupItem i) => i.name.toLowerCase().contains(q))
+                            .toList();
+                    // A search that matches nothing is not a load failure, so it
+                    // must not offer a retry — only a genuinely empty list does.
+                    if (items.isEmpty) {
+                      return Center(
+                        child: Text(
+                          'No matches for “${query.value.trim()}”',
+                          style: AppTextStyles.body
+                              .copyWith(color: Theme.of(context).hintColor),
+                        ),
+                      );
+                    }
                     return ListView.builder(
                       controller: scroll,
                       itemCount: items.length,

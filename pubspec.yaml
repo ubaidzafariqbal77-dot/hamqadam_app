@@ -74,6 +74,18 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icons/app_icon.jpeg"
 
+# iOS-Simulator-only dev workaround: Google ML Kit ships no arm64-simulator
+# slice, and this Mac's Xcode can't download an x86_64 runtime to fall back
+# to, so the real plugin can't be linked into a Simulator build at all.
+# Uncomment below to swap in a no-op stub (CNIC OCR always reports "not
+# found") so the rest of the app still runs on Simulator, then run
+# `flutter pub get` and `(cd ios && pod install)`. Comment it back out
+# — and repeat pub get/pod install — before building for Android or a real
+# iOS device, where the real OCR must run.
+dependency_overrides:
+  google_mlkit_text_recognition:
+    path: dev_stubs/google_mlkit_text_recognition
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 

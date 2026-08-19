@@ -52,7 +52,16 @@ class ApiClient {
 
   Dio get raw => _dio;
 
+  /// Whether a bearer token is available. Callers use this to skip requests to
+  /// endpoints they know are bearer-only (e.g. the dropdown reference data
+  /// during signup) instead of paying for a round trip that can only 401.
+  bool get hasToken => _storage.hasToken;
+
   void _configure() {
+    // NOTE: dio's default `FusedTransformer` already decodes responses over
+    // 50 KB on a background isolate (and its fused UTF8+JSON decoder is faster
+    // than BackgroundTransformer), so the 2.4 MB dropdown payload is off the UI
+    // isolate without any configuration here. Do not override `transformer`.
     _dio.options
       ..baseUrl = ApiConfig.baseUrl
       ..connectTimeout = ApiConfig.connectTimeout

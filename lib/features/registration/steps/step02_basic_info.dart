@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../controllers/registration_payload.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_date_field.dart';
@@ -9,17 +10,17 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
-/// Step 2 — `POST /auth/register/step/2`. The API stores one `full_name`,
-/// so the two name fields are joined on the way out.
+/// Step 2 — `POST /auth/register/step/2`. The API stores one `full_name`, and
+/// this screen collects it in one field; both parts are still required, so the
+/// validation is as strict as the old first-name + last-name pair.
 class Step02Controller extends StepController {
   Step02Controller() : super(2);
 
-  final TextEditingController firstName = TextEditingController();
-  final TextEditingController lastName = TextEditingController();
-  final FocusNode lastNameFocus = FocusNode();
+  final TextEditingController fullName = TextEditingController();
+  final FocusNode nameFocus = FocusNode();
   final Rxn<DateTime> dob = Rxn<DateTime>();
 
-  /// Date of birth is revealed once the user moves to the last-name field.
+  /// Date of birth is revealed once the user starts on the name field.
   final RxBool showDob = false.obs;
 
   static final DateFormat _fmt = DateFormat('yyyy-MM-dd');
@@ -27,20 +28,22 @@ class Step02Controller extends StepController {
   @override
   void onInit() {
     super.onInit();
-    lastNameFocus.addListener(() {
-      if (lastNameFocus.hasFocus) showDob.value = true;
+    nameFocus.addListener(() {
+      if (nameFocus.hasFocus) showDob.value = true;
     });
   }
 
   @override
   void restore() {
-    firstName.text = buffer.getString('first_name') ?? '';
-    lastName.text = buffer.getString('last_name') ?? '';
+    // Reads `full_name`, falling back to a draft that still holds the old
+    // first/last pair — see RegPayload.fullName.
+    fullName.text = RegPayload.fullName(buffer) ?? '';
     final String? d = buffer.getString('date_of_birth');
     if (d != null) {
       dob.value = DateTime.tryParse(d);
       showDob.value = true;
     }
+    if (fullName.text.isNotEmpty) showDob.value = true;
   }
 
   @override
@@ -55,16 +58,14 @@ class Step02Controller extends StepController {
 
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
-    'first_name': firstName.text.trim(),
-    'last_name': lastName.text.trim(),
+    'full_name': AppValidators.collapseSpaces(fullName.text),
     'date_of_birth': dob.value == null ? null : _fmt.format(dob.value!),
   };
 
   @override
   void disposeFields() {
-    firstName.dispose();
-    lastName.dispose();
-    lastNameFocus.dispose();
+    fullName.dispose();
+    nameFocus.dispose();
   }
 }
 
@@ -105,19 +106,14 @@ class _Step02ViewState extends State<Step02View> {
       onBack: c.back,
       children: <Widget>[
         AppTextFormField(
-          label: 'First name',
-          controller: c.firstName,
-          hint: 'e.g. Ahmed',
-          textInputAction: TextInputAction.next,
-          validator: (String? v) => AppValidators.personName(v, field: 'First name'),
-        ),
-        AppTextFormField(
-          label: 'Last name',
-          controller: c.lastName,
-          focusNode: c.lastNameFocus,
-          hint: 'e.g. Khan',
+          label: 'Full name',
+          controller: c.fullName,
+          focusNode: c.nameFocus,
+          hint: 'e.g. Ahmed Khan',
+          textCapitalization: TextCapitalization.words,
+          autofillHints: const <String>[AutofillHints.name],
           textInputAction: TextInputAction.done,
-          validator: (String? v) => AppValidators.personName(v, field: 'Last name'),
+          validator: (String? v) => AppValidators.fullName(v),
         ),
         Obx(
           () => c.showDob.value

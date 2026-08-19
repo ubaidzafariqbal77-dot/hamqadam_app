@@ -32,7 +32,7 @@ class MobileOtpController extends GetxController {
   Future<void> requestOtp() async {
     generalError.value = '';
     if (AppValidators.pakistaniPhone(phoneCtrl.text) != null) {
-      generalError.value = 'Enter a valid Pakistani mobile number';
+      _fail('Enter a valid Pakistani mobile number');
       return;
     }
     if (submitting.value) return;
@@ -45,8 +45,7 @@ class MobileOtpController extends GetxController {
       otpRequested.value = true;
       AppSnackbar.success(msg.isEmpty ? 'OTP sent to your mobile' : msg);
     } on AppException catch (e) {
-      generalError.value = e.message;
-      AppSnackbar.error(e.message);
+      _fail(e.message);
     } finally {
       submitting.value = false;
     }
@@ -55,7 +54,7 @@ class MobileOtpController extends GetxController {
   Future<void> verifyOtp() async {
     generalError.value = '';
     if (otpCtrl.text.trim().length < 4) {
-      generalError.value = 'Enter the OTP you received';
+      _fail('Enter the OTP you received');
       return;
     }
     if (submitting.value) return;
@@ -68,17 +67,23 @@ class MobileOtpController extends GetxController {
         deviceName: 'flutter-app',
       );
       if (!res.hasToken) {
-        generalError.value = 'Login failed. Please try again.';
+        _fail('Login failed. Please try again.');
         return;
       }
       await authController.persistSession(res);
       await Get.find<RegistrationController>().resume();
     } on AppException catch (e) {
-      generalError.value = e.message;
-      AppSnackbar.error(e.message);
+      _fail(e.message);
     } finally {
       submitting.value = false;
     }
+  }
+
+  /// Every failure lands here, so a client-side check is as visible as a
+  /// server error — the inline line alone is easy to miss behind the keyboard.
+  void _fail(String message) {
+    generalError.value = message;
+    AppSnackbar.error(message);
   }
 
   void reset() {

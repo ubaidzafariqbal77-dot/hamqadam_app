@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../controllers/registration_payload.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_password_field.dart';
@@ -22,8 +23,10 @@ class Step11Controller extends StepController {
       password.text,
       against: <String>[
         buffer.getString('email') ?? '',
-        buffer.getString('first_name') ?? '',
-        buffer.getString('last_name') ?? '',
+        // The name is one field now, so check the whole thing and each part —
+        // "Ahmed Khan", "Ahmed" and "Khan" are all still off limits.
+        ...?RegPayload.fullName(buffer)?.split(' '),
+        RegPayload.fullName(buffer) ?? '',
         buffer.getString('phone') ?? '',
       ],
     );

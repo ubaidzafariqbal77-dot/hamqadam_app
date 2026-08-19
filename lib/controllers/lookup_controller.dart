@@ -39,13 +39,11 @@ class LookupController extends GetxController {
     } catch (e) {
       AppLogger.w('Dropdown reference preload failed (bundled data will be used): $e');
     }
-    for (final String key in LookupKeys.preload) {
-      if (force) {
-        await load(key);
-      } else {
-        await ensure(key);
-      }
-    }
+    // The payload is parsed by now, so each list is a slice of memory. Warming
+    // them concurrently keeps the first step from waiting on a chain of awaits.
+    await Future.wait<void>(<Future<void>>[
+      for (final String key in LookupKeys.preload) force ? load(key) : ensure(key),
+    ]);
   }
 
   /// Forgets every cached list (new signup / logout).

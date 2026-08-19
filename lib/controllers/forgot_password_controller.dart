@@ -31,7 +31,10 @@ class ForgotPasswordController extends GetxController {
   /// Stage 1 — request the reset OTP.
   Future<void> requestOtp() async {
     generalError.value = '';
-    if (!(emailFormKey.currentState?.validate() ?? false)) return;
+    if (!(emailFormKey.currentState?.validate() ?? false)) {
+      AppSnackbar.error('Please enter a valid email address.');
+      return;
+    }
     if (submitting.value) return;
     submitting.value = true;
     try {
@@ -39,8 +42,7 @@ class ForgotPasswordController extends GetxController {
       otpSent.value = true;
       AppSnackbar.success(msg.isEmpty ? 'OTP sent to your email' : msg);
     } on AppException catch (e) {
-      generalError.value = e.message;
-      AppSnackbar.error(e.message);
+      _fail(e.message);
     } finally {
       submitting.value = false;
     }
@@ -50,10 +52,13 @@ class ForgotPasswordController extends GetxController {
   Future<void> resetPassword() async {
     generalError.value = '';
     if (otpCtrl.text.trim().length < 6) {
-      generalError.value = 'Enter the complete 6-digit OTP';
+      _fail('Enter the complete 6-digit OTP');
       return;
     }
-    if (!(resetFormKey.currentState?.validate() ?? false)) return;
+    if (!(resetFormKey.currentState?.validate() ?? false)) {
+      AppSnackbar.error('Please fix the highlighted fields.');
+      return;
+    }
     if (submitting.value) return;
     submitting.value = true;
     try {
@@ -67,14 +72,20 @@ class ForgotPasswordController extends GetxController {
       // Back to login so the user signs in with the new password.
       Get.offAllNamed(AppRoutes.login);
     } on ValidationException catch (e) {
-      generalError.value = e.message;
-      AppSnackbar.error(e.message);
+      _fail(e.errors.values.isNotEmpty && e.errors.values.first.isNotEmpty
+          ? e.errors.values.first.first
+          : e.message);
     } on AppException catch (e) {
-      generalError.value = e.message;
-      AppSnackbar.error(e.message);
+      _fail(e.message);
     } finally {
       submitting.value = false;
     }
+  }
+
+  /// Every failure lands here, so none of them is inline-only.
+  void _fail(String message) {
+    generalError.value = message;
+    AppSnackbar.error(message);
   }
 
   void changeEmail() {

@@ -11,33 +11,86 @@ import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/lookup_item_model.dart';
 
+/// One lookup list, already converted and indexed by parent id.
+///
+/// The reference payload holds ~48 000 cities and ~4 000 states. Filtering those
+/// with a linear scan every time a dependent dropdown opens was the slow part of
+/// the registration flow, so the parent index is built once — inside the
+/// background isolate that parses the payload — and every slice is then a map
+/// lookup.
+@immutable
+class LookupList {
+  const LookupList(this.items, this.byParent);
+
+  final List<LookupItem> items;
+
+  /// parent id -> rows. Empty for lists whose rows carry no parent.
+  final Map<int, List<LookupItem>> byParent;
+
+  bool get hasParents => byParent.isNotEmpty;
+
+  List<LookupItem> forParent(int? parentId) {
+    if (parentId == null || !hasParents) return items;
+    return byParent[parentId] ?? const <LookupItem>[];
+  }
+}
+
+/// Converts the raw `dropdown-reference-data` shape into indexed [LookupList]s.
+/// Top-level so it can run in a [compute] isolate.
+@visibleForTesting
+Map<String, LookupList> buildLookupLists(Map<String, dynamic> data) {
+  final Map<String, LookupList> out = <String, LookupList>{};
+  data.forEach((String key, dynamic value) {
+    if (value is! List) return;
+    final List<LookupItem> items = <LookupItem>[];
+    for (final dynamic row in value) {
+      if (row is Map<String, dynamic>) {
+        items.add(LookupItem.fromJson(row));
+      } else if (row is String) {
+        items.add(LookupItem.option(row, row));
+      }
+    }
+    if (items.isEmpty) return;
+    final Map<int, List<LookupItem>> byParent = <int, List<LookupItem>>{};
+    for (final LookupItem i in items) {
+      final int? parent = i.parentId;
+      if (parent != null) (byParent[parent] ??= <LookupItem>[]).add(i);
+    }
+    out[key] = LookupList(items, byParent);
+  });
+  return out;
+}
+
+/// Decode + convert in one isolate hop. Top-level for [compute].
+@visibleForTesting
+Map<String, LookupList> decodeAndBuildLookupLists(String raw) {
+  final dynamic decoded = jsonDecode(raw);
+  if (decoded is! Map<String, dynamic>) return <String, LookupList>{};
+  return buildLookupLists(decoded);
+}
+
 /// Supplies every dropdown list in the app.
 ///
 /// The documented API exposes ONE endpoint for all of them —
 /// `GET /api/v1/profile/dropdown-reference-data` — which returns the dynamic
 /// (database-backed) lists together with the hardcoded option lists. It is
-/// fetched once, cached in memory, and sliced per field; dependent lists
-/// (state→country, city→state, sub-caste→caste, degree→education level, …) are
-/// filtered locally on the parent id each row carries.
+/// fetched once, parsed off the UI isolate, and sliced per field; dependent
+/// lists (state→country, city→state, sub-caste→caste, degree→education level, …)
+/// come from the parent index each [LookupList] carries.
 ///
-/// If the endpoint is unreachable (offline, or step 1 not completed yet so no
-/// token exists) the repository falls back to [BundledLookups] for the core
-/// lists and to [ApiOptions] for the hardcoded ones, so the flow never dead-ends
-/// on a spinner.
-/// Top-level so it can run in the [compute] isolate.
-Map<String, dynamic>? _decodeJsonMap(String raw) {
-  final dynamic decoded = jsonDecode(raw);
-  return decoded is Map<String, dynamic> ? decoded : null;
-}
-
+/// The endpoint is bearer-only, and during signup there is no token yet, so the
+/// flow reads a bundled copy of the same payload
+/// (`assets/lookups/dropdown_reference.json`, which carries the server's real
+/// ids) and falls back to [ApiOptions] for the hardcoded lists. Nothing ever
+/// dead-ends on a spinner.
 class LookupRepository {
   LookupRepository(this._client);
 
   final ApiClient _client;
 
   /// The whole reference payload, parsed once.
-  Map<String, List<LookupItem>>? _reference;
-  Future<Map<String, List<LookupItem>>>? _inFlight;
+  Map<String, LookupList>? _reference;
+  Future<Map<String, LookupList>>? _inFlight;
 
   /// When the last fetch failed. Warming a dozen lists offline must not fire a
   /// dozen doomed requests, so failures are remembered for a short while.
@@ -68,28 +121,32 @@ class LookupRepository {
     LookupKeys.familyValues: ApiOptions.familyValues,
   };
 
-  /// Loads the reference payload up front (called once a token exists).
+  /// Loads the reference payload up front. Cheap to call without a token: it
+  /// warms the bundled asset instead of firing a request that can only 401.
   Future<void> preload({bool force = false}) async {
     await _loadReference(force: force);
+    // Registration reads everything from the asset, so decode it now (off the UI
+    // isolate) rather than on the first dropdown tap.
+    if (_reference == null) await _loadAssetLists();
   }
 
   Future<List<LookupItem>> fetch(String key, {int? parentId, bool forceRefresh = false}) async {
     final String ck = _cacheKey(key, parentId);
     if (!forceRefresh && _cache.containsKey(ck)) return _cache[ck]!;
 
-    final Map<String, List<LookupItem>> reference = await _loadReference(force: forceRefresh);
+    final Map<String, LookupList> reference = await _loadReference(force: forceRefresh);
 
-    List<LookupItem> items = reference[key] ?? const <LookupItem>[];
+    LookupList? list = reference[key];
     bool fromAsset = false;
     // Offline copy of the same endpoint — carries the server's real ids, so a
     // signup completed without a token still submits values the API accepts.
-    if (items.isEmpty) {
-      items = await _fromAsset(key);
-      fromAsset = items.isNotEmpty;
+    if (list == null) {
+      list = (await _loadAssetLists())[key];
+      fromAsset = list != null;
     }
-    if (items.isEmpty) items = _fallback(key);
 
-    final List<LookupItem> sliced = _sliceByParent(items, parentId);
+    final List<LookupItem> sliced =
+        list != null ? list.forParent(parentId) : _sliceByParent(_fallback(key), parentId);
     // Memoise server and bundled-asset data (both carry real ids). The tiny
     // hardcoded fallbacks are not cached, so they cannot outlive a failure.
     if (_reference != null || fromAsset) _cache[ck] = sliced;
@@ -114,43 +171,39 @@ class LookupRepository {
 
   // ---- Internals ------------------------------------------------------------
 
-  Future<Map<String, List<LookupItem>>> _loadReference({bool force = false}) {
+  Future<Map<String, LookupList>> _loadReference({bool force = false}) {
     if (!force && _reference != null) {
-      return Future<Map<String, List<LookupItem>>>.value(_reference!);
+      return Future<Map<String, LookupList>>.value(_reference!);
     }
     if (force) {
       _reference = null;
       _failedAt = null;
       _cache.clear();
     }
+    // Bearer-only endpoint: with no token the request cannot do anything but
+    // 401, and paying that round trip on every dropdown is exactly what made the
+    // registration steps feel slow. Go straight to the bundled copy.
+    if (!_client.hasToken) {
+      requiresAuth = true;
+      return Future<Map<String, LookupList>>.value(const <String, LookupList>{});
+    }
     final DateTime? failedAt = _failedAt;
     if (failedAt != null && DateTime.now().difference(failedAt) < _retryCooldown) {
-      return Future<Map<String, List<LookupItem>>>.value(const <String, List<LookupItem>>{});
+      return Future<Map<String, LookupList>>.value(const <String, LookupList>{});
     }
     return _inFlight ??= _fetchReference().whenComplete(() => _inFlight = null);
   }
 
-  Future<Map<String, List<LookupItem>>> _fetchReference() async {
+  Future<Map<String, LookupList>> _fetchReference() async {
     try {
       final ApiEnvelope res = await _client.get(ApiEndpoints.dropdownReferenceData);
       final Map<String, dynamic> data = res.dataMap;
-      final Map<String, List<LookupItem>> parsed = <String, List<LookupItem>>{};
-      data.forEach((String key, dynamic value) {
-        if (value is! List) return;
-        final List<LookupItem> items = <LookupItem>[];
-        for (final dynamic row in value) {
-          if (row is Map<String, dynamic>) {
-            items.add(LookupItem.fromJson(row));
-          } else if (row is String) {
-            items.add(LookupItem.option(row, row));
-          }
-        }
-        if (items.isNotEmpty) parsed[key] = items;
-      });
+      // ~48 000 rows: converting and indexing them on the UI isolate drops frames.
+      final Map<String, LookupList> parsed = await compute(buildLookupLists, data);
       if (parsed.isEmpty) {
         AppLogger.w('dropdown-reference-data returned no lists — using bundled data.');
         _failedAt = DateTime.now();
-        return <String, List<LookupItem>>{};
+        return <String, LookupList>{};
       }
       AppLogger.i('Loaded ${parsed.length} dropdown lists from the API.');
       _failedAt = null;
@@ -159,72 +212,53 @@ class LookupRepository {
     } on UnauthorizedException catch (e) {
       // Registration is filled in locally and only submitted at the end, so no
       // token exists while the user is picking from these dropdowns. The
-      // endpoint is documented as bearer-only, which leaves the flow on bundled
-      // data — and bundled ids do NOT match the server's, so the final
-      // submission is rejected ("The selected city id is invalid").
+      // endpoint is documented as bearer-only, which leaves the flow on the
+      // bundled copy of the same payload (real server ids, so the final
+      // submission is still accepted).
       //
       // BACKEND FIX: allow `GET /api/v1/profile/dropdown-reference-data`
-      // unauthenticated (or publish a public alias). Nothing changes in the app.
+      // unauthenticated (or publish a public alias). Nothing changes in the app
+      // beyond the lists being live rather than bundled.
       requiresAuth = true;
-      AppLogger.w(
-        'dropdown-reference-data returned 401 ($e). Registration dropdowns are '
-        'falling back to bundled data — the endpoint must be reachable without '
-        'a token for the signup flow to submit real ids.',
-      );
+      AppLogger.w('dropdown-reference-data returned 401 ($e) — using bundled data.');
       _failedAt = DateTime.now();
-      return <String, List<LookupItem>>{};
+      return <String, LookupList>{};
     } on AppException catch (e) {
       // Offline or a server hiccup — bundled/static data takes over. The
       // payload is NOT memoised, so a later call (or a manual retry) tries again.
       AppLogger.d('dropdown-reference-data unavailable ($e) — using bundled data.');
       _failedAt = DateTime.now();
-      return <String, List<LookupItem>>{};
+      return <String, LookupList>{};
     }
   }
 
   // ---- Bundled copy of dropdown-reference-data ------------------------------
 
-  /// The raw asset, decoded once. Kept as JSON rather than [LookupItem]s so the
-  /// 48k-row city list is never converted unless a city dropdown is opened.
-  Map<String, dynamic>? _assetJson;
-  Future<Map<String, dynamic>>? _assetInFlight;
-
-  /// Per-key conversions, so each list is built at most once.
-  final Map<String, List<LookupItem>> _assetItems = <String, List<LookupItem>>{};
+  /// Every bundled list, converted and indexed once.
+  Map<String, LookupList>? _assetLists;
+  Future<Map<String, LookupList>>? _assetInFlight;
 
   static const String _assetPath = 'assets/lookups/dropdown_reference.json';
 
-  Future<List<LookupItem>> _fromAsset(String key) async {
-    final List<LookupItem>? done = _assetItems[key];
-    if (done != null) return done;
-    try {
-      final Map<String, dynamic> json = await _loadAssetJson();
-      final dynamic rows = json[key];
-      if (rows is! List) return const <LookupItem>[];
-      final List<LookupItem> items = <LookupItem>[
-        for (final dynamic row in rows)
-          if (row is Map<String, dynamic>) LookupItem.fromJson(row),
-      ];
-      return _assetItems[key] = items;
-    } catch (e) {
-      AppLogger.w('Bundled dropdown asset unavailable for "$key": $e');
-      return const <LookupItem>[];
-    }
-  }
-
-  Future<Map<String, dynamic>> _loadAssetJson() {
-    final Map<String, dynamic>? cached = _assetJson;
-    if (cached != null) return Future<Map<String, dynamic>>.value(cached);
+  Future<Map<String, LookupList>> _loadAssetLists() {
+    final Map<String, LookupList>? cached = _assetLists;
+    if (cached != null) return Future<Map<String, LookupList>>.value(cached);
     return _assetInFlight ??= _decodeAsset().whenComplete(() => _assetInFlight = null);
   }
 
-  Future<Map<String, dynamic>> _decodeAsset() async {
-    final String raw = await rootBundle.loadString(_assetPath);
-    // ~2.4 MB of JSON — decoding on the UI isolate drops frames.
-    final Map<String, dynamic> json =
-        await compute(_decodeJsonMap, raw) ?? <String, dynamic>{};
-    AppLogger.i('Loaded ${json.length} dropdown lists from the bundled asset.');
-    return _assetJson = json;
+  Future<Map<String, LookupList>> _decodeAsset() async {
+    try {
+      final String raw = await rootBundle.loadString(_assetPath);
+      // ~2.4 MB of JSON and ~52 000 rows. Decoding, converting and indexing all
+      // of it happens in one isolate hop; the result is handed back without a
+      // copy, so the UI isolate never touches a row.
+      final Map<String, LookupList> lists = await compute(decodeAndBuildLookupLists, raw);
+      AppLogger.i('Loaded ${lists.length} dropdown lists from the bundled asset.');
+      return _assetLists = lists;
+    } catch (e) {
+      AppLogger.w('Bundled dropdown asset unavailable: $e');
+      return _assetLists = const <String, LookupList>{};
+    }
   }
 
   List<LookupItem> _fallback(String key) {
@@ -235,7 +269,8 @@ class LookupRepository {
     return bundled.map(LookupItem.fromJson).toList();
   }
 
-  /// Keeps only the rows belonging to [parentId]. Lists that carry no parent
+  /// Keeps only the rows belonging to [parentId]. Used for the small hardcoded
+  /// fallback lists, which are not worth indexing. Lists that carry no parent
   /// information at all (e.g. castes, which the API documents as independent)
   /// are returned untouched so a stale parent never blanks a dropdown.
   List<LookupItem> _sliceByParent(List<LookupItem> items, int? parentId) {

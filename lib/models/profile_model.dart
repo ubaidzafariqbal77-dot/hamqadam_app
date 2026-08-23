@@ -1,4 +1,5 @@
 import '../constants/app_constants.dart';
+import 'ai_verification_model.dart';
 
 /// Full profile payload returned by `GET /api/v1/profile`.
 ///
@@ -11,17 +12,227 @@ class ProfileModel {
     required this.user,
     required this.member,
     required this.privacy,
+    this.religionAndLanguage = const ProfileSection.empty(),
+    this.caste = const ProfileSection.empty(),
+    this.location = const ProfileSection.empty(),
+    this.education = const ProfileSection.empty(),
+    this.career = const ProfileSection.empty(),
+    this.physical = const ProfileSection.empty(),
+    this.lifestyleAndInterests = const ProfileSection.empty(),
+    this.family = const ProfileSection.empty(),
+    this.marriageExpectations = const ProfileSection.empty(),
+    this.photos = const ProfilePhotos(),
+    this.verification = const ProfileVerification(),
+    this.registration = const ProfileRegistration(),
   });
 
   final ProfileUser user;
   final MemberDetails member;
   final ProfilePrivacy privacy;
 
+  /*
+   * Registration writes its 18 steps across several database tables, so
+   * `GET /profile` returns them as named groups alongside `user` / `member`.
+   * Each group is kept as a [ProfileSection] rather than a hand-written class
+   * per group: the backend keeps adding fields, and a typed class per section
+   * would silently drop anything new until the app was rebuilt.
+   */
+  final ProfileSection religionAndLanguage; // step 3
+  final ProfileSection caste; // step 6
+  final ProfileSection location; // step 4
+  final ProfileSection education; // step 8
+  final ProfileSection career; // step 10
+  final ProfileSection physical; // step 9
+  final ProfileSection lifestyleAndInterests; // step 14
+  final ProfileSection family; // steps 15-16
+  final ProfileSection marriageExpectations; // step 17
+  final ProfilePhotos photos; // step 11
+  final ProfileVerification verification; // step 13 + the AI check
+  final ProfileRegistration registration;
+
+  /// Every group in display order, for a "profile details" screen that should
+  /// not need editing when the backend adds a field.
+  List<({String key, String title, ProfileSection section})> get sections =>
+      <({String key, String title, ProfileSection section})>[
+        (key: 'religion_and_language', title: 'Religion & Language', section: religionAndLanguage),
+        (key: 'caste', title: 'Caste & Community', section: caste),
+        (key: 'location', title: 'Location', section: location),
+        (key: 'education', title: 'Education', section: education),
+        (key: 'career', title: 'Career & Income', section: career),
+        (key: 'physical', title: 'Physical', section: physical),
+        (
+          key: 'lifestyle_and_interests',
+          title: 'Lifestyle & Interests',
+          section: lifestyleAndInterests,
+        ),
+        (key: 'family', title: 'Family', section: family),
+        (
+          key: 'marriage_expectations',
+          title: 'Marriage Expectations',
+          section: marriageExpectations,
+        ),
+      ];
+
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
     return ProfileModel(
       user: ProfileUser.fromJson(_asMap(json['user'])),
       member: MemberDetails.fromJson(_asMap(json['member'])),
       privacy: ProfilePrivacy.fromJson(_asMap(json['privacy'])),
+      religionAndLanguage: ProfileSection.fromJson(_asMap(json['religion_and_language'])),
+      caste: ProfileSection.fromJson(_asMap(json['caste'])),
+      location: ProfileSection.fromJson(_asMap(json['location'])),
+      education: ProfileSection.fromJson(_asMap(json['education'])),
+      career: ProfileSection.fromJson(_asMap(json['career'])),
+      physical: ProfileSection.fromJson(_asMap(json['physical'])),
+      lifestyleAndInterests: ProfileSection.fromJson(_asMap(json['lifestyle_and_interests'])),
+      family: ProfileSection.fromJson(_asMap(json['family'])),
+      marriageExpectations: ProfileSection.fromJson(_asMap(json['marriage_expectations'])),
+      photos: ProfilePhotos.fromJson(_asMap(json['photos'])),
+      verification: ProfileVerification.fromJson(_asMap(json['verification'])),
+      registration: ProfileRegistration.fromJson(_asMap(json['registration'])),
+    );
+  }
+}
+
+/// One named group of the profile, held as raw key/value pairs.
+///
+/// Deliberately untyped. These groups exist so the app can *render* whatever
+/// registration collected; hard-coding a field list here would mean every new
+/// backend field is invisible until the app ships again.
+class ProfileSection {
+  const ProfileSection(this.values);
+  const ProfileSection.empty() : values = const <String, dynamic>{};
+
+  final Map<String, dynamic> values;
+
+  factory ProfileSection.fromJson(Map<String, dynamic> json) => ProfileSection(json);
+
+  bool get isEmpty => filled.isEmpty;
+  int get filledCount => filled.length;
+  int get totalCount => values.length;
+
+  /// Only the entries worth showing — nulls, empty strings and empty lists are
+  /// noise on a profile screen.
+  Map<String, dynamic> get filled {
+    final Map<String, dynamic> out = <String, dynamic>{};
+    values.forEach((String key, dynamic value) {
+      if (value == null) return;
+      if (value is String && value.trim().isEmpty) return;
+      if (value is List && value.isEmpty) return;
+      if (value is Map && value.isEmpty) return;
+      out[key] = value;
+    });
+    return out;
+  }
+
+  dynamic operator [](String key) => values[key];
+
+  String? string(String key) {
+    final dynamic v = values[key];
+    if (v == null) return null;
+    final String s = '$v'.trim();
+    return s.isEmpty ? null : s;
+  }
+
+  int? integer(String key) => _asIntOrNull(values[key]);
+  double? number(String key) => _asDoubleOrNull(values[key]);
+  bool? boolean(String key) => values[key] == null ? null : _asBool(values[key]);
+
+  List<String> list(String key) {
+    final dynamic v = values[key];
+    if (v is List) {
+      return v
+          .map((dynamic e) => '$e'.trim())
+          .where((String e) => e.isNotEmpty)
+          .toList(growable: false);
+    }
+    return const <String>[];
+  }
+
+  /// "father_occupation" -> "Father occupation", for rendering unknown keys.
+  static String humanise(String key) {
+    final String spaced = key.replaceAll('_', ' ').trim();
+    if (spaced.isEmpty) return key;
+    return spaced[0].toUpperCase() + spaced.substring(1);
+  }
+}
+
+/// Profile and gallery imagery (registration step 11).
+class ProfilePhotos {
+  const ProfilePhotos({this.profilePhoto, this.coverPhoto, this.gallery = const <String>[]});
+
+  final String? profilePhoto;
+  final String? coverPhoto;
+  final List<String> gallery;
+
+  /// The API already returns absolute URLs here, but run them through
+  /// [ApiConfig.mediaUrl] anyway so a relative path from an older build still
+  /// resolves.
+  String? get profilePhotoUrl => ApiConfig.mediaUrl(profilePhoto);
+  String? get coverPhotoUrl => ApiConfig.mediaUrl(coverPhoto);
+  List<String> get galleryUrls =>
+      gallery.map(ApiConfig.mediaUrl).whereType<String>().toList(growable: false);
+
+  bool get hasGallery => galleryUrls.isNotEmpty;
+
+  factory ProfilePhotos.fromJson(Map<String, dynamic> json) {
+    return ProfilePhotos(
+      profilePhoto: json['profile_photo']?.toString(),
+      coverPhoto: json['cover_photo']?.toString(),
+      gallery: (json['gallery'] is List ? json['gallery'] as List<dynamic> : <dynamic>[])
+          .map((dynamic e) => '$e')
+          .where((String e) => e.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+}
+
+/// Identity verification: the document status plus the AI check that runs
+/// against the CNIC and selfie submitted at registration step 13.
+class ProfileVerification {
+  const ProfileVerification({
+    this.status,
+    this.ai = const AiVerificationModel(status: 'not_started'),
+  });
+
+  /// unverified | draft | submitted | verified — the document workflow.
+  final String? status;
+
+  /// Never null: a profile with no attempt yet reads as `not_started`, which is
+  /// what the UI wants to show anyway.
+  final AiVerificationModel ai;
+
+  bool get documentsVerified => status == 'verified';
+
+  /// What the profile badge should show: either path counts.
+  bool get identityVerified => documentsVerified || ai.isApproved;
+
+  factory ProfileVerification.fromJson(Map<String, dynamic> json) {
+    return ProfileVerification(
+      status: json['status']?.toString(),
+      ai: json['ai'] is Map<String, dynamic>
+          ? AiVerificationModel.fromProfileBlock(json['ai'] as Map<String, dynamic>)
+          : const AiVerificationModel(status: 'not_started'),
+    );
+  }
+}
+
+/// Registration progress as the server sees it.
+class ProfileRegistration {
+  const ProfileRegistration({this.completionPercentage = 0, this.steps = const <String>[]});
+
+  final int completionPercentage;
+
+  /// Completed step keys, as recorded on the member row.
+  final List<String> steps;
+
+  factory ProfileRegistration.fromJson(Map<String, dynamic> json) {
+    return ProfileRegistration(
+      completionPercentage: _asInt(json['completion_percentage']),
+      steps: (json['steps'] is List ? json['steps'] as List<dynamic> : <dynamic>[])
+          .map((dynamic e) => '$e')
+          .where((String e) => e.isNotEmpty)
+          .toList(growable: false),
     );
   }
 }
@@ -56,8 +267,10 @@ class ProfileUser {
 
   /// Best available display name.
   String get displayName {
-    final String joined =
-        <String?>[firstName, lastName].where((String? s) => (s ?? '').trim().isNotEmpty).join(' ').trim();
+    final String joined = <String?>[
+      firstName,
+      lastName,
+    ].where((String? s) => (s ?? '').trim().isNotEmpty).join(' ').trim();
     if (joined.isNotEmpty) return joined;
     if ((name ?? '').trim().isNotEmpty) return name!.trim();
     return 'HamQadam Member';
@@ -205,10 +418,15 @@ class ProfilePrivacy {
 
 // ---- Parsing helpers (tolerant of string / int / bool shapes) --------------
 
-Map<String, dynamic> _asMap(dynamic v) =>
-    v is Map<String, dynamic> ? v : <String, dynamic>{};
+Map<String, dynamic> _asMap(dynamic v) => v is Map<String, dynamic> ? v : <String, dynamic>{};
 
 int _asInt(dynamic v) => v is int ? v : int.tryParse('$v') ?? 0;
+
+double? _asDoubleOrNull(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  return double.tryParse('$v');
+}
 
 int? _asIntOrNull(dynamic v) {
   if (v == null) return null;
@@ -230,10 +448,7 @@ DateTime? _asDate(dynamic v) {
 
 List<int> _asIntList(dynamic v) {
   if (v is List) {
-    return v
-        .map(_asIntOrNull)
-        .whereType<int>()
-        .toList(growable: false);
+    return v.map(_asIntOrNull).whereType<int>().toList(growable: false);
   }
   return const <int>[];
 }

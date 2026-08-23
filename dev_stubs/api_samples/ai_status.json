@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "status": "not_started",
+    "recommendation": null,
+    "attempts": 1,
+    "verified_at": null,
+    "last_attempt_at": "2026-08-23T09:29:12.000000Z",
+    "can_retry": true,
+    "message": "Verification has not run yet. Upload a photo and start verification.",
+    "last_error": null
+  }
+}

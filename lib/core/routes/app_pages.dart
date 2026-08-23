@@ -7,7 +7,10 @@ import '../../features/auth/views/login_view.dart';
 import '../../features/auth/views/onboarding_view.dart';
 import '../../features/auth/views/registration_completed_view.dart';
 import '../../features/auth/views/splash_view.dart';
+import '../../features/interests/views/interests_view.dart';
+import '../../features/preferences/views/partner_preferences_view.dart';
 import '../../features/profile/views/profile_completion_view.dart';
+import '../../features/verification/views/ai_verification_view.dart';
 import '../../features/registration/finalizing_view.dart';
 import '../../features/registration/verify_email_view.dart';
 import '../../features/registration/steps/step01_account_for.dart';
@@ -85,5 +88,8 @@ class AppPages {
     _page(AppRoutes.registrationCompleted, () => const RegistrationCompletedView()),
     _page(AppRoutes.home, () => const HomeView()),
     _page(AppRoutes.profileCompletion, () => const ProfileCompletionView()),
+    _page(AppRoutes.aiVerification, () => const AiVerificationView()),
+    _page(AppRoutes.expressInterests, () => const InterestsView()),
+    _page(AppRoutes.partnerPreferencesEdit, () => const PartnerPreferencesView()),
   ];
 }

@@ -38,6 +38,20 @@ class AppRoutes {
   /// "Complete your profile" — hub for the sections skipped during signup.
   static const String profileCompletion = '/profile/completion';
 
+  // ---- Post-signup features -------------------------------------------------
+  /// AI identity verification: status, history and a manual re-run.
+  static const String aiVerification = '/verification/ai';
+
+  /// Express interest: received and sent tabs.
+  ///
+  /// Named `expressInterests` because `interests` is already taken by
+  /// registration step 15 (hobbies) — two very different things.
+  static const String expressInterests = '/interests';
+
+  /// Partner preferences (registration step 17), editable after signup. These
+  /// drive server-side match filtering.
+  static const String partnerPreferencesEdit = '/preferences/partner';
+
   /// step number (1-based) -> route.
   static const List<String> stepRoutes = <String>[
     accountFor, // 1

@@ -54,6 +54,56 @@ class ApiEndpoints {
   static const String profilePrivacy = '/profile/privacy';
   static const String profileVisibility = '/profile/visibility';
 
+  // ---- AI identity verification ---------------------------------------------
+  /// Current AI verification state for the signed-in member. The app polls this
+  /// after registration: the model runs out of band, so the registration
+  /// response only reports `pending`.
+  static const String aiVerificationStatus = '/verification/ai/status';
+
+  /// Last 20 attempts, with which images were sent and why one failed.
+  static const String aiVerificationHistory = '/verification/ai/history';
+
+  /// Runs the check now. Takes NO uploads — the server rebuilds the model
+  /// payload from the CNIC and selfie already stored at registration step 13,
+  /// falling back to the profile photo. Synchronous and throttled to 3/min.
+  static const String aiVerificationRun = '/verification/ai/run';
+
+  // ---- Express interest ------------------------------------------------------
+  /// Interests this member sent. `status` and `per_page` query params.
+  static const String interestsSent = '/interests/sent';
+
+  /// Interests received, plus `pending_count`.
+  static const String interestsReceived = '/interests/received';
+
+  /// Remaining coins and the cost per interest.
+  static const String interestsCoinBalance = '/interests/coin-balance';
+
+  /// Sends an interest. Costs coins; 402 `insufficient_coins` when short.
+  static const String interests = '/interests';
+
+  static String interestAccept(int id) => '/interests/$id/accept';
+  static String interestReject(int id) => '/interests/$id/reject';
+
+  /// Sender withdraws a pending interest. Coins are NOT refunded.
+  static String interestWithdraw(int id) => '/interests/$id';
+
+  // ---- Partner preferences ---------------------------------------------------
+  /// The preferences captured at registration step 17. These drive match
+  /// filtering server-side, so an empty set widens the pool rather than
+  /// emptying it.
+  static const String partnerPreferences = '/partner-preferences';
+
+  // ---- Public profiles -------------------------------------------------------
+  /// Another member's profile. Carries a verification BADGE only
+  /// (`identity_verified`, `verified_at`) — never the owner's AI internals.
+  static String publicProfile(int id) => '/profiles/$id';
+
+  /// Compatibility score against another member.
+  static String profileCompatibility(int id) => '/profiles/$id/compatibility';
+
+  /// Deactivates the signed-in account.
+  static const String profileDeactivate = '/profile/deactivate';
+
   // ---- Dropdowns ------------------------------------------------------------
   /// Single endpoint that returns EVERY dropdown list (dynamic + hardcoded).
   static const String dropdownReferenceData = '/profile/dropdown-reference-data';

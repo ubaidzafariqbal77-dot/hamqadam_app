@@ -1,0 +1,184 @@
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "user": {
+      "id": 2,
+      "code": "TEST0001",
+      "first_name": "Test",
+      "last_name": "Member",
+      "name": "Test Member",
+      "email": "member@example.com",
+      "phone": "+920000000000",
+      "photo": "https://example.com/uploads/sample.jpg",
+      "approved": true,
+      "blocked": false,
+      "deactivated": false,
+      "email_verified_at": "2026-08-23T09:28:51.000000Z"
+    },
+    "member": {
+      "gender": "1",
+      "date_of_birth": "2003-06-29 00:00:00",
+      "about_me": "Sample bio text for fixture purposes.",
+      "ai_generated_bio": null,
+      "video_introduction": null,
+      "voice_introduction": null,
+      "marital_status_id": 1,
+      "children": 0,
+      "on_behalf_id": 1,
+      "annual_salary_range_id": 1,
+      "mother_tongue": null,
+      "known_languages": [],
+      "travel_preferences": null,
+      "future_goals": null,
+      "hide_profile": false,
+      "verification_status": "unverified",
+      "profile_completion_percentage": 56
+    },
+    "religion_and_language": {
+      "religion_id": null,
+      "sect_main_id": null,
+      "school_of_thought_id": null,
+      "tradition_id": null,
+      "mother_tongue": null,
+      "languages_spoken_fluently": [],
+      "prayer_frequency": null,
+      "religious_practice_level": null,
+      "hijab_beard_preference": null
+    },
+    "caste": {
+      "caste_id": null,
+      "sub_caste_id": null,
+      "community_biradari": null,
+      "family_value_id": null,
+      "ethnicity": null,
+      "personal_value": null,
+      "community_value": null
+    },
+    "location": {
+      "country_id": 166,
+      "state_id": 2728,
+      "city_id": 31496,
+      "area": null,
+      "address_type": "present",
+      "postal_code": "49000",
+      "work_location_city": null,
+      "relocation_preference": null,
+      "visa_immigration_status": null,
+      "future_living_preference": null
+    },
+    "education": {
+      "education_level_id": null,
+      "education_level": null,
+      "degree_id": null,
+      "degree": null,
+      "field_of_study_id": null,
+      "institution_id": null,
+      "institution": null,
+      "graduation_year": null,
+      "education_status": null,
+      "expected_graduation_year": null,
+      "is_highest_degree": null,
+      "currently_studying": null
+    },
+    "career": {
+      "profession_category_id": null,
+      "profession_id": null,
+      "job_title": null,
+      "organization": null,
+      "years_of_experience": null,
+      "currently_working": null,
+      "employment_status": null,
+      "annual_income": null,
+      "annual_salary_range_id": 1,
+      "financial_responsibility": null,
+      "willing_to_work_after_marriage": null,
+      "expects_spouse_to_work": null
+    },
+    "physical": {
+      "height": 6.2,
+      "weight": 75,
+      "body_type": "Ectomorphs",
+      "complexion": "Neutral",
+      "blood_group": "A",
+      "eye_color": "Black",
+      "hair_color": "Black",
+      "body_art": "Nill",
+      "disability": "Nill",
+      "health_conditions": null,
+      "diet": null
+    },
+    "lifestyle_and_interests": {
+      "hobbies": [],
+      "interests_multi_select": [],
+      "favorite_weekend_activities": null,
+      "life_values": [],
+      "love_language": [],
+      "personality_type": null,
+      "communication_style": null,
+      "communication_preferences": [],
+      "conflict_resolution_style": null,
+      "travel_preferences": null
+    },
+    "family": {
+      "father_name": null,
+      "mother_name": null,
+      "father_occupation": null,
+      "mother_occupation": null,
+      "siblings_brothers": null,
+      "siblings_sisters": null,
+      "siblings_note": null,
+      "about_parents": null,
+      "about_siblings": null,
+      "about_relatives": null,
+      "married_siblings": null,
+      "family_type": null,
+      "family_values": null,
+      "family_location": null,
+      "family_bio": null,
+      "family_expectations": null,
+      "guardian_name": null,
+      "guardian_contact": null,
+      "parents_contact": null
+    },
+    "marriage_expectations": {
+      "looking_for": null,
+      "marriage_timeline": null,
+      "children_preference": null,
+      "expectations_after_marriage": [],
+      "proposal_preferences": null,
+      "future_goals": null
+    },
+    "photos": {
+      "profile_photo": "https://example.com/uploads/sample.jpg",
+      "cover_photo": null,
+      "gallery": [
+        "https://example.com/uploads/sample.jpg",
+        "https://example.com/uploads/sample.jpg"
+      ]
+    },
+    "verification": {
+      "status": "unverified",
+      "ai": {
+        "status": "not_started",
+        "recommendation": null,
+        "attempts": 1,
+        "verified_at": null,
+        "last_attempt_at": "2026-08-23T09:29:12.000000Z"
+      }
+    },
+    "registration": {
+      "completion_percentage": 56,
+      "steps": []
+    },
+    "privacy": {
+      "show_photo": true,
+      "show_gallery": false,
+      "show_contact": false,
+      "show_email": false,
+      "show_phone": false,
+      "show_location": true,
+      "allow_profile_view_notifications": true
+    }
+  }
+}

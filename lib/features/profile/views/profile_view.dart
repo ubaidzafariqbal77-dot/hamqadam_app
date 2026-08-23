@@ -8,6 +8,7 @@ import '../../../controllers/profile_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/storage/profile_completion_service.dart';
+import '../../../models/ai_verification_model.dart';
 import '../../../models/profile_model.dart';
 import '../../../widgets/state_widgets.dart';
 import 'edit_profile_view.dart';
@@ -49,9 +50,8 @@ class ProfileView extends StatelessWidget {
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
   @override
-  Widget build(BuildContext context) => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+  Widget build(BuildContext context) =>
+      const Center(child: CircularProgressIndicator(color: AppColors.primary));
 }
 
 class _ProfileBody extends StatelessWidget {
@@ -77,19 +77,30 @@ class _ProfileBody extends StatelessWidget {
         children: <Widget>[
           _HeaderCard(controller: controller, profile: profile),
           const SizedBox(height: AppSpacing.md),
+          // Only while unverified: the same prompt the web dashboard shows, so
+          // a member who was sent away from the signup gate unverified has an
+          // obvious way back in.
+          if (!profile.verification.identityVerified) ...<Widget>[
+            _VerificationBanner(verification: profile.verification),
+            const SizedBox(height: AppSpacing.md),
+          ],
           const _CompletionCard(),
+          const SizedBox(height: AppSpacing.md),
+          const _QuickActionsCard(),
           const SizedBox(height: AppSpacing.md),
           if (_hasIntro(profile.member)) ...<Widget>[
             _IntroMediaCard(member: profile.member),
             const SizedBox(height: AppSpacing.md),
           ],
-          if (_notEmpty(profile.member.aboutMe) || _notEmpty(profile.member.aiGeneratedBio)) ...<Widget>[
+          if (_notEmpty(profile.member.aboutMe) ||
+              _notEmpty(profile.member.aiGeneratedBio)) ...<Widget>[
             _AboutCard(member: profile.member),
             const SizedBox(height: AppSpacing.md),
           ],
           _DetailsCard(controller: controller, member: profile.member),
           const SizedBox(height: AppSpacing.md),
-          if (_notEmpty(profile.member.travelPreferences) || _notEmpty(profile.member.futureGoals)) ...<Widget>[
+          if (_notEmpty(profile.member.travelPreferences) ||
+              _notEmpty(profile.member.futureGoals)) ...<Widget>[
             _AspirationsCard(member: profile.member),
             const SizedBox(height: AppSpacing.md),
           ],
@@ -201,7 +212,9 @@ class _HeaderCard extends StatelessWidget {
             children: <Widget>[
               _StatusPill(
                 icon: m.isVerified ? Icons.verified_user_rounded : Icons.gpp_maybe_rounded,
-                label: m.isVerified ? 'Verified' : (m.verificationStatus ?? 'Unverified').capitalizeFirst!,
+                label: m.isVerified
+                    ? 'Verified'
+                    : (m.verificationStatus ?? 'Unverified').capitalizeFirst!,
               ),
               const SizedBox(width: 8),
               _StatusPill(
@@ -253,26 +266,26 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _fallback() => Container(
-        color: Colors.white.withValues(alpha: 0.2),
-        alignment: Alignment.center,
-        child: Text(initial, style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 30)),
-      );
+    color: Colors.white.withValues(alpha: 0.2),
+    alignment: Alignment.center,
+    child: Text(initial, style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 30)),
+  );
 }
 
 class _EditButton extends StatelessWidget {
   const _EditButton();
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: () => Get.to<void>(() => const EditProfileView()),
-        child: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.20),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
-        ),
-      );
+    onTap: () => Get.to<void>(() => const EditProfileView()),
+    child: Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.20),
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+    ),
+  );
 }
 
 class _GlassChip extends StatelessWidget {
@@ -280,16 +293,16 @@ class _GlassChip extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Text(
-          text,
-          style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Text(
+      text,
+      style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+    ),
+  );
 }
 
 class _StatusPill extends StatelessWidget {
@@ -298,20 +311,20 @@ class _StatusPill extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppRadius.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(icon, size: 14, color: Colors.white),
-            const SizedBox(width: 5),
-            Text(label, style: AppTextStyles.badge.copyWith(color: Colors.white)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 14, color: Colors.white),
+        const SizedBox(width: 5),
+        Text(label, style: AppTextStyles.badge.copyWith(color: Colors.white)),
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -355,9 +368,13 @@ class _CompletionCard extends StatelessWidget {
                           valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                         ),
                       ),
-                      Text('$pct%',
-                          style: AppTextStyles.caption.copyWith(
-                              color: AppColors.primary, fontWeight: FontWeight.w800)),
+                      Text(
+                        '$pct%',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -372,7 +389,7 @@ class _CompletionCard extends StatelessWidget {
                         pending == 0
                             ? 'Your profile is complete.'
                             : '$pending ${pending == 1 ? 'section' : 'sections'} left — '
-                                'complete them for better matches.',
+                                  'complete them for better matches.',
                         style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor),
                       ),
                     ],
@@ -418,19 +435,13 @@ class _IntroMediaCard extends StatelessWidget {
             children: <Widget>[
               if (member.videoIntroUrl != null)
                 Expanded(
-                  child: _MediaTile(
-                    icon: Icons.videocam_rounded,
-                    label: 'Video intro',
-                  ),
+                  child: _MediaTile(icon: Icons.videocam_rounded, label: 'Video intro'),
                 ),
               if (member.videoIntroUrl != null && member.voiceIntroUrl != null)
                 const SizedBox(width: AppSpacing.sm),
               if (member.voiceIntroUrl != null)
                 Expanded(
-                  child: _MediaTile(
-                    icon: Icons.mic_rounded,
-                    label: 'Voice intro',
-                  ),
+                  child: _MediaTile(icon: Icons.mic_rounded, label: 'Voice intro'),
                 ),
             ],
           ),
@@ -446,22 +457,21 @@ class _MediaTile extends StatelessWidget {
   final String label;
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          borderRadius: AppRadius.mdAll,
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
-        ),
-        child: Column(
-          children: <Widget>[
-            Icon(icon, color: AppColors.primary, size: AppDimensions.iconLg),
-            const SizedBox(height: 6),
-            Text(label, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700)),
-            Text('Uploaded',
-                style: AppTextStyles.badge.copyWith(color: AppColors.success)),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+    decoration: BoxDecoration(
+      color: AppColors.primary.withValues(alpha: 0.08),
+      borderRadius: AppRadius.mdAll,
+      border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+    ),
+    child: Column(
+      children: <Widget>[
+        Icon(icon, color: AppColors.primary, size: AppDimensions.iconLg),
+        const SizedBox(height: 6),
+        Text(label, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700)),
+        Text('Uploaded', style: AppTextStyles.badge.copyWith(color: AppColors.success)),
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -499,9 +509,10 @@ class _AboutCard extends StatelessWidget {
                   const Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.gold),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(bio,
-                        style: AppTextStyles.caption
-                            .copyWith(fontStyle: FontStyle.italic)),
+                    child: Text(
+                      bio,
+                      style: AppTextStyles.caption.copyWith(fontStyle: FontStyle.italic),
+                    ),
                   ),
                 ],
               ),
@@ -530,10 +541,18 @@ class _DetailsCard extends StatelessWidget {
     final List<_Detail> rows = <_Detail>[
       _Detail(Icons.wc_rounded, 'Gender', controller.genderLabel(member.gender)),
       _Detail(Icons.cake_outlined, 'Date of birth', _fmtDate(member.dateOfBirth)),
-      _Detail(Icons.favorite_border_rounded, 'Marital status', controller.maritalLabel(member.maritalStatusId)),
+      _Detail(
+        Icons.favorite_border_rounded,
+        'Marital status',
+        controller.maritalLabel(member.maritalStatusId),
+      ),
       _Detail(Icons.family_restroom_rounded, 'Children', member.children?.toString()),
       _Detail(Icons.groups_2_outlined, 'Profile for', controller.onBehalfLabel(member.onBehalfId)),
-      _Detail(Icons.translate_rounded, 'Mother tongue', controller.languageLabel(member.motherTongue)),
+      _Detail(
+        Icons.translate_rounded,
+        'Mother tongue',
+        controller.languageLabel(member.motherTongue),
+      ),
       _Detail(Icons.language_rounded, 'Known languages', langs.isEmpty ? null : langs.join(', ')),
     ].where((_Detail d) => d.value != null && d.value!.trim().isNotEmpty).toList();
 
@@ -556,8 +575,18 @@ class _DetailsCard extends StatelessWidget {
   static String? _fmtDate(DateTime? d) {
     if (d == null) return null;
     const List<String> months = <String>[
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -575,33 +604,31 @@ class _DetailRow extends StatelessWidget {
   final _Detail detail;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        child: Row(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.10),
-                borderRadius: AppRadius.smAll,
-              ),
-              child: Icon(detail.icon, size: AppDimensions.iconSm, color: AppColors.primary),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(detail.label,
-                  style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor)),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Flexible(
-              child: Text(
-                detail.value!,
-                textAlign: TextAlign.end,
-                style: AppTextStyles.bodyStrong,
-              ),
-            ),
-          ],
+    padding: const EdgeInsets.symmetric(vertical: 11),
+    child: Row(
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            borderRadius: AppRadius.smAll,
+          ),
+          child: Icon(detail.icon, size: AppDimensions.iconSm, color: AppColors.primary),
         ),
-      );
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            detail.label,
+            style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Flexible(
+          child: Text(detail.value!, textAlign: TextAlign.end, style: AppTextStyles.bodyStrong),
+        ),
+      ],
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -650,21 +677,25 @@ class _MiniBlock extends StatelessWidget {
   final String value;
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Row(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: AppTextStyles.caption.copyWith(
-                      color: Theme.of(context).hintColor, fontWeight: FontWeight.w700)),
-            ],
+          Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: Theme.of(context).hintColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(value, style: AppTextStyles.body),
         ],
-      );
+      ),
+      const SizedBox(height: 4),
+      Text(value, style: AppTextStyles.body),
+    ],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -727,8 +758,10 @@ class _PrivChip extends StatelessWidget {
         children: <Widget>[
           Icon(priv.on ? Icons.check_rounded : Icons.lock_rounded, size: 13, color: color),
           const SizedBox(width: 5),
-          Text(priv.label,
-              style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600)),
+          Text(
+            priv.label,
+            style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600),
+          ),
         ],
       ),
     );
@@ -751,9 +784,7 @@ class _Surface extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: AppRadius.lgAll,
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10)),
         boxShadow: dark
             ? null
             : <BoxShadow>[
@@ -776,10 +807,158 @@ class _CardTitle extends StatelessWidget {
   final String title;
   @override
   Widget build(BuildContext context) => Row(
-        children: <Widget>[
-          Icon(icon, size: AppDimensions.iconMd, color: AppColors.primary),
-          const SizedBox(width: AppSpacing.xs),
-          Text(title, style: AppTextStyles.subtitle),
-        ],
+    children: <Widget>[
+      Icon(icon, size: AppDimensions.iconMd, color: AppColors.primary),
+      const SizedBox(width: AppSpacing.xs),
+      Text(title, style: AppTextStyles.subtitle),
+    ],
+  );
+}
+
+/// Prompt shown while identity verification has not passed.
+///
+/// Mirrors the web dashboard: registration is never blocked by the model, so an
+/// unverified member needs a visible way to finish the check.
+class _VerificationBanner extends StatelessWidget {
+  const _VerificationBanner({required this.verification});
+
+  final ProfileVerification verification;
+
+  @override
+  Widget build(BuildContext context) {
+    final AiVerificationModel ai = verification.ai;
+    final (Color color, IconData icon, String title, String body) = _copy(context, ai);
+    return InkWell(
+      borderRadius: AppRadius.lgAll,
+      onTap: () => Get.toNamed(AppRoutes.aiVerification),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: AppRadius.lgAll,
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(icon, color: color, size: AppDimensions.iconLg),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(title, style: AppTextStyles.bodyStrong.copyWith(color: color)),
+                  const SizedBox(height: 2),
+                  Text(body, style: AppTextStyles.caption),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  (Color, IconData, String, String) _copy(BuildContext context, AiVerificationModel ai) {
+    if (ai.isPending) {
+      return (
+        AppColors.info,
+        Icons.hourglass_top_rounded,
+        'Verification in progress',
+        'We are checking the documents you submitted. Tap for details.',
       );
+    }
+    if (ai.needsManualReview) {
+      return (
+        AppColors.warning,
+        Icons.person_search_rounded,
+        'Verification needs review',
+        'Our team is reviewing your documents. Tap to see the status.',
+      );
+    }
+    if (ai.isRejected) {
+      return (
+        AppColors.error,
+        Icons.gpp_bad_rounded,
+        'Verification did not pass',
+        'Tap to see why and try again.',
+      );
+    }
+    if (ai.hasFailed) {
+      return (
+        AppColors.warning,
+        Icons.error_outline_rounded,
+        'Verification incomplete',
+        'We could not reach the verification service. Tap to retry.',
+      );
+    }
+    return (
+      AppColors.primary,
+      Icons.verified_user_outlined,
+      'Verify your identity',
+      'Verified profiles are trusted more and get better responses.',
+    );
+  }
+}
+
+/// Entry points for the post-signup features that live on their own screens.
+class _QuickActionsCard extends StatelessWidget {
+  const _QuickActionsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return _Surface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const _CardTitle(icon: Icons.tune_rounded, title: 'Manage'),
+          const SizedBox(height: AppSpacing.xs),
+          _ActionTile(
+            icon: Icons.favorite_border_rounded,
+            title: 'Interests',
+            subtitle: 'Proposals you sent and received',
+            route: AppRoutes.expressInterests,
+          ),
+          _ActionTile(
+            icon: Icons.filter_alt_outlined,
+            title: 'Partner preferences',
+            subtitle: 'Shapes which matches you see',
+            route: AppRoutes.partnerPreferencesEdit,
+          ),
+          _ActionTile(
+            icon: Icons.verified_user_outlined,
+            title: 'Identity verification',
+            subtitle: 'Status, history and re-check',
+            route: AppRoutes.aiVerification,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: AppColors.primary),
+      title: Text(title, style: AppTextStyles.body),
+      subtitle: Text(subtitle, style: AppTextStyles.caption),
+      trailing: Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
+      onTap: () => Get.toNamed(route),
+    );
+  }
 }

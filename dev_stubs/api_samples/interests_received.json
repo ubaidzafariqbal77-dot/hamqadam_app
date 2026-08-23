@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "interests": [],
+    "meta": {
+      "current_page": 1,
+      "last_page": 1,
+      "per_page": 15,
+      "total": 0
+    },
+    "pending_count": 0
+  }
+}

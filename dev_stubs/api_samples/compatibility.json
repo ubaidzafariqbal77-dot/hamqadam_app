@@ -1,0 +1,99 @@
+{
+  "success": true,
+  "message": "Compatibility fetched successfully.",
+  "data": {
+    "profile_id": 3,
+    "compatibility_percentage": 85,
+    "compatibility_explanation": "No negative behavior signals found. Communication style appears compatible. Long-term goals and profile values show promising alignment. The candidate preferences also appear to fit your profile.",
+    "compatibility_reasons": [
+      "No negative behavior signals found.",
+      "Communication style appears compatible.",
+      "Long-term goals and profile values show promising alignment.",
+      "The candidate preferences also appear to fit your profile."
+    ],
+    "score_breakdown": {
+      "religion": {
+        "weight": 20,
+        "matched": true,
+        "score": 20
+      },
+      "lifestyle": {
+        "weight": 15,
+        "matched": true,
+        "score": 15
+      },
+      "education": {
+        "weight": 15,
+        "matched": true,
+        "score": 15
+      },
+      "profession": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "income": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "age": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "prayer": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "language": {
+        "weight": 5,
+        "matched": true,
+        "score": 5
+      },
+      "location": {
+        "weight": 5,
+        "matched": true,
+        "score": 5
+      },
+      "behavior": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "personality": {
+        "weight": 10,
+        "matched": false,
+        "score": 0
+      },
+      "emotional": {
+        "weight": 8,
+        "matched": false,
+        "score": 0
+      },
+      "communication": {
+        "weight": 7,
+        "matched": true,
+        "score": 7
+      },
+      "long_term": {
+        "weight": 10,
+        "matched": true,
+        "score": 10
+      },
+      "mutual_interest": {
+        "weight": 5,
+        "matched": true,
+        "score": 5
+      },
+      "cold_start": {
+        "weight": 5,
+        "matched": false,
+        "score": 0
+      }
+    },
+    "calculated_at": "2026-08-23T15:27:57.465765Z",
+    "source": "live_rule_based"
+  }
+}

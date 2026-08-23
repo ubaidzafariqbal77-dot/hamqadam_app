@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "remaining_interest": 1,
+    "cost_per_interest": 2,
+    "can_send": false
+  }
+}

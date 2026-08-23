@@ -3,12 +3,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/auth_controller.dart';
 import '../../controllers/lookup_controller.dart';
+import '../../controllers/ai_verification_controller.dart';
+import '../../controllers/interest_controller.dart';
+import '../../controllers/partner_preference_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/theme_controller.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/lookup_repository.dart';
+import '../../repositories/ai_verification_repository.dart';
+import '../../repositories/interest_repository.dart';
+import '../../repositories/partner_preference_repository.dart';
 import '../../repositories/profile_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../api/api_client.dart';
@@ -57,6 +63,9 @@ class AppDependencies {
     Get.put<RegistrationRepository>(RegistrationRepository(apiClient), permanent: true);
     Get.put<LookupRepository>(LookupRepository(apiClient), permanent: true);
     Get.put<ProfileRepository>(ProfileRepository(apiClient), permanent: true);
+    Get.put<AiVerificationRepository>(AiVerificationRepository(apiClient), permanent: true);
+    Get.put<InterestRepository>(InterestRepository(apiClient), permanent: true);
+    Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(
@@ -81,6 +90,22 @@ class AppDependencies {
       ),
       fenix: true,
     );
+    // Lazy for the same reason as ProfileController: none of these should fire
+    // a request until their screen is actually opened. `fenix` lets a disposed
+    // controller be recreated, so the tabs stay reusable.
+    Get.lazyPut<AiVerificationController>(
+      () => AiVerificationController(Get.find<AiVerificationRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<InterestController>(
+      () => InterestController(Get.find<InterestRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<PartnerPreferenceController>(
+      () => PartnerPreferenceController(Get.find<PartnerPreferenceRepository>()),
+      fenix: true,
+    );
+
     Get.put<RegistrationController>(
       RegistrationController(
         buffer: Get.find<RegistrationBuffer>(),

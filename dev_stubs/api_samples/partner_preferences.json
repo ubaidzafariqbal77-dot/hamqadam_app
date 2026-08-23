@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "message": null,
+  "data": {
+    "id": 37,
+    "general": null,
+    "age": {
+      "min": null,
+      "max": null
+    },
+    "height": {
+      "preferred": null,
+      "min": null,
+      "max": null
+    },
+    "weight": null,
+    "education": null,
+    "profession": null,
+    "income": {
+      "min": null,
+      "max": null
+    },
+    "religion_id": null,
+    "caste_id": null,
+    "sub_caste_id": null,
+    "marital_status_id": null,
+    "children_acceptable": null,
+    "children_preference": null,
+    "country_id": null,
+    "state_id": null,
+    "city_id": null,
+    "residence_country_id": null,
+    "language_id": null,
+    "preferred_language_ids": [],
+    "lifestyle": null,
+    "diet": null,
+    "prayer": null,
+    "religious_practice": null,
+    "smoking_acceptable": null,
+    "drinking_acceptable": null,
+    "body_type": null,
+    "personal_value": null,
+    "family_value_id": null,
+    "complexion": null,
+    "deal_breakers": [],
+    "updated_at": "2026-08-23T15:27:57.000000Z"
+  }
+}

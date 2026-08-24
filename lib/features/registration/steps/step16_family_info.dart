@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/app_lookups.dart';
+import '../../../constants/income_options.dart';
 import '../../../constants/registration_options.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../models/lookup_item_model.dart';
+import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_picker_field.dart';
-import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 
@@ -14,32 +17,39 @@ import '../../../widgets/step_scaffold.dart';
 class Step16Controller extends StepController {
   Step16Controller() : super(16);
 
+  LookupController get lookup => Get.find<LookupController>();
+
   final RxnString fatherOccupation = RxnString();
   final RxnString motherOccupation = RxnString();
-  final TextEditingController brothers = TextEditingController();
-  final TextEditingController sisters = TextEditingController();
+
+  /// Sibling counts. Picked from a list rather than typed: the columns are
+  /// `unsignedTinyInteger` and a free-text number field was the reported gap.
+  final Rxn<LookupItem> brothers = Rxn<LookupItem>();
+  final Rxn<LookupItem> sisters = Rxn<LookupItem>();
 
   @override
   void restore() {
+    lookup.ensure(LookupKeys.siblings);
     fatherOccupation.value = buffer.getString('father_occupation');
     motherOccupation.value = buffer.getString('mother_occupation');
-    brothers.text = buffer.getInt('siblings_brothers')?.toString() ?? '';
-    sisters.text = buffer.getInt('siblings_sisters')?.toString() ?? '';
+    brothers.value = _sibling(buffer.getInt('siblings_brothers'));
+    sisters.value = _sibling(buffer.getInt('siblings_sisters'));
   }
 
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
     'father_occupation': fatherOccupation.value?.trim(),
     'mother_occupation': motherOccupation.value?.trim(),
-    'siblings_brothers': int.tryParse(brothers.text.trim()),
-    'siblings_sisters': int.tryParse(sisters.text.trim()),
+    'siblings_brothers': brothers.value?.id,
+    'siblings_sisters': sisters.value?.id,
   };
 
-  @override
-  void disposeFields() {
-    brothers.dispose();
-    sisters.dispose();
+  /// Rebuilds the picked row from a saved count.
+  static LookupItem? _sibling(int? count) {
+    if (count == null) return null;
+    return LookupItem(id: count, name: SiblingOptions.labelFor(count));
   }
+
 }
 
 class Step16View extends StatefulWidget {
@@ -104,24 +114,26 @@ class _Step16ViewState extends State<Step16View> {
           ),
         ),
        const SizedBox(height: 8),
-        AppTextFormField(
-          label: 'Number of brothers',
-          controller: c.brothers,
-          requirement: FieldRequirement.optional,
-          keyboardType: TextInputType.number,
-          inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-          hint: '0',
-          textInputAction: TextInputAction.next,
+        Obx(
+          () => AppLookupDropdown(
+            label: 'Number of brothers',
+            lookupKey: LookupKeys.siblings,
+            controller: c.lookup,
+            selected: c.brothers.value,
+            requirement: FieldRequirement.optional,
+            onChanged: (LookupItem? v) => c.brothers.value = v,
+          ),
         ),
-      const SizedBox(height: 8),
-        AppTextFormField(
-          label: 'Number of sisters',
-          controller: c.sisters,
-          requirement: FieldRequirement.optional,
-          keyboardType: TextInputType.number,
-          inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-          hint: '0',
-          textInputAction: TextInputAction.done,
+        const SizedBox(height: 8),
+        Obx(
+          () => AppLookupDropdown(
+            label: 'Number of sisters',
+            lookupKey: LookupKeys.siblings,
+            controller: c.lookup,
+            selected: c.sisters.value,
+            requirement: FieldRequirement.optional,
+            onChanged: (LookupItem? v) => c.sisters.value = v,
+          ),
         ),
       ],
     );

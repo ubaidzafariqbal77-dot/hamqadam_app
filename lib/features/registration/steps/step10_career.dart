@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/api_options.dart';
 import '../../../constants/app_lookups.dart';
+import '../../../constants/income_options.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
-import '../../../core/validators/app_validators.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
@@ -24,7 +23,9 @@ class Step10Controller extends StepController {
 
   LookupController get lookup => Get.find<LookupController>();
 
-  final TextEditingController annualIncome = TextEditingController();
+  /// Annual income, chosen from a band. The band's lower bound is what gets
+  /// posted, because `members.annual_income` is a decimal column.
+  final Rxn<LookupItem> annualIncome = Rxn<LookupItem>();
   final TextEditingController jobTitle = TextEditingController();
   final TextEditingController organization = TextEditingController();
   final TextEditingController yearsOfExperience = TextEditingController();
@@ -45,7 +46,10 @@ class Step10Controller extends StepController {
   @override
   void restore() {
     lookup.ensure(LookupKeys.professionCategories);
-    annualIncome.text = buffer.getInt('annual_income')?.toString() ?? '';
+    lookup.ensure(LookupKeys.annualIncome);
+    final int? income = buffer.getInt('annual_income');
+    final IncomeBand? band = IncomeBand.forValue(income);
+    if (band != null) annualIncome.value = band.item;
     jobTitle.text = buffer.getString('job_title') ?? '';
     organization.text = buffer.getString('organization') ?? '';
     yearsOfExperience.text = buffer.getInt('years_of_experience')?.toString() ?? '';
@@ -74,7 +78,7 @@ class Step10Controller extends StepController {
 
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
-    'annual_income': int.tryParse(annualIncome.text.trim()),
+    'annual_income': annualIncome.value?.id,
     'employment_status': employmentStatus.value,
     'profession_category_id': category.value?.id,
     'profession_id': profession.value?.id,
@@ -87,7 +91,6 @@ class Step10Controller extends StepController {
 
   @override
   void disposeFields() {
-    annualIncome.dispose();
     jobTitle.dispose();
     organization.dispose();
     yearsOfExperience.dispose();
@@ -129,16 +132,17 @@ class _Step10ViewState extends State<Step10View> {
       onPrimary: c.submit,
       onBack: c.back,
       children: <Widget>[
-        AppTextFormField(
-          label: 'Annual income (PKR)',
-          controller: c.annualIncome,
-          hint: 'e.g. 1200000',
-          keyboardType: TextInputType.number,
-          inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-          textInputAction: TextInputAction.next,
-          validator: (String? v) =>
-              AppValidators.numberInRange(v, 0, 100000000, field: 'Annual income'),
+        Obx(
+          () => AppLookupDropdown(
+            label: 'Annual income (PKR)',
+            lookupKey: LookupKeys.annualIncome,
+            controller: c.lookup,
+            selected: c.annualIncome.value,
+            requirement: FieldRequirement.optional,
+            onChanged: (LookupItem? v) => c.annualIncome.value = v,
+          ),
         ),
+        const SizedBox(height: 20),
         Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.start,

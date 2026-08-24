@@ -367,10 +367,16 @@ class _CreateAccountRow extends StatelessWidget {
               .copyWith(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.5),
         ),
         TextButton(
-          onPressed: () {
+          onPressed: () async {
             // Start a fresh registration from step 1 (drops any old draft and
             // the previous profile-completion record).
-            Get.find<RegistrationController>().resetForNewAccount();
+            //
+            // Awaited on purpose: the reset also drops the cached lookup lists,
+            // and navigating first let step 1 read the still-warm cache, run
+            // its `ensure`, and only then have the lists wiped underneath it —
+            // leaving the "Account for" cards on a spinner with nobody left to
+            // ask for them again.
+            await Get.find<RegistrationController>().resetForNewAccount();
             Get.toNamed(AppRoutes.accountFor);
           },
           child: BiText.inline(

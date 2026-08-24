@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/api_options.dart';
+import '../../../constants/app_colors.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../core/api/api_response.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/bilingual_text.dart';
@@ -251,10 +254,7 @@ class _Step01ViewState extends State<Step01View> {
           'Account for',
           subtitle: 'Who is this profile being created for?',
           child: options.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
+              ? _lookupFallback(c.lookup.stateOf(LookupKeys.onBehalf))
               : AppCardSelector(
                   options: options
                       .map((LookupItem i) => CardOption(i.id, i.name, icon: _iconFor(i.name)))
@@ -269,6 +269,52 @@ class _Step01ViewState extends State<Step01View> {
                 ),
         );
     }
+  }
+
+  /// Shown while the `on_behalves` list is unavailable.
+  ///
+  /// The list is cached app-wide, so "empty" is never "no options" — it is a
+  /// load in flight, a failure, or a cache that was dropped (starting a fresh
+  /// signup wipes it) with nobody left to ask for it again. The last case used
+  /// to leave this step on a spinner forever, so an `initial` state re-triggers
+  /// the load and a failure offers a retry.
+  Widget _lookupFallback(ApiState<List<LookupItem>> state) {
+    if (state.isInitial) {
+      // A load flips the state to `loading` immediately, so this cannot loop.
+      SchedulerBinding.instance.addPostFrameCallback((_) => _loadAccountFor());
+    }
+    if (state.isError || state.status == ApiStatus.empty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          children: <Widget>[
+            BiText(
+              'Could not load the options.',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.body.copyWith(color: AppColors.error),
+              urduColor: AppColors.error,
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _loadAccountFor,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: BiText.inline(
+                'Retry',
+                style: AppTextStyles.bodyStrong.copyWith(color: AppColors.primary),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 32),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  void _loadAccountFor() {
+    if (mounted) c.lookup.load(LookupKeys.onBehalf);
   }
 
   /// A prominent centered heading (title + optional subtitle) for a question.

@@ -371,13 +371,35 @@ class RegistrationController extends GetxController {
     Get.toNamed(AppRoutes.routeForStep(step));
   }
 
+  /// Moves one step back in the signup flow.
+  ///
+  /// This used to be an unconditional `Get.back()`, which broke as soon as the
+  /// app was closed and reopened part-way through: [resume] lands the user on
+  /// their current step with `Get.offAllNamed`, which leaves NOTHING on the
+  /// navigation stack, so `Get.back()` had nothing to pop and the step became a
+  /// dead end. Pop when there is something to pop, and otherwise navigate to the
+  /// previous step directly — the answers live in the buffer either way, so the
+  /// step rebuilds fully populated.
   void goToPreviousStep() {
     if (isEditingSection) {
       Get.back();
       return;
     }
-    if (currentStep.value > 1) currentStep.value -= 1;
-    Get.back();
+
+    final int target = currentStep.value - 1;
+    if (target < 1) return;
+
+    currentStep.value = target;
+    // Resume should return to where the user actually is, not to the furthest
+    // step they once reached; otherwise closing the app after going back throws
+    // them forward again.
+    buffer.lastStep = target;
+
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+    } else {
+      Get.offNamed<void>(AppRoutes.routeForStep(target));
+    }
   }
 
   // ---- Editing one section after signup -------------------------------------
@@ -522,7 +544,12 @@ class RegistrationController extends GetxController {
     await buffer.clear();
     await completion.clear();
     if (Get.isRegistered<LookupController>()) {
-      Get.find<LookupController>().resetAll();
+      final LookupController lookups = Get.find<LookupController>();
+      lookups.resetAll();
+      // Dropping the cache puts every list back to `initial`. A step already on
+      // screen has run its own `ensure` and will not ask again, so the lists are
+      // warmed right back up here instead of leaving its dropdowns empty.
+      lookups.preloadReference();
     }
   }
 }

@@ -1026,6 +1026,21 @@ class LookupKeys {
   static const String liveWithFamily = 'live_with_family';
   static const String familyValues = 'family_values';
 
+  // ---- App-supplied lists ---------------------------------------------------
+  // The reference endpoint returns neither of these, so they are generated
+  // client-side by LookupRepository. The keys still follow the endpoint's
+  // naming, so if the backend ever starts serving them the server copy wins
+  // without any change here.
+
+  /// The member's own annual income (`members.annual_income`, decimal).
+  static const String annualIncome = 'annual_income';
+
+  /// Income bands offered for partner preferences (`income_min` / `income_max`).
+  static const String partnerIncome = 'partner_annual_income';
+
+  /// Brother / sister counts (`siblings_brothers`, `siblings_sisters`).
+  static const String siblings = 'siblings';
+
   /// Lists that are safe (and useful) to warm up as soon as a token exists.
   static const List<String> preload = <String>[
     onBehalf,

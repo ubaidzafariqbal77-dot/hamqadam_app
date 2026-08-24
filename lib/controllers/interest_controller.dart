@@ -1,9 +1,12 @@
 import 'package:get/get.dart';
 
+import '../constants/feature_access.dart';
+
 import '../core/api/api_response.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/interest_model.dart';
 import '../repositories/interest_repository.dart';
+import 'verification_controller.dart';
 
 /// Outcome of sending an interest, so the caller can react without inspecting
 /// exceptions. [needsCoins] is the case worth special-casing: route the member
@@ -14,6 +17,7 @@ class SendInterestOutcome {
     required this.message,
     this.needsCoins = false,
     this.alreadyExists = false,
+    this.needsVerification = false,
     this.coinsSpent = 0,
   });
 
@@ -21,6 +25,11 @@ class SendInterestOutcome {
   final String message;
   final bool needsCoins;
   final bool alreadyExists;
+
+  /// Blocked by the identity-verification gate rather than by coins — the
+  /// caller should route to verification, not to the coin top-up.
+  final bool needsVerification;
+
   final int coinsSpent;
 }
 
@@ -145,10 +154,29 @@ class InterestController extends GetxController {
 
   // ---- Actions -------------------------------------------------------------
 
+  /// The verification gate for the signed-in member.
+  ///
+  /// The API enforces nothing on `verification_status`, so this is the app's
+  /// own policy — see [FeatureAccess], which documents the full matrix and why
+  /// the same rules still need applying server-side.
+  FeatureAccess get access {
+    if (!Get.isRegistered<VerificationController>()) {
+      return const FeatureAccess(VerificationGate.verified);
+    }
+    return Get.find<VerificationController>().access;
+  }
+
   /// Sends an interest to [userId]. Spends coins on success.
   Future<SendInterestOutcome> sendInterest(int userId, {String? note}) async {
     if (sending.value) {
       return const SendInterestOutcome(sent: false, message: 'Already sending…');
+    }
+
+    // Held back until a moderator approves the identity. Checked before the
+    // request so the member is not charged coins for a call the policy forbids.
+    final String? blocked = access.reasonFor(AppFeature.sendInterest);
+    if (blocked != null) {
+      return SendInterestOutcome(sent: false, message: blocked, needsVerification: true);
     }
     sending.value = true;
     try {

@@ -1,0 +1,217 @@
+{
+    "success": true,
+    "message": null,
+    "data": {
+        "user": {
+            "id": 66,
+            "code": "20260866",
+            "first_name": "Younis",
+            "last_name": "Gopang",
+            "name": "Younis Gopang",
+            "email": "hr.yirsystem@gmail.com",
+            "phone": "+923336677485",
+            "photo": "https://hamqadam.com/public/uploads/all/6a8b54c88c68e.jpeg",
+            "approved": true,
+            "blocked": false,
+            "deactivated": false,
+            "email_verified_at": "2026-08-23T20:15:27.000000Z"
+        },
+        "member": {
+            "gender": "1",
+            "date_of_birth": "2001-08-24 00:00:00",
+            "about_me": "gsvs saha sbabs sbs sbs s sbs s",
+            "ai_generated_bio": null,
+            "video_introduction": null,
+            "voice_introduction": null,
+            "marital_status_id": 1,
+            "children": null,
+            "on_behalf_id": 1,
+            "annual_salary_range_id": null,
+            "mother_tongue": 6,
+            "known_languages": [
+                6
+            ],
+            "travel_preferences": null,
+            "future_goals": null,
+            "hide_profile": false,
+            "verification_status": "submitted",
+            "profile_completion_percentage": 100
+        },
+        "religion_and_language": {
+            "religion_id": 1,
+            "sect_main_id": 2,
+            "school_of_thought_id": 9,
+            "tradition_id": null,
+            "mother_tongue": 6,
+            "languages_spoken_fluently": [],
+            "prayer_frequency": null,
+            "religious_practice_level": null,
+            "hijab_beard_preference": null
+        },
+        "caste": {
+            "caste_id": 8,
+            "sub_caste_id": 27,
+            "community_biradari": null,
+            "family_value_id": null,
+            "ethnicity": null,
+            "personal_value": null,
+            "community_value": null
+        },
+        "location": {
+            "country_id": 166,
+            "state_id": 2728,
+            "city_id": 31496,
+            "area": "shamsabad",
+            "address_type": "present",
+            "postal_code": null,
+            "work_location_city": null,
+            "relocation_preference": null,
+            "visa_immigration_status": null,
+            "future_living_preference": null
+        },
+        "education": {
+            "education_level_id": 6,
+            "education_level": null,
+            "degree_id": 1,
+            "degree": null,
+            "field_of_study_id": 7,
+            "institution_id": 21,
+            "institution": null,
+            "graduation_year": 2024,
+            "education_status": "completed",
+            "expected_graduation_year": null,
+            "is_highest_degree": false,
+            "currently_studying": false
+        },
+        "career": {
+            "profession_category_id": 3,
+            "profession_id": 39,
+            "job_title": "flutter",
+            "organization": "gopang",
+            "years_of_experience": "3",
+            "currently_working": true,
+            "employment_status": "private",
+            "annual_income": "1200000.00",
+            "annual_salary_range_id": null,
+            "financial_responsibility": null,
+            "willing_to_work_after_marriage": null,
+            "expects_spouse_to_work": true
+        },
+        "physical": {
+            "height": 5,
+            "weight": null,
+            "body_type": null,
+            "complexion": null,
+            "blood_group": null,
+            "eye_color": null,
+            "hair_color": null,
+            "body_art": null,
+            "disability": null,
+            "health_conditions": null,
+            "diet": "Non-Vegetarian"
+        },
+        "lifestyle_and_interests": {
+            "hobbies": [
+                "Reading",
+                "Traveling",
+                "Cooking",
+                "Gardening",
+                "Painting",
+                "Dancing",
+                "Writing",
+                "Yoga",
+                "Hiking",
+                "Volunteering",
+                "Gaming"
+            ],
+            "interests_multi_select": [],
+            "favorite_weekend_activities": null,
+            "life_values": [],
+            "love_language": [],
+            "personality_type": null,
+            "communication_style": null,
+            "communication_preferences": [],
+            "conflict_resolution_style": null,
+            "travel_preferences": null
+        },
+        "family": {
+            "father_name": null,
+            "mother_name": null,
+            "father_occupation": "Died",
+            "mother_occupation": "Homemaker / Housewife",
+            "siblings_brothers": 2,
+            "siblings_sisters": 3,
+            "siblings_note": null,
+            "about_parents": null,
+            "about_siblings": null,
+            "about_relatives": null,
+            "married_siblings": null,
+            "family_type": null,
+            "family_values": "Aspiring",
+            "family_location": "rajanpur",
+            "family_bio": null,
+            "family_expectations": null,
+            "guardian_name": null,
+            "guardian_contact": null,
+            "parents_contact": null
+        },
+        "marriage_expectations": {
+            "looking_for": null,
+            "marriage_timeline": "immediate",
+            "children_preference": null,
+            "expectations_after_marriage": [],
+            "proposal_preferences": null,
+            "future_goals": null
+        },
+        "photos": {
+            "profile_photo": "https://hamqadam.com/public/uploads/all/6a8b54c88c68e.jpeg",
+            "cover_photo": null,
+            "gallery": [
+                "https://hamqadam.com/public/uploads/all/6a8b54c8911cd.jpeg",
+                "https://hamqadam.com/public/uploads/all/6a8b54c8914eb.jpeg"
+            ]
+        },
+        "verification": {
+            "status": "submitted",
+            "ai": {
+                "status": "approved",
+                "recommendation": "APPROVE",
+                "attempts": 1,
+                "verified_at": "2026-08-23T20:15:06.000000Z",
+                "last_attempt_at": "2026-08-23T20:15:06.000000Z"
+            }
+        },
+        "registration": {
+            "completion_percentage": 100,
+            "steps": [
+                "step1",
+                "step2",
+                "step3",
+                "step4",
+                "step5",
+                "step6",
+                "step7",
+                "step8",
+                "step9",
+                "step10",
+                "step11",
+                "step12",
+                "step13",
+                "step14",
+                "step15",
+                "step16",
+                "step17",
+                "step18"
+            ]
+        },
+        "privacy": {
+            "show_photo": true,
+            "show_gallery": false,
+            "show_contact": false,
+            "show_email": false,
+            "show_phone": false,
+            "show_location": true,
+            "allow_profile_view_notifications": true
+        }
+    }
+}

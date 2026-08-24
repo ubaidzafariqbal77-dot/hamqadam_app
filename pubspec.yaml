@@ -61,6 +61,10 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  # On-device diagnostics: ML Kit only runs on a real device, so the OCR
+  # behaviour cannot be verified from `flutter test` alone.
+  integration_test:
+    sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -74,17 +78,17 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icons/app_icon.jpeg"
 
-# iOS-Simulator-only dev workaround: Google ML Kit ships no arm64-simulator
-# slice, and this Mac's Xcode can't download an x86_64 runtime to fall back
-# to, so the real plugin can't be linked into a Simulator build at all.
-# Uncomment below to swap in a no-op stub (CNIC OCR always reports "not
-# found") so the rest of the app still runs on Simulator, then run
-# `flutter pub get` and `(cd ios && pod install)`. Comment it back out
-# — and repeat pub get/pod install — before building for Android or a real
-# iOS device, where the real OCR must run.
-dependency_overrides:
-  google_mlkit_text_recognition:
-    path: dev_stubs/google_mlkit_text_recognition
+# NO dependency_overrides here, deliberately.
+#
+# There is a no-op ML Kit stub in dev_stubs/ for working on the iOS Simulator
+# (Google ML Kit ships no arm64-simulator slice). It used to be enabled by an
+# override in THIS file, which is how it ended up shipping to Android: the stub
+# compiles cleanly and `flutter analyze` is perfectly happy, so CNIC OCR simply
+# returned "no text found" on every photo with nothing to indicate why.
+#
+# Enable the stub through pubspec_overrides.yaml instead — it takes precedence
+# over this file, it is gitignored, and it cannot travel to another machine or
+# into a release build. See pubspec_overrides.yaml.example.
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

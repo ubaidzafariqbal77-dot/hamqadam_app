@@ -9,6 +9,7 @@ import '../../controllers/partner_preference_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/theme_controller.dart';
+import '../../controllers/verification_controller.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/lookup_repository.dart';
@@ -17,6 +18,7 @@ import '../../repositories/interest_repository.dart';
 import '../../repositories/partner_preference_repository.dart';
 import '../../repositories/profile_repository.dart';
 import '../../repositories/registration_repository.dart';
+import '../../repositories/verification_repository.dart';
 import '../api/api_client.dart';
 import '../network/network_info.dart';
 import '../storage/current_user_service.dart';
@@ -66,6 +68,7 @@ class AppDependencies {
     Get.put<AiVerificationRepository>(AiVerificationRepository(apiClient), permanent: true);
     Get.put<InterestRepository>(InterestRepository(apiClient), permanent: true);
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
+    Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(
@@ -103,6 +106,10 @@ class AppDependencies {
     );
     Get.lazyPut<PartnerPreferenceController>(
       () => PartnerPreferenceController(Get.find<PartnerPreferenceRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<VerificationController>(
+      () => VerificationController(Get.find<VerificationRepository>()),
       fenix: true,
     );
 

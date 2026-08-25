@@ -93,6 +93,19 @@ class RegistrationController extends GetxController {
 
   bool get isEditingSection => editingStep.value != null;
 
+  /// The step opened from the FINALIZING screen to correct a field the backend
+  /// rejected.
+  ///
+  /// Deliberately separate from [editingStep]: that one re-saves a section
+  /// after signup and posts it to the server. Here the account does not exist
+  /// yet — the whole payload was refused — so the correction is written to the
+  /// buffer and the flow returns to finalizing to retry the submission. Without
+  /// this mode, tapping a rejected field dropped the user back into the normal
+  /// forward flow and made them walk every remaining step again.
+  final RxnInt fixingStep = RxnInt();
+
+  bool get isFixingForFinalize => fixingStep.value != null;
+
   int get totalSteps => AppConstants.totalRegistrationSteps;
 
   /// Kept for the screens that still read the old name.
@@ -402,6 +415,40 @@ class RegistrationController extends GetxController {
     }
   }
 
+  // ---- Correcting a rejected field from the finalizing screen ---------------
+
+  /// Opens [step] so the user can correct a rejected field, and returns to the
+  /// finalizing screen when they are done.
+  Future<void> openStepForFix(int step) async {
+    if (step < 1 || step > totalSteps) return;
+    final int? previous = fixingStep.value;
+    fixingStep.value = step;
+    currentStep.value = step;
+    await Get.toNamed<dynamic>(AppRoutes.routeForStep(step));
+    // Restore rather than blanking: a nested open would otherwise clear the
+    // outer one on the way back.
+    fixingStep.value = previous;
+  }
+
+  /// Accepts a corrected step: the answer is already in the buffer, so this
+  /// only clears the errors that step owned and pops back to finalizing.
+  bool completeFix(int step) {
+    buffer.markCompleted(step);
+    clearFieldErrorsForStep(step);
+    Get.back<void>();
+    return true;
+  }
+
+  /// Drops the field errors belonging to [step], so the finalizing list shrinks
+  /// as each one is corrected.
+  void clearFieldErrorsForStep(int step) {
+    fieldErrors.removeWhere(
+      (String field, _) => RegSteps.uiStepForField(field) == step,
+    );
+    stepError.value =
+        fieldErrors.values.isNotEmpty ? fieldErrors.values.first : '';
+  }
+
   // ---- Editing one section after signup -------------------------------------
 
   /// Opens a single registration step in edit mode so the user can fill in (or
@@ -537,6 +584,7 @@ class RegistrationController extends GetxController {
   /// Wipes the buffered draft + completion record (new signup / logout).
   Future<void> resetForNewAccount() async {
     editingStep.value = null;
+    fixingStep.value = null;
     currentStep.value = 1;
     stepError.value = '';
     fieldErrors.clear();

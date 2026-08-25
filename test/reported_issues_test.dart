@@ -16,8 +16,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hamqadam/constants/api_options.dart';
 import 'package:hamqadam/constants/feature_access.dart';
 import 'package:hamqadam/constants/income_options.dart';
+import 'package:hamqadam/controllers/finalizing_controller.dart';
 import 'package:hamqadam/core/storage/profile_completion_service.dart';
 import 'package:hamqadam/models/profile_model.dart';
 import 'package:hamqadam/models/verification_model.dart';
@@ -33,6 +35,8 @@ Map<String, dynamic> _data(String name) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  _finalizeFixTests();
 
   final ProfileModel complete =
       ProfileModel.fromJson(_data('profile_complete_in_review'));
@@ -237,6 +241,54 @@ void main() {
       expect(SiblingOptions.labelFor(0), 'None');
       expect(SiblingOptions.labelFor(3), '3');
       expect(SiblingOptions.labelFor(25), 'More than 10');
+    });
+  });
+}
+
+/// Correcting a field the finalizing screen rejected must return the user to
+/// finalizing — not drop them back into the forward flow to walk every
+/// remaining step again.
+void _finalizeFixTests() {
+  group('Finalize — rejected fields resolve to their screen', () {
+    test('each rejected field names itself readably', () {
+      const RejectedField income = RejectedField(
+        field: 'annual_income',
+        message: 'The annual income field is required.',
+      );
+      expect(income.label, 'Annual income');
+
+      // A trailing `_id` is plumbing, not something the user chose.
+      const RejectedField religion = RejectedField(
+        field: 'religion_id',
+        message: 'Invalid religion.',
+      );
+      expect(religion.label, 'Religion');
+
+      // Laravel reports nested errors as `known_languages.0`.
+      const RejectedField nested = RejectedField(
+        field: 'known_languages.0',
+        message: 'Invalid language.',
+      );
+      expect(nested.label, 'Known languages');
+    });
+
+    test('a field maps to the screen that collected it', () {
+      expect(RegSteps.uiStepForField('religion_id'), 3);
+      expect(RegSteps.uiStepForField('email'), 5);
+      expect(RegSteps.uiStepForField('marital_status_id'), 7);
+      expect(RegSteps.uiStepForField('annual_income'), 10);
+      // Nested keys resolve to the same screen as their parent.
+      expect(RegSteps.uiStepForField('known_languages.0'),
+          RegSteps.uiStepForField('known_languages'));
+    });
+
+    test('an unmappable field is reported but not tappable', () {
+      const RejectedField unknown = RejectedField(
+        field: 'something_the_app_does_not_collect',
+        message: 'Rejected.',
+      );
+      expect(unknown.uiStep, isNull);
+      expect(RegSteps.uiStepForField(unknown.field), isNull);
     });
   });
 }

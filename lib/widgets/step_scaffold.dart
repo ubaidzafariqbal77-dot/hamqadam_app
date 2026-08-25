@@ -69,9 +69,16 @@ class StepScaffold extends StatelessWidget {
     // own ("Save"), can always be left, and offers no Skip.
     final bool editing = reg?.isEditingSection ?? false;
 
+    // Correcting a field the finalizing screen rejected. Same shape as editing
+    // — the step returns to its caller instead of advancing — but the wording
+    // says what actually happens next.
+    final bool fixing = reg?.isFixingForFinalize ?? false;
+
     // Every step except the account ones (name, contact, password) can be
     // skipped and completed later, so the Skip action is offered automatically.
-    final bool skipVisible = !editing && (showSkip || (reg?.canSkip(stepNumber) ?? false));
+    // A rejected field is never skippable: skipping is what left it empty.
+    final bool skipVisible =
+        !editing && !fixing && (showSkip || (reg?.canSkip(stepNumber) ?? false));
     final VoidCallback? skipAction =
         onSkip ?? (reg == null ? null : () => reg.skipStep(stepNumber));
     final VoidCallback? backAction = onBack ?? (editing ? () => Get.back<void>() : null);
@@ -149,9 +156,14 @@ class StepScaffold extends StatelessWidget {
             ),
           ),
           bottomNavigationBar: _BottomBar(
-            // Editing a section saves it on its own; steps that drive their own
-            // label (e.g. partner preferences) keep it.
-            primaryLabel: editing ? 'Save' : primaryLabel,
+            // Editing a section saves it on its own; a correction returns to
+            // finalizing; steps that drive their own label (e.g. partner
+            // preferences) keep it.
+            primaryLabel: fixing
+                ? 'Save & continue setup'
+                : editing
+                    ? 'Save'
+                    : primaryLabel,
             primaryLabelRx: primaryLabelRx,
             onPrimary: onPrimary,
             busy: busy,

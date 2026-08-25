@@ -80,12 +80,19 @@ abstract class StepController extends GetxController {
     busy.value = true;
     try {
       buffer.put(collect());
-      // Editing a single section after signup saves just this step; during the
-      // flow the step is buffered and the registration advances.
+
+      // Three ways out of a step:
+      //  * correcting a field the finalizing screen reported → buffer it and
+      //    go straight back to finalizing, never onward through the flow;
+      //  * editing a single section after signup → save just this step;
+      //  * the normal flow → buffer it and advance.
+      final bool fixing = reg.isFixingForFinalize;
       final bool editing = reg.isEditingSection;
-      final bool ok = editing
-          ? await reg.saveSection(stepNumber)
-          : await reg.completeStep(stepNumber);
+      final bool ok = fixing
+          ? reg.completeFix(stepNumber)
+          : editing
+              ? await reg.saveSection(stepNumber)
+              : await reg.completeStep(stepNumber);
       if (ok) return;
       if (error.value.isEmpty) {
         error.value = editing ? reg.sectionError.value : reg.stepError.value;
@@ -100,7 +107,8 @@ abstract class StepController extends GetxController {
 
   Future<void> skip() async {
     if (busy.value) return;
-    if (reg.isEditingSection) {
+    // Both "return to caller" modes leave without touching the flow position.
+    if (reg.isEditingSection || reg.isFixingForFinalize) {
       Get.back<void>();
       return;
     }
@@ -108,6 +116,12 @@ abstract class StepController extends GetxController {
   }
 
   void back() {
+    // Backing out of a correction returns to finalizing with the field still
+    // unfixed, rather than stepping backwards through signup.
+    if (reg.isFixingForFinalize) {
+      Get.back<void>();
+      return;
+    }
     if (reg.isEditingSection || stepNumber > 1) reg.goToPreviousStep();
   }
 }

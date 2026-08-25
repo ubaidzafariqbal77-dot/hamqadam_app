@@ -200,6 +200,14 @@ class _RejectedRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      Text(
+                        field.label,
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          color: AppColors.error,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
                       Text(field.message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
                       if (field.stepTitle != null)
                         Text(

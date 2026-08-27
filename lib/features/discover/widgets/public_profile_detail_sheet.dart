@@ -1,48 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../controllers/chat_controller.dart';
 import '../../../controllers/interest_controller.dart';
-import '../../../controllers/search_profiles_controller.dart';
+import '../../../controllers/lookup_controller.dart';
+import '../../../features/chat/views/chat_conversation_view.dart';
+import '../../../models/chat_model.dart';
+import '../../../models/lookup_item_model.dart';
+import '../../../models/public_profile_model.dart';
 import '../../../models/search_filter_profile_model.dart';
+import '../../../repositories/profile_repository.dart';
 import '../../../widgets/app_button.dart';
+import '../../../widgets/state_widgets.dart';
 import 'send_interest_dialog.dart';
 
-/// Bottom modal sheet displaying complete details of a selected member profile.
-class PublicProfileDetailSheet extends StatelessWidget {
-  const PublicProfileDetailSheet({super.key, required this.profile});
+/// Bottom modal sheet displaying complete details of a selected member profile
+/// loaded dynamically from `GET /api/v1/profiles/{id}`.
+class PublicProfileDetailSheet extends StatefulWidget {
+  const PublicProfileDetailSheet({
+    super.key,
+    required this.profileId,
+    this.initialName,
+    this.initialPhoto,
+  });
 
-  final SearchProfileModel profile;
+  final int profileId;
+  final String? initialName;
+  final String? initialPhoto;
 
-  static void show(BuildContext context, SearchProfileModel profile) {
+  static void show(
+    BuildContext context, {
+    required int profileId,
+    String? name,
+    String? photo,
+    SearchProfileModel? searchProfile,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext ctx) => PublicProfileDetailSheet(profile: profile),
+      builder: (BuildContext ctx) => PublicProfileDetailSheet(
+        profileId: profileId,
+        initialName: name ?? searchProfile?.displayName,
+        initialPhoto: photo ?? searchProfile?.photoUrl,
+      ),
     );
   }
+
+  @override
+  State<PublicProfileDetailSheet> createState() => _PublicProfileDetailSheetState();
+}
+
+class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
+  final ProfileRepository _repo = Get.find<ProfileRepository>();
+  final LookupController _lookup = Get.find<LookupController>();
+  late Future<PublicProfileModel> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  void _fetch() {
+    _future = _repo.fetchPublicProfile(widget.profileId);
+  }
+
+  void _startChat(PublicProfileModel profile) async {
+    final ChatController chatCtrl = Get.find<ChatController>();
+    final ChatThread? thread = await chatCtrl.findExistingThreadWithUser(profile.id);
+    if (!mounted) return;
+
+    if (thread != null && thread.id > 0) {
+      Navigator.of(context).pop();
+      ChatConversationView.open(thread);
+    } else {
+      Navigator.of(context).pop();
+      SendInterestDialog.show(
+        context,
+        SearchProfileModel(
+          id: profile.id,
+          name: profile.name,
+          code: profile.code,
+          photo: profile.photo,
+          age: profile.age,
+          gender: profile.gender,
+          cityId: profile.cityId,
+          stateId: profile.stateId,
+          countryId: profile.countryId,
+          identityVerified: profile.identityVerified,
+        ),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final SearchProfilesController searchCtrl = Get.find<SearchProfilesController>();
     final InterestController? interestCtrl = Get.isRegistered<InterestController>()
         ? Get.find<InterestController>()
         : null;
 
-    final String? religion = searchCtrl.religionLabel(profile.religionId);
-    final String? caste = searchCtrl.casteLabel(profile.casteId);
-    final String? marital = searchCtrl.maritalStatusLabel(profile.maritalStatusId);
-    final String location = searchCtrl.formatLocation(profile);
-    final String? gender = searchCtrl.genderLabel(profile.gender);
-
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
+        maxHeight: MediaQuery.of(context).size.height * 0.88,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
@@ -69,223 +137,28 @@ class PublicProfileDetailSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
             ),
-            // Header Image / Gradient Hero
-            Stack(
-              children: <Widget>[
-                Container(
-                  height: 170,
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: AppColors.brandGradient,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: profile.hasPhoto
-                      ? Image.network(
-                          profile.photoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => const SizedBox(),
-                        )
-                      : null,
-                ),
-                Container(
-                  height: 170,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        Colors.black.withValues(alpha: 0.6),
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  right: 12,
-                  child: IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                if (profile.compatibilityPercentage != null)
-                  Positioned(
-                    top: 14,
-                    left: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.favorite_rounded, color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${profile.compatibilityPercentage}% Match',
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  bottom: 12,
-                  left: 16,
-                  right: 16,
-                  child: Row(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.primaryLight,
-                          backgroundImage:
-                              profile.hasPhoto ? NetworkImage(profile.photoUrl!) : null,
-                          child: !profile.hasPhoto
-                              ? Text(
-                                  profile.initial,
-                                  style: AppTextStyles.title.copyWith(color: Colors.white),
-                                )
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Row(
-                              children: <Widget>[
-                                Flexible(
-                                  child: Text(
-                                    profile.displayName,
-                                    style: AppTextStyles.title.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (profile.isVerified) ...<Widget>[
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.verified_rounded, color: Colors.white, size: 18),
-                                ],
-                              ],
-                            ),
-                            if (profile.code != null)
-                              Text(
-                                'ID: ${profile.code}',
-                                style: AppTextStyles.caption.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            // Profile details list
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                children: <Widget>[
-                  // Key attributes strip
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: <Widget>[
-                      if (profile.age != null)
-                        _infoChip(Icons.cake_outlined, '${profile.age} Years'),
-                      if (profile.heightFormatted != null)
-                        _infoChip(Icons.height_rounded, profile.heightFormatted!),
-                      if (gender != null)
-                        _infoChip(Icons.person_outline_rounded, gender),
-                      if (marital != null)
-                        _infoChip(Icons.favorite_border_rounded, marital),
-                      if (location.isNotEmpty)
-                        _infoChip(Icons.location_on_outlined, location),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
 
-                  // Detail rows
-                  _detailTile('Religion', religion ?? 'Not specified', Icons.mosque_outlined),
-                  _detailTile('Caste / Community', caste ?? 'Not specified', Icons.diversity_3_outlined),
-                  _detailTile('Location', location.isNotEmpty ? location : 'Not specified', Icons.map_outlined),
-                  _detailTile(
-                    'Identity Verification',
-                    profile.isVerified ? 'Verified Member' : 'Pending Verification',
-                    profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
-                    iconColor: profile.isVerified ? AppColors.info : AppColors.warning,
-                  ),
-                  if (profile.membership != null)
-                    _detailTile('Membership Plan', 'Tier ${profile.membership}', Icons.workspace_premium_outlined),
-                ],
+            Expanded(
+              child: FutureBuilder<PublicProfileModel>(
+                future: _future,
+                builder: (BuildContext ctx, AsyncSnapshot<PublicProfileModel> snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return ErrorStateWidget(
+                      message: 'Failed to load profile details.',
+                      onRetry: () => setState(_fetch),
+                    );
+                  }
+
+                  final PublicProfileModel profile = snapshot.data!;
+                  return _buildContent(context, profile, isDark, interestCtrl);
+                },
               ),
-            ),
-            // Connect Button
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightBackground,
-                border: const Border(top: BorderSide(color: AppColors.lightDivider)),
-              ),
-              child: Obx(() {
-                final bool alreadySent = interestCtrl?.hasSentInterestTo(profile.id) == true;
-                if (alreadySent) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: AppColors.success.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(AppRadius.pill),
-                      border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Interest Already Sent',
-                          style: AppTextStyles.bodyStrong.copyWith(color: AppColors.success),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return AppButton(
-                  label: 'Express Interest',
-                  icon: Icons.favorite_rounded,
-                  onPressed: () => SendInterestDialog.show(context, profile),
-                );
-              }),
             ),
           ],
         ),
@@ -293,23 +166,309 @@ class PublicProfileDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _infoChip(IconData icon, String text) {
+  String? _lookupName(String key, int? id) {
+    if (id == null) return null;
+    final List<LookupItem> items = _lookup.itemsOf(key);
+    for (final LookupItem item in items) {
+      if (item.id == id) return item.name;
+    }
+    return null;
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    PublicProfileModel profile,
+    bool isDark,
+    InterestController? interestCtrl,
+  ) {
+    // Resolve labels
+    final String? religion = _lookupName(LookupKeys.religions, profile.religionId);
+    final String? caste = _lookupName(LookupKeys.castes, profile.casteId);
+    final String? marital = _lookupName(LookupKeys.maritalStatuses, profile.maritalStatusId);
+    final String? city = _lookupName(LookupKeys.cities, profile.cityId);
+    final String? state = _lookupName(LookupKeys.states, profile.stateId);
+    final String? country = _lookupName(LookupKeys.countries, profile.countryId);
+
+    final String location = <String>[
+      if (city != null && city.isNotEmpty) city,
+      if (state != null && state.isNotEmpty) state,
+      if (country != null && country.isNotEmpty) country,
+    ].join(', ');
+
+    return Column(
+      children: <Widget>[
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Header Image Banner
+                Stack(
+                  children: <Widget>[
+                    Container(
+                      height: 180,
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: AppColors.brandGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: profile.photoUrl != null
+                          ? Image.network(
+                              profile.photoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const SizedBox(),
+                            )
+                          : Center(
+                              child: Text(
+                                profile.initial,
+                                style: const TextStyle(
+                                  fontSize: 64,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white24,
+                                ),
+                              ),
+                            ),
+                    ),
+                    Container(
+                      height: 180,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: <Color>[
+                            Colors.black.withValues(alpha: 0.5),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                      ),
+                    ),
+                    // Header Details Overlaid
+                    Positioned(
+                      left: AppSpacing.lg,
+                      right: AppSpacing.lg,
+                      bottom: AppSpacing.md,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Row(
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  profile.displayName,
+                                  style: AppTextStyles.headline.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (profile.identityVerified) ...<Widget>[
+                                const SizedBox(width: 8),
+                                const Icon(Icons.verified_rounded, color: AppColors.success, size: 20),
+                              ],
+                            ],
+                          ),
+                          if (profile.code != null && profile.code!.isNotEmpty) ...<Widget>[
+                            const SizedBox(height: 2),
+                            Text(
+                              'ID: ${profile.code}',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      // Quick Chips
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: <Widget>[
+                          if (profile.age != null)
+                            _infoChip(Icons.cake_outlined, '${profile.age} yrs'),
+                          if (profile.height != null && profile.height!.isNotEmpty)
+                            _infoChip(Icons.height_rounded, '${profile.height} ft'),
+                          if (marital != null)
+                            _infoChip(Icons.wc_rounded, marital),
+                          if (profile.compatibilityPercentage != null)
+                            _infoChip(
+                              Icons.auto_awesome_rounded,
+                              '${profile.compatibilityPercentage}% Match',
+                              color: AppColors.gold,
+                            ),
+                          if (profile.identityVerified)
+                            _infoChip(
+                              Icons.verified_user_rounded,
+                              'Verified Profile',
+                              color: AppColors.success,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Package viewer meta info (if available)
+                      if (profile.meta != null && profile.meta!.packageValidity != null) ...<Widget>[
+                        Container(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Icon(Icons.card_membership_rounded, color: AppColors.primary, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'Package validity: ${profile.meta!.packageValidity}',
+                                  style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+
+                      Text('Profile Information', style: AppTextStyles.title),
+                      const SizedBox(height: AppSpacing.xs),
+                      const Divider(height: 1, color: AppColors.lightDivider),
+                      const SizedBox(height: AppSpacing.xs),
+
+                      // Details List
+                      _detailTile('Religion', religion ?? '—', Icons.mosque_outlined),
+                      _detailTile('Caste / Community', caste ?? '—', Icons.people_outline_rounded),
+                      _detailTile('Marital Status', marital ?? '—', Icons.favorite_border_rounded),
+                      _detailTile('Location', location.isNotEmpty ? location : '—', Icons.location_on_outlined),
+                      _detailTile('Gender', profile.gender == '1' ? 'Male' : (profile.gender == '2' ? 'Female' : '—'), Icons.person_outline_rounded),
+                      if (profile.createdAt != null)
+                        _detailTile('Member Since', DateFormat('MMMM yyyy').format(profile.createdAt!), Icons.calendar_today_outlined),
+                      if (profile.lastActiveAt != null)
+                        _detailTile('Last Active', DateFormat('MMM d, yyyy').format(profile.lastActiveAt!), Icons.access_time_rounded),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Bottom Action Bar: Chat & Express Interest
+        Container(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightBackground,
+            border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
+          ),
+          child: Row(
+            children: <Widget>[
+              // Chat Button
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primary),
+                  label: const Text('Chat', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                  ),
+                  onPressed: () => _startChat(profile),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+
+              // Express Interest Button
+              Expanded(
+                flex: 2,
+                child: Obx(() {
+                  final bool alreadySent = interestCtrl?.hasSentInterestTo(profile.id) == true;
+                  if (alreadySent) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'Interest Sent',
+                            style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return AppButton(
+                    label: 'Express Interest',
+                    icon: Icons.favorite_rounded,
+                    onPressed: () {
+                      final SearchProfileModel searchModel = SearchProfileModel(
+                        id: profile.id,
+                        name: profile.name,
+                        photo: profile.photo,
+                        age: profile.age,
+                        gender: profile.gender,
+                        maritalStatusId: profile.maritalStatusId,
+                        religionId: profile.religionId,
+                        casteId: profile.casteId,
+                        cityId: profile.cityId,
+                        stateId: profile.stateId,
+                        countryId: profile.countryId,
+                        identityVerified: profile.identityVerified,
+                      );
+                      SendInterestDialog.show(context, searchModel);
+                    },
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text, {Color? color}) {
+    final Color c = color ?? AppColors.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
+        color: c.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: c.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 14, color: AppColors.primary),
+          Icon(icon, size: 14, color: c),
           const SizedBox(width: 5),
           Text(
             text,
             style: AppTextStyles.caption.copyWith(
-              color: AppColors.primaryDark,
+              color: c,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -329,7 +488,7 @@ class PublicProfileDetailSheet extends StatelessWidget {
               color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
               borderRadius: AppRadius.smAll,
             ),
-            child: Icon(icon, size: 20, color: iconColor ?? AppColors.primary),
+            child: Icon(icon, size: 18, color: iconColor ?? AppColors.primary),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(

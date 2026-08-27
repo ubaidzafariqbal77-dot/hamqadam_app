@@ -2,25 +2,33 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../controllers/chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
 import '../../controllers/interest_controller.dart';
 import '../../controllers/partner_preference_controller.dart';
 import '../../controllers/profile_controller.dart';
+import '../../controllers/profile_view_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/search_profiles_controller.dart';
+import '../../controllers/shortlist_controller.dart';
 import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
+import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
+import '../../repositories/chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
 import '../../repositories/interest_repository.dart';
 import '../../repositories/partner_preference_repository.dart';
 import '../../repositories/profile_repository.dart';
+import '../../repositories/profile_view_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../../repositories/search_repository.dart';
+import '../../repositories/shortlist_repository.dart';
 import '../../repositories/verification_repository.dart';
+
 import '../api/api_client.dart';
 import '../network/network_info.dart';
 import '../storage/current_user_service.dart';
@@ -72,6 +80,12 @@ class AppDependencies {
     Get.put<InterestRepository>(InterestRepository(apiClient), permanent: true);
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
     Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
+    Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
+    Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
+    Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
+
+    final PusherChatService pusherService = PusherChatService(storage: secureStorage);
+    Get.put<PusherChatService>(pusherService, permanent: true);
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(
@@ -86,11 +100,28 @@ class AppDependencies {
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
 
+    // Shortlist Controller (Permanent so shortlist state is globally cached & synced)
+    Get.put<ShortlistController>(
+      ShortlistController(Get.find<ShortlistRepository>()),
+      permanent: true,
+    );
+
     // Discover / Search Controller
     Get.lazyPut<SearchProfilesController>(
       () => SearchProfilesController(
         repository: Get.find<SearchRepository>(),
         lookupController: Get.find<LookupController>(),
+      ),
+      fenix: true,
+    );
+
+
+    // Chat Controller
+    Get.lazyPut<ChatController>(
+      () => ChatController(
+        repository: Get.find<ChatRepository>(),
+        pusher: Get.find<PusherChatService>(),
+        currentUser: Get.find<CurrentUserService>(),
       ),
       fenix: true,
     );
@@ -122,6 +153,10 @@ class AppDependencies {
     );
     Get.lazyPut<VerificationController>(
       () => VerificationController(Get.find<VerificationRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<ProfileViewController>(
+      () => ProfileViewController(Get.find<ProfileViewRepository>()),
       fenix: true,
     );
 

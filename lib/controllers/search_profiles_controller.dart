@@ -9,6 +9,8 @@ import '../models/lookup_item_model.dart';
 import '../models/search_filter_profile_model.dart';
 import '../repositories/search_repository.dart';
 import 'lookup_controller.dart';
+import 'shortlist_controller.dart';
+
 
 /// Drives the Search / Discover dashboard screen:
 /// - Fetches `GET /search/profiles` with dynamic query filters
@@ -57,15 +59,25 @@ class SearchProfilesController extends GetxController {
   bool get hasMore => pageData?.hasMore ?? false;
   int get activeFilterCount => filter.value.activeFilterCount;
 
-  bool isShortlisted(int userId) => shortlistedUserIds.contains(userId);
+  bool isShortlisted(int userId) {
+    if (Get.isRegistered<ShortlistController>()) {
+      return Get.find<ShortlistController>().isShortlisted(userId);
+    }
+    return shortlistedUserIds.contains(userId);
+  }
 
-  void toggleShortlist(int userId) {
-    if (shortlistedUserIds.contains(userId)) {
-      shortlistedUserIds.remove(userId);
+  void toggleShortlist(int userId, {String? displayName}) {
+    if (Get.isRegistered<ShortlistController>()) {
+      Get.find<ShortlistController>().toggleShortlist(userId, displayName: displayName);
     } else {
-      shortlistedUserIds.add(userId);
+      if (shortlistedUserIds.contains(userId)) {
+        shortlistedUserIds.remove(userId);
+      } else {
+        shortlistedUserIds.add(userId);
+      }
     }
   }
+
 
   void ignoreProfile(int userId) {
     ignoredUserIds.add(userId);

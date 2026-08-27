@@ -197,6 +197,8 @@ void main() {
     pc.state.value = ApiState<ProfileModel>.success(ProfileModel.fromJson(_payload));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
+    pc.state.value = ApiState<ProfileModel>.success(ProfileModel.fromJson(_payload));
+    await tester.pumpAndSettle();
 
     // ignore: avoid_print
     print('TEXT: ${tester.widgetList<Text>(find.byType(Text)).map((Text t) => t.data ?? '').join(' | ')}');
@@ -206,7 +208,7 @@ void main() {
       matchesGoldenFile('goldens/profile_dark_1.png'),
     );
     for (int i = 2; i <= 5; i++) {
-      await tester.drag(find.byType(ListView), const Offset(0, -1150));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1150));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(

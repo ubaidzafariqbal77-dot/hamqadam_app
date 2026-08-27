@@ -104,6 +104,30 @@ class ApiEndpoints {
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
 
+  // ---- Shortlists ------------------------------------------------------------
+  /// Shortlisted proposals list (`GET /proposals/shortlists`) and create (`POST /proposals/shortlists`).
+  static const String shortlists = '/proposals/shortlists';
+
+  /// Check shortlist status (`GET /proposals/shortlists/{userId}/check`).
+  static String shortlistCheck(int userId) => '/proposals/shortlists/$userId/check';
+
+  /// Remove profile from shortlist (`DELETE /proposals/shortlists/{userId}`).
+  static String shortlistRemove(int userId) => '/proposals/shortlists/$userId';
+
+  // ---- Profile Views --------------------------------------------------------
+
+  /// Profiles viewed by the current authenticated user.
+  static const String profileViews = '/profile-views';
+
+  /// Members who viewed the current user's profile.
+  static const String profileViewsReceived = '/profile-views/received';
+
+  /// Current profile-view balance and active package info.
+  static const String profileViewsBalance = '/profile-views/balance';
+
+  /// Consumes one profile-view allowance and unlocks/returns the public profile.
+  static String consumeProfileView(int profileId) => '/profile-views/$profileId';
+
   // ---- Dropdowns ------------------------------------------------------------
   /// Single endpoint that returns EVERY dropdown list (dynamic + hardcoded).
   static const String dropdownReferenceData = '/profile/dropdown-reference-data';
@@ -111,4 +135,32 @@ class ApiEndpoints {
   // ---- Search / Discover ----------------------------------------------------
   /// Search and filter member profiles (`GET /search/profiles`).
   static const String searchProfiles = '/search/profiles';
+
+  // ---- Chat -----------------------------------------------------------------
+  /// List all conversation threads for the authenticated user.
+  static const String chatThreads = '/chat/threads';
+
+  /// Messages within a thread.
+  static String chatMessages(int threadId) => '/chat/threads/$threadId/messages';
+
+  /// Send a message to a thread.
+  static String chatSend(int threadId) => '/chat/threads/$threadId/messages';
+
+  /// Typing indicator.
+  static String chatTyping(int threadId) => '/chat/threads/$threadId/typing';
+
+  /// Block a thread.
+  static String chatBlock(int threadId) => '/chat/threads/$threadId/block';
+
+  /// Unblock a thread.
+  static String chatUnblock(int threadId) => '/chat/threads/$threadId/unblock';
+
+  /// Clear a thread (hides history from current user's side only).
+  static String chatClear(int threadId) => '/chat/threads/$threadId/clear';
+
+  /// Report a thread.
+  static String chatReport(int threadId) => '/chat/threads/$threadId/report';
+
+  /// Delete a single message (for the current user only).
+  static String chatDeleteMessage(int messageId) => '/chat/messages/$messageId';
 }

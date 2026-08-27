@@ -5,12 +5,15 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/interest_controller.dart';
+import '../../../controllers/shortlist_controller.dart';
 import '../../../core/api/api_response.dart';
+
 import '../../../models/interest_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
+import '../../discover/widgets/public_profile_detail_sheet.dart';
 
 /// Express-interest screen: what came in, what went out, and the coin balance.
 ///
@@ -236,45 +239,115 @@ class _InterestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final InterestMember? m = interest.member;
+    final ShortlistController shortlistCtrl = Get.find<ShortlistController>();
+
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: SurfaceCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              children: <Widget>[
-                _Avatar(url: m?.photoUrl, initial: m?.initial ?? 'H'),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Flexible(
-                            child: Text(
-                              m?.displayName ?? 'HamQadam Member',
-                              style: AppTextStyles.bodyStrong,
-                              overflow: TextOverflow.ellipsis,
+            InkWell(
+              onTap: () {
+                if (m != null && m.id > 0) {
+                  PublicProfileDetailSheet.show(
+                    context,
+                    profileId: m.id,
+                    name: m.displayName,
+                    photo: m.photoUrl,
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Row(
+                children: <Widget>[
+                  _Avatar(url: m?.photoUrl, initial: m?.initial ?? 'H'),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Flexible(
+                              child: Text(
+                                m?.displayName ?? 'HamQadam Member',
+                                style: AppTextStyles.bodyStrong,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          if (m?.isVerified ?? false) ...<Widget>[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.verified_rounded, size: 16, color: AppColors.success),
+                            if (m?.isVerified ?? false) ...<Widget>[
+                              const SizedBox(width: 6),
+                              const Icon(Icons.verified_rounded, size: 16, color: AppColors.success),
+                            ],
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      StatusPill(
-                        label: interest.statusLabel ?? _fallbackLabel(interest),
-                        color: _statusColor(context, interest),
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: <Widget>[
+                            StatusPill(
+                              label: interest.statusLabel ?? _fallbackLabel(interest),
+                              color: _statusColor(context, interest),
+                            ),
+                            if (m != null && m.id > 0)
+                              Obx(() {
+                                final bool isShortlisted = shortlistCtrl.isShortlisted(m.id);
+                                if (!isShortlisted) return const SizedBox.shrink();
+                                return Container(
+                                  margin: const EdgeInsets.only(left: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.gold.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      Icon(Icons.bookmark_rounded, size: 11, color: AppColors.gold),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        'Shortlisted',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.gold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                              }),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  if (m != null && m.id > 0)
+                    Obx(() {
+                      final bool isShort = shortlistCtrl.isShortlisted(m.id);
+                      final bool isBusy = shortlistCtrl.isBusy(m.id);
+                      return IconButton(
+                        icon: isBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold),
+                              )
+                            : Icon(
+                                isShort ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
+                                color: isShort ? AppColors.gold : Theme.of(context).hintColor,
+                                size: 22,
+                              ),
+                        tooltip: isShort ? 'Remove from Shortlist' : 'Add to Shortlist',
+                        onPressed: () => shortlistCtrl.toggleShortlist(m.id, displayName: m.displayName),
+                      );
+                    }),
+                  Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor, size: 20),
+                ],
+              ),
             ),
+
             if ((interest.initialNote ?? '').isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
               Text(interest.initialNote!, style: AppTextStyles.body),

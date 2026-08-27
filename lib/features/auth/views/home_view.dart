@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hamqadam/features/interests/views/interests_view.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
@@ -11,10 +10,15 @@ import '../../../controllers/theme_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/premium_bottom_nav.dart';
+import '../../chat/views/chat_inbox_view.dart';
 import '../../discover/views/discover_view.dart';
 import '../../discover/widgets/search_filter_bottom_sheet.dart';
+import '../../interests/views/interests_view.dart';
 import '../../profile/views/edit_profile_view.dart';
 import '../../profile/views/profile_view.dart';
+import '../../profile_views/views/profile_views_view.dart';
+import '../../shortlist/views/shortlist_view.dart';
+
 
 /// Authenticated app shell: premium gradient AppBar, floating bottom navigation
 /// and a luxury navigation drawer.
@@ -39,6 +43,8 @@ class _HomeViewState extends State<HomeView> {
   /// Real screens are wired here; the rest keep the "coming soon" placeholder.
   Widget _bodyFor(_TabItem tab) {
     if (tab.label == 'Discover') return const DiscoverView();
+    if (tab.label == 'Matches') return const InterestsView();
+    if (tab.label == 'Chat') return const ChatInboxView();
     if (tab.label == 'Profile') return const ProfileView();
     return _TabBody(tab: tab);
   }
@@ -65,7 +71,15 @@ class _HomeViewState extends State<HomeView> {
                   onPressed: () => SearchFilterBottomSheet.show(context),
                 ),
               ]
-            : null,
+            : _index == 3
+                ? <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.white),
+                      tooltip: 'Profile Views',
+                      onPressed: () => Get.to<void>(() => const ProfileViewsView()),
+                    ),
+                  ]
+                : null,
       ),
       drawer: _AppDrawer(auth: _auth),
       body: AnimatedSwitcher(
@@ -174,9 +188,12 @@ class _AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
               children: <Widget>[
                 _sectionLabel(context, 'ACCOUNT'),
-                _tile(context, Icons.edit_outlined, 'Manage Interests',
+                _tile(context, Icons.bookmark_added_outlined, 'Shortlisted Profiles',
+                    () => Get.to<void>(() => const ShortlistView())),
+                _tile(context, Icons.favorite_border_rounded, 'Manage Interests',
                     () => Get.to<void>(() => const InterestsView())),
                 _tile(context, Icons.edit_outlined, 'Edit Profile',
+
                     () => Get.to<void>(() => const EditProfileView())),
                 _tile(context, Icons.playlist_add_check_rounded, 'Complete your profile',
                     () => Get.toNamed<void>(AppRoutes.profileCompletion)),

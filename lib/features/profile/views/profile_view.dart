@@ -14,6 +14,7 @@ import '../../../models/ai_verification_model.dart';
 import '../../../models/profile_model.dart';
 import '../../../models/verification_model.dart';
 import '../../../widgets/state_widgets.dart';
+import '../../profile_views/views/profile_views_view.dart';
 import 'edit_profile_view.dart';
 
 /// Premium, fully dynamic profile screen backed by [ProfileController]
@@ -100,6 +101,8 @@ class _ProfileBody extends StatelessWidget {
         ),
         children: <Widget>[
           _HeroCard(controller: controller, profile: profile),
+          const SizedBox(height: AppSpacing.md),
+          const _ProfileViewsBanner(),
           const SizedBox(height: AppSpacing.md),
           // Only while unverified: the same prompt the web dashboard shows, so
           // a member who was sent away from the signup gate unverified has an
@@ -564,6 +567,92 @@ class _GlassChip extends StatelessWidget {
       ],
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Profile Views & Visitors Banner
+// ---------------------------------------------------------------------------
+
+class _ProfileViewsBanner extends StatelessWidget {
+  const _ProfileViewsBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => Get.to<void>(() => const ProfileViewsView()),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: AppColors.brandGradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: const Icon(
+                    Icons.remove_red_eye_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Profile Views & Visitors',
+                        style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'See who viewed your profile & view allowance',
+                        style: AppTextStyles.caption.copyWith(
+                          color: isDark ? Colors.white60 : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 15,
+                  color: AppColors.lightTextHint,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

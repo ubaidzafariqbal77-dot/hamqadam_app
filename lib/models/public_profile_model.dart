@@ -1,12 +1,34 @@
 import '../constants/app_constants.dart';
 
+/// Metadata returned with a public profile view (package validity, limits).
+class ProfileViewMeta {
+  const ProfileViewMeta({
+    this.consumed = false,
+    this.alreadyViewed = false,
+    this.remainingProfileViewerCount = 0,
+    this.packageValidity,
+    this.isActive = false,
+  });
+
+  final bool consumed;
+  final bool alreadyViewed;
+  final int remainingProfileViewerCount;
+  final String? packageValidity;
+  final bool isActive;
+
+  factory ProfileViewMeta.fromJson(Map<String, dynamic> json) {
+    return ProfileViewMeta(
+      consumed: json['consumed'] as bool? ?? false,
+      alreadyViewed: json['already_viewed'] as bool? ?? false,
+      remainingProfileViewerCount: json['remaining_profile_viewer_view'] as int? ?? 0,
+      packageValidity: json['package_validity']?.toString(),
+      isActive: json['is_active'] as bool? ?? false,
+    );
+  }
+}
+
 /// Another member's profile, from `GET /profiles/{id}` and every search /
 /// match / proposal listing (they all share the backend's SearchProfileResource).
-///
-/// Note what is NOT here: the owner's AI verification internals. A public
-/// profile carries a badge only — [identityVerified] and [verifiedAt]. The
-/// recommendation, attempt count, fraud score and last error stay on
-/// `GET /profile` for the owner. Do not expect them and do not display them.
 class PublicProfileModel {
   const PublicProfileModel({
     required this.id,
@@ -29,6 +51,7 @@ class PublicProfileModel {
     this.verifiedAt,
     this.lastActiveAt,
     this.createdAt,
+    this.meta,
   });
 
   final int id;
@@ -62,15 +85,28 @@ class PublicProfileModel {
 
   final DateTime? lastActiveAt;
   final DateTime? createdAt;
+  final ProfileViewMeta? meta;
 
   String get displayName => (name ?? '').trim().isEmpty ? 'HamQadam Member' : name!.trim();
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : 'H';
   String? get photoUrl => ApiConfig.mediaUrl(photo);
 
-  factory PublicProfileModel.fromJson(Map<String, dynamic> json) {
+  factory PublicProfileModel.fromJson(Map<String, dynamic> rawJson, {Map<String, dynamic>? metaJson}) {
+    final Map<String, dynamic> json = rawJson['profile'] is Map<String, dynamic>
+        ? rawJson['profile'] as Map<String, dynamic>
+        : rawJson;
+
     final Map<String, dynamic> verification = json['verification'] is Map<String, dynamic>
         ? json['verification'] as Map<String, dynamic>
         : <String, dynamic>{};
+
+    final dynamic rawMeta = metaJson ??
+        (rawJson['profile_view'] is Map
+            ? rawJson['profile_view']
+            : (rawJson['meta'] is Map
+                ? rawJson['meta']['profile_view'] ?? rawJson['meta']
+                : null));
+    final ProfileViewMeta? parsedMeta = rawMeta is Map<String, dynamic> ? ProfileViewMeta.fromJson(rawMeta) : null;
 
     return PublicProfileModel(
       id: _asInt(json['id']),
@@ -93,6 +129,7 @@ class PublicProfileModel {
       verifiedAt: _asDate(verification['verified_at']),
       lastActiveAt: _asDate(json['last_active_at']),
       createdAt: _asDate(json['created_at']),
+      meta: parsedMeta,
     );
   }
 }

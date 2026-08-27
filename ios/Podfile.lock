@@ -12,6 +12,14 @@ PODS:
     - Flutter
   - integration_test (0.0.1):
     - Flutter
+  - NWWebSocket (0.5.10)
+  - pusher_channels_flutter (0.0.1):
+    - Flutter
+    - PusherSwift (~> 10.1.9)
+  - PusherSwift (10.1.10):
+    - NWWebSocket (~> 0.5.10)
+    - PusherTweetNacl (~> 1.2.0)
+  - PusherTweetNacl (1.2.0)
   - record_ios (2.0.0):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -25,8 +33,15 @@ DEPENDENCIES:
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - pusher_channels_flutter (from `.symlinks/plugins/pusher_channels_flutter/ios`)
   - record_ios (from `.symlinks/plugins/record_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+
+SPEC REPOS:
+  trunk:
+    - NWWebSocket
+    - PusherSwift
+    - PusherTweetNacl
 
 EXTERNAL SOURCES:
   connectivity_plus:
@@ -41,6 +56,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   integration_test:
     :path: ".symlinks/plugins/integration_test/ios"
+  pusher_channels_flutter:
+    :path: ".symlinks/plugins/pusher_channels_flutter/ios"
   record_ios:
     :path: ".symlinks/plugins/record_ios/ios"
   shared_preferences_foundation:
@@ -53,6 +70,10 @@ SPEC CHECKSUMS:
   flutter_secure_storage_darwin: acdb3f316ed05a3e68f856e0353b133eec373a23
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+  NWWebSocket: 873eb4b18acd0317da70cdba388d792a3187ce00
+  pusher_channels_flutter: 2723222f2686852dd91d13780938d11cca114a39
+  PusherSwift: 6022fe6584b4317dc5c177091292b2a4d80a8c35
+  PusherTweetNacl: 015f56f2cf010e718703f2bd9bca66fdcc91b208
   record_ios: 390a30c7caaf8b5d0fb1cb1d2fd5064b48b4520c
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'constants/app_strings.dart';
 import 'controllers/theme_controller.dart';
-import 'core/dependency/app_dependencies.dart';
+import 'core/dependency/app_dependencies.dart'; 
 import 'core/routes/app_pages.dart';
 import 'core/routes/app_routes.dart';
 import 'core/theme/app_theme.dart';

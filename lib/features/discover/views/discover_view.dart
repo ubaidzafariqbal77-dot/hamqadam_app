@@ -4,12 +4,15 @@ import 'package:get/get.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../controllers/chat_controller.dart';
 import '../../../controllers/interest_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../models/chat_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/state_widgets.dart';
+import '../../chat/views/chat_conversation_view.dart';
 import '../widgets/public_profile_detail_sheet.dart';
 import '../widgets/report_profile_dialog.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
@@ -595,7 +598,16 @@ class _SingleUserProfileCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // 2. Interest (Heart Icon)
+                  // 2. Chat Icon (Direct Message)
+                  _glassIconButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    tooltip: 'Chat',
+                    onTap: () => _handleChatTap(context, profile),
+                  ),
+                  const SizedBox(height: 12),
+
+
+                  // 3. Interest (Heart Icon)
                   Obx(() {
                     final bool hasSent = interestCtrl?.hasSentInterestTo(profile.id) == true;
                     return _glassIconButton(
@@ -607,11 +619,15 @@ class _SingleUserProfileCard extends StatelessWidget {
                   }),
                   const SizedBox(height: 12),
 
-                  // 3. Full Profile (Person Icon)
+                  // 4. Full Profile (Person Icon)
                   _glassIconButton(
                     icon: Icons.person_outline_rounded,
                     tooltip: 'Full Profile',
-                    onTap: () => PublicProfileDetailSheet.show(context, profile),
+                    onTap: () => PublicProfileDetailSheet.show(
+                      context,
+                      profileId: profile.id,
+                      searchProfile: profile,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -622,17 +638,11 @@ class _SingleUserProfileCard extends StatelessWidget {
                       icon: isShortlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
                       iconColor: isShortlisted ? AppColors.gold : Colors.white,
                       tooltip: 'Shortlist',
-                      onTap: () {
-                        controller.toggleShortlist(profile.id);
-                        AppSnackbar.info(
-                          controller.isShortlisted(profile.id)
-                              ? 'Added ${profile.displayName} to Shortlist'
-                              : 'Removed from Shortlist',
-                        );
-                      },
+                      onTap: () => controller.toggleShortlist(profile.id, displayName: profile.displayName),
                     );
                   }),
                   const SizedBox(height: 12),
+
 
                   // 5. Ignore (Dismiss Icon)
                   _glassIconButton(
@@ -842,11 +852,23 @@ class _SingleUserProfileCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
+                leading: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primary),
+                title: const Text('Chat'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  _handleChatTap(context, profile);
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
                 title: const Text('Full Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  PublicProfileDetailSheet.show(context, profile);
+                  PublicProfileDetailSheet.show(
+                    context,
+                    profileId: profile.id,
+                    searchProfile: profile,
+                  );
                 },
               ),
               ListTile(
@@ -862,31 +884,106 @@ class _SingleUserProfileCard extends StatelessWidget {
                 title: const Text('Shortlist'),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  controller.toggleShortlist(profile.id);
-                  AppSnackbar.info(
-                    controller.isShortlisted(profile.id)
-                        ? 'Added ${profile.displayName} to Shortlist'
-                        : 'Removed from Shortlist',
-                  );
+                  controller.toggleShortlist(profile.id, displayName: profile.displayName);
                 },
               ),
+
               ListTile(
                 leading: const Icon(Icons.visibility_off_outlined, color: Colors.grey),
                 title: const Text('Ignore Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  onIgnore();
+                  controller.ignoreProfile(profile.id);
+                  AppSnackbar.info('Profile ignored.');
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.flag_outlined, color: AppColors.error),
-                title: const Text('Report Profile'),
+                title: const Text('Report Profile', style: TextStyle(color: AppColors.error)),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   ReportProfileDialog.show(context, profile);
                 },
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _handleChatTap(BuildContext context, SearchProfileModel profile) async {
+    final ChatController chatCtrl = Get.find<ChatController>();
+    final ChatThread? thread = await chatCtrl.findExistingThreadWithUser(profile.id);
+    if (thread != null && thread.id > 0) {
+      ChatConversationView.open(thread);
+    } else {
+      if (context.mounted) {
+        _showChatConnectPrompt(context, profile);
+      }
+    }
+  }
+
+  void _showChatConnectPrompt(BuildContext context, SearchProfileModel profile) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
+      builder: (BuildContext ctx) {
+        final ThemeData theme = Theme.of(ctx);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.mark_chat_unread_rounded, color: AppColors.primary, size: 28),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Connect to Chat',
+                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Direct messaging with ${profile.displayName} is enabled once an Express Interest proposal is accepted.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                    ),
+                    icon: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+                    label: const Text('Send Express Interest', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      SendInterestDialog.show(context, profile);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+              ],
+            ),
           ),
         );
       },

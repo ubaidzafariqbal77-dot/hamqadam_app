@@ -58,12 +58,16 @@ class InterestController extends GetxController {
   /// own spinner instead of locking the whole list.
   final RxSet<int> busyIds = <int>{}.obs;
 
+  /// User IDs to whom an interest has already been sent in this session.
+  final RxSet<int> sentUserIds = <int>{}.obs;
+
   final RxBool sending = false.obs;
 
   /// Badge count for the bottom navigation.
   int get pendingReceived => received.value.data?.pendingCount ?? 0;
 
   bool isBusy(int id) => busyIds.contains(id);
+  bool hasSentInterestTo(int userId) => sentUserIds.contains(userId);
 
   @override
   void onInit() {
@@ -100,6 +104,9 @@ class InterestController extends GetxController {
       final InterestPage page = await _repo.fetchSent(status: sentFilter.value, perPage: _perPage);
       // The sent list carries the coin balance, so keep it in sync for free.
       if (page.coinBalance != null) coinBalance.value = page.coinBalance!;
+      for (final InterestModel item in page.interests) {
+        if (item.member != null) sentUserIds.add(item.member!.id);
+      }
       sent.value = page.isEmpty
           ? ApiState<InterestPage>.empty(message: _emptySentMessage())
           : ApiState<InterestPage>.success(page);
@@ -181,6 +188,7 @@ class InterestController extends GetxController {
     sending.value = true;
     try {
       final InterestSendResult result = await _repo.send(userId: userId, note: note);
+      sentUserIds.add(userId);
       if (result.coinBalance != null) coinBalance.value = result.coinBalance!;
       // The new row belongs in the sent tab.
       await loadSent(keepFilter: true);
@@ -198,6 +206,7 @@ class InterestController extends GetxController {
       final String? code = e is ApiException ? e.code : null;
       final bool noCoins = code == 'insufficient_coins' || e.statusCode == 402;
       final bool exists = code == 'interest_exists' || e.statusCode == 409;
+      if (exists) sentUserIds.add(userId);
       if (noCoins) await refreshCoins();
       return SendInterestOutcome(
         sent: false,

@@ -1,7 +1,6 @@
 // TEMPORARY visual harness — renders ProfileView with a realistic
 // `GET /profile` payload so the layout can be inspected without a login.
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

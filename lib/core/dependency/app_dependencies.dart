@@ -8,6 +8,7 @@ import '../../controllers/interest_controller.dart';
 import '../../controllers/partner_preference_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/registration_controller.dart';
+import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
 import '../../core/utils/media_picker_helper.dart';
@@ -18,6 +19,7 @@ import '../../repositories/interest_repository.dart';
 import '../../repositories/partner_preference_repository.dart';
 import '../../repositories/profile_repository.dart';
 import '../../repositories/registration_repository.dart';
+import '../../repositories/search_repository.dart';
 import '../../repositories/verification_repository.dart';
 import '../api/api_client.dart';
 import '../network/network_info.dart';
@@ -65,6 +67,7 @@ class AppDependencies {
     Get.put<RegistrationRepository>(RegistrationRepository(apiClient), permanent: true);
     Get.put<LookupRepository>(LookupRepository(apiClient), permanent: true);
     Get.put<ProfileRepository>(ProfileRepository(apiClient), permanent: true);
+    Get.put<SearchRepository>(SearchRepository(apiClient), permanent: true);
     Get.put<AiVerificationRepository>(AiVerificationRepository(apiClient), permanent: true);
     Get.put<InterestRepository>(InterestRepository(apiClient), permanent: true);
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
@@ -82,6 +85,15 @@ class AppDependencies {
     apiClient.onUnauthorized = authController.handleUnauthorized;
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
+
+    // Discover / Search Controller
+    Get.lazyPut<SearchProfilesController>(
+      () => SearchProfilesController(
+        repository: Get.find<SearchRepository>(),
+        lookupController: Get.find<LookupController>(),
+      ),
+      fenix: true,
+    );
 
     // Lazy: only fetches `/profile` when the Profile tab is first opened.
     // `fenix` recreates it if it is ever disposed, keeping the tab reusable.

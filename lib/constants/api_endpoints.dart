@@ -107,4 +107,8 @@ class ApiEndpoints {
   // ---- Dropdowns ------------------------------------------------------------
   /// Single endpoint that returns EVERY dropdown list (dynamic + hardcoded).
   static const String dropdownReferenceData = '/profile/dropdown-reference-data';
+
+  // ---- Search / Discover ----------------------------------------------------
+  /// Search and filter member profiles (`GET /search/profiles`).
+  static const String searchProfiles = '/search/profiles';
 }

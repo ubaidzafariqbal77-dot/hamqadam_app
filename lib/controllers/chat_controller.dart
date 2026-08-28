@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
+import '../core/services/call_signaling_service.dart';
 import '../core/services/pusher_chat_service.dart';
+
 import '../core/storage/current_user_service.dart';
 import '../models/chat_model.dart';
 import '../repositories/chat_repository.dart';
@@ -152,6 +154,13 @@ class ChatController extends GetxController {
       final dynamic rawMsg = data['message'] ?? data;
       if (rawMsg is Map<String, dynamic>) {
         final ChatMessage msg = ChatMessage.fromJson(rawMsg);
+        CallSignalingService.instance.handleIncomingSignal(
+          message: msg.message,
+          senderId: msg.senderId,
+          threadId: msg.threadId,
+          senderName: msg.senderName,
+          senderPhoto: msg.senderPhoto,
+        );
         if (activeThread.value != null &&
             (msg.threadId == activeThread.value!.id || activeThread.value!.id == 0)) {
           // Avoid duplicate appends
@@ -209,6 +218,13 @@ class ChatController extends GetxController {
         if (!messages.any((ChatMessage m) => m.id == msg.id)) {
           messages.insert(0, msg);
           hasNew = true;
+          CallSignalingService.instance.handleIncomingSignal(
+            message: msg.message,
+            senderId: msg.senderId,
+            threadId: msg.threadId,
+            senderName: msg.senderName,
+            senderPhoto: msg.senderPhoto,
+          );
         }
       }
 
@@ -238,6 +254,19 @@ class ChatController extends GetxController {
           ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
           : ApiState<List<ChatThread>>.success(list);
 
+      // Check for incoming call signals in unread threads
+      for (final ChatThread thread in list) {
+        if (thread.lastMessage != null && thread.unreadCount > 0) {
+          CallSignalingService.instance.handleIncomingSignal(
+            message: thread.lastMessage!.message,
+            senderId: thread.lastMessage!.senderId,
+            threadId: thread.id,
+            senderName: thread.participant.name,
+            senderPhoto: thread.participant.photo,
+          );
+        }
+      }
+
       // Re-verify user channel subscription
       if (myUserId > 0) {
         _pusher.subscribeToUserChannel(myUserId);
@@ -248,6 +277,7 @@ class ChatController extends GetxController {
       }
     }
   }
+
 
   void onSearchChanged(String query) {
     searchQuery.value = query;

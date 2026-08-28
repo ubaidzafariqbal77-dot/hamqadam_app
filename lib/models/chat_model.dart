@@ -103,6 +103,33 @@ class ChatMessage {
   /// True when the message has attachments but no text.
   bool get isAttachmentOnly => message.trim().isEmpty && attachments.isNotEmpty;
 
+  /// Call signaling helpers
+  bool get isCallInvite => message.startsWith('[CALL_INVITE:');
+  bool get isCallDecline => message.startsWith('[CALL_DECLINED:');
+  bool get isCallEvent => isCallInvite || isCallDecline;
+
+  String? get callChannelName {
+    if (!isCallInvite) return null;
+    final RegExp reg = RegExp(r'channel=([^&]+)');
+    return reg.firstMatch(message)?.group(1);
+  }
+
+  bool get isCallVideo {
+    if (!isCallInvite) return false;
+    return message.contains('isVideo=true');
+  }
+
+  String get callDisplayName {
+    if (isCallInvite) {
+      return isCallVideo ? '📹 Video Call (Tap to join)' : '📞 Voice Call (Tap to join)';
+    }
+    if (isCallDecline) {
+      return '📞 Call Declined';
+    }
+    return message;
+  }
+
+
   ChatMessage copyWith({bool? deletedForMe}) {
     return ChatMessage(
       id: id,

@@ -11,7 +11,9 @@ import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
+import '../../features/chat/views/incoming_call_screen.dart';
 import '../../features/interests/views/interests_view.dart';
+
 import '../../features/notifications/views/notifications_view.dart';
 import '../../features/payments/views/coin_usage_view.dart';
 import '../../features/payments/views/membership_plans_view.dart';
@@ -219,9 +221,30 @@ class NotificationService {
       final String type = (data['type'] ?? '').toString().toLowerCase();
       final int? notifyBy = int.tryParse(data['notify_by']?.toString() ?? '');
       final int? infoId = int.tryParse(data['info_id']?.toString() ?? '');
+      // 0. Incoming Call Invitation
+
+      if (type == 'call_invite') {
+        final String channelName = (data['channelName'] ?? '').toString();
+        final String callerName = (data['callerName'] ?? 'Caller').toString();
+        final String? callerPhoto = data['callerPhoto']?.toString();
+        final bool isVideoCall = data['isVideoCall'] == true;
+        final int? threadId = data['threadId'] as int?;
+
+        if (channelName.isNotEmpty) {
+          IncomingCallScreen.show(
+            channelName: channelName,
+            callerName: callerName,
+            callerPhoto: callerPhoto,
+            isVideoCall: isVideoCall,
+            threadId: threadId,
+          );
+          return;
+        }
+      }
 
       // 1. Chat messages
       if (type.contains('message') || type.contains('chat')) {
+
         if (Get.isRegistered<ChatController>()) {
           final ChatController chatCtrl = Get.find<ChatController>();
           final List<ChatThread> threads =

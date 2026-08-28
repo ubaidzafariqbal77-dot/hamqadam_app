@@ -12,9 +12,13 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../core/services/call_signaling_service.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../widgets/chat_report_dialog.dart';
+import 'video_call_screen.dart';
+
+
 
 /// Full-screen active conversation screen with real-time stream.
 class ChatConversationView extends StatefulWidget {
@@ -260,9 +264,12 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     return _MessageBubble(
                       message: msg,
                       isMine: isMine,
+                      participantName: widget.thread.participant.name,
+                      participantPhoto: widget.thread.participant.photo,
                       onReply: () => _controller.setReplyTo(msg),
                       onDelete: () => _controller.deleteMessageForMe(msg.id),
                     );
+
                   },
                 );
               }),
@@ -456,7 +463,61 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         ],
       ),
       actions: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.call_rounded, color: AppColors.primary, size: 22),
+          tooltip: 'Voice Call',
+          onPressed: () {
+            final String channelName = widget.thread.threadCode.isNotEmpty
+                ? widget.thread.threadCode
+                : 'call_${widget.thread.id}';
+
+            // Send call invite signal to recipient
+            CallSignalingService.instance.sendCallInvite(
+              threadId: widget.thread.id,
+              recipientUserId: widget.thread.participant.id,
+              channelName: channelName,
+              isVideoCall: false,
+              callerName: _controller.myUserId > 0 ? 'Hamqadam Member' : 'Member',
+            );
+
+            // Open outgoing calling screen
+            VideoCallScreen.open(
+              channelName: channelName,
+              userName: widget.thread.participant.name,
+              userPhoto: widget.thread.participant.photo,
+              isVideoCall: false,
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam_rounded, color: AppColors.primary, size: 24),
+          tooltip: 'Video Call',
+          onPressed: () {
+            final String channelName = widget.thread.threadCode.isNotEmpty
+                ? widget.thread.threadCode
+                : 'call_${widget.thread.id}';
+
+            // Send call invite signal to recipient
+            CallSignalingService.instance.sendCallInvite(
+              threadId: widget.thread.id,
+              recipientUserId: widget.thread.participant.id,
+              channelName: channelName,
+              isVideoCall: true,
+              callerName: _controller.myUserId > 0 ? 'Hamqadam Member' : 'Member',
+            );
+
+            // Open outgoing calling screen
+            VideoCallScreen.open(
+              channelName: channelName,
+              userName: widget.thread.participant.name,
+              userPhoto: widget.thread.participant.photo,
+              isVideoCall: true,
+            );
+          },
+        ),
+
         PopupMenuButton<String>(
+
           icon: const Icon(Icons.more_vert_rounded),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           onSelected: (String value) {
@@ -624,12 +685,17 @@ class _MessageBubble extends StatelessWidget {
     required this.isMine,
     required this.onReply,
     required this.onDelete,
+    this.participantName,
+    this.participantPhoto,
   });
 
   final ChatMessage message;
   final bool isMine;
   final VoidCallback onReply;
   final VoidCallback onDelete;
+  final String? participantName;
+  final String? participantPhoto;
+
 
   void _showContextMenu(BuildContext context) {
     showModalBottomSheet<void>(
@@ -727,7 +793,46 @@ class _MessageBubble extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 // ── Images grid (WhatsApp style) ──────────────────────────
-                if (images.isNotEmpty) _ImageGrid(images: images),
+                if (images.isNotEmpty)
+
+                  Stack(
+                    children: <Widget>[
+                      _ImageGrid(images: images),
+                      if (hasOnlyImages)
+                        Positioned(
+                          bottom: 6,
+                          right: isMine ? 6 : null,
+                          left: isMine ? null : 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  timeStr,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                if (isMine) ...<Widget>[
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.done_all_rounded,
+                                    size: 13,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
 
                 // ── Text + docs + time ────────────────────────────────────
                 if (!hasOnlyImages)
@@ -770,8 +875,57 @@ class _MessageBubble extends StatelessWidget {
                         ...docs.map((ChatAttachment a) =>
                             _DocCard(attachment: a, isMine: isMine, theme: theme)),
 
-                        // Message text
-                        if (message.message.isNotEmpty)
+                        // Message text / Call event tile
+                        if (message.isCallEvent)
+                          InkWell(
+                            onTap: () {
+                              if (message.isCallInvite && message.callChannelName != null) {
+                                VideoCallScreen.open(
+                                  channelName: message.callChannelName!,
+                                  userName: isMine
+                                      ? (participantName ?? 'Member')
+                                      : (message.senderName ?? participantName ?? 'Member'),
+                                  userPhoto: isMine
+                                      ? participantPhoto
+                                      : (message.senderPhoto ?? participantPhoto),
+                                  isVideoCall: message.isCallVideo,
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isMine
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    message.isCallVideo
+                                        ? Icons.videocam_rounded
+                                        : Icons.call_rounded,
+                                    size: 20,
+                                    color: isMine ? Colors.white : AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    message.callDisplayName,
+                                    style: TextStyle(
+                                      color: isMine
+                                          ? Colors.white
+                                          : theme.textTheme.bodyLarge?.color,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else if (message.message.isNotEmpty)
                           Text(
                             message.message,
                             style: TextStyle(
@@ -809,37 +963,6 @@ class _MessageBubble extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                // For image-only messages: show time/tick overlaid at bottom-right
-                if (hasOnlyImages)
-                  Positioned.fill(
-                    child: Align(
-                      alignment:
-                          isMine ? Alignment.bottomRight : Alignment.bottomLeft,
-                      child: Container(
-                        margin: const EdgeInsets.all(6),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.45),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
-                              timeStr,
-                              style: const TextStyle(color: Colors.white, fontSize: 10),
-                            ),
-                            if (isMine) ...<Widget>[
-                              const SizedBox(width: 3),
-                              const Icon(Icons.done_all_rounded,
-                                  size: 12, color: Colors.white),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -848,6 +971,8 @@ class _MessageBubble extends StatelessWidget {
     );
   }
 }
+
+
 
 // ---------------------------------------------------------------------------
 // Image Grid (WhatsApp-style): 1 image = full width, 2+ = grid

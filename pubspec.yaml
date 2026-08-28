@@ -40,6 +40,7 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   connectivity_plus: ^7.2.0
   image_picker: ^1.2.3
+  
   # 10.0.0 compiled against android-34, which clashes with
   # flutter_plugin_android_lifecycle's API-36 requirement and fails the build.
   file_picker: ^12.0.0
@@ -56,6 +57,8 @@ dependencies:
   firebase_core: ^4.14.0
   firebase_messaging: ^16.6.0
   flutter_local_notifications: ^18.0.1
+  agora_rtc_engine: ^6.5.3
+  permission_handler: ^11.4.0
 
 
 dev_dependencies:
@@ -64,24 +67,15 @@ dev_dependencies:
   integration_test:
     sdk: flutter
 
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^6.0.0
+  flutter_lints: ^2.0.3
+
 
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icons/app_icon.jpeg"
 
-# NO dependency_overrides here, and none needed.
-#
-# google_mlkit_text_recognition used to live in this file to auto-read the CNIC
-# number off the document photo. It is gone, along with the whole workaround it
-# dragged behind it: the plugin ships no arm64-simulator slice, so iOS Simulator
-# builds needed a no-op stub swapped in via pubspec_overrides.yaml — and any
+
 # time that stub leaked to Android it silently turned CNIC OCR into "no text
 # found" with nothing in the UI to say why.
 #

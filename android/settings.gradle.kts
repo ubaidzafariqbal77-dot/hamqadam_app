@@ -27,3 +27,15 @@ plugins {
 }
 
 include(":app")
+
+gradle.beforeProject {
+    afterEvaluate {
+        if (plugins.hasPlugin("com.android.library")) {
+            (extensions.findByName("android") as? com.android.build.gradle.BaseExtension)?.apply {
+                compileSdkVersion(36)
+            }
+        }
+    }
+}
+
+

@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 
+import 'dart:io';
+
 import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
 import '../models/notification_model.dart';
@@ -15,6 +17,8 @@ class NotificationController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxBool isLoadingMore = false.obs;
   final RxInt unreadCount = 0.obs;
+
+  dynamic _pushTokenRecordId;
 
   int _currentPage = 1;
   int _lastPage = 1;
@@ -36,9 +40,41 @@ class NotificationController extends GetxController {
     unreadCount.value = 0;
     _currentPage = 1;
     _lastPage = 1;
+    _pushTokenRecordId = null;
+  }
+
+  /// Sends the FCM push token to the backend API (`POST /notifications/push-tokens`).
+  Future<void> syncPushToken(String token) async {
+    if (!_hasToken || token.isEmpty) return;
+    try {
+      final String deviceType = Platform.isIOS ? 'ios' : 'android';
+      final dynamic res = await _repository.registerPushToken(
+        token: token,
+        deviceType: deviceType,
+      );
+      if (res is Map && res['id'] != null) {
+        _pushTokenRecordId = res['id'];
+      }
+      AppLogger.i('FCM Push Token synced to backend successfully (device: $deviceType)');
+    } catch (e) {
+      AppLogger.w('Failed to sync push token with backend: $e');
+    }
+  }
+
+  /// Deletes the FCM push token from backend on logout (`DELETE /notifications/push-tokens/{id}`).
+  Future<void> deletePushToken() async {
+    if (_pushTokenRecordId == null) return;
+    try {
+      await _repository.deletePushToken(_pushTokenRecordId);
+      _pushTokenRecordId = null;
+      AppLogger.i('FCM Push Token deleted from backend successfully');
+    } catch (e) {
+      AppLogger.w('Failed to delete push token from backend: $e');
+    }
   }
 
   Future<void> fetchNotifications({bool refresh = false}) async {
+
     if (!_hasToken) return;
 
     if (refresh) {

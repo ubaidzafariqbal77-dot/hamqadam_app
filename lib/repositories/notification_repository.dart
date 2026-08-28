@@ -31,4 +31,30 @@ class NotificationRepository {
     final response = await _apiClient.post(ApiEndpoints.notificationRead(id));
     return response.success;
   }
+
+  /// Registers the device's FCM push token (`POST /notifications/push-tokens`).
+  Future<dynamic> registerPushToken({
+    required String token,
+    required String deviceType,
+  }) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.pushTokens,
+      body: <String, dynamic>{
+        'token': token,
+        'device_type': deviceType,
+      },
+    );
+    if (response.success) {
+      return response.data;
+    }
+    return null;
+  }
+
+  /// Deletes the device's push token on logout (`DELETE /notifications/push-tokens/{id}`).
+  Future<bool> deletePushToken(dynamic id) async {
+    if (id == null) return false;
+    final response = await _apiClient.delete(ApiEndpoints.pushTokenDelete(id));
+    return response.success;
+  }
 }
+

@@ -5,6 +5,11 @@ import '../../../controllers/chat_controller.dart';
 import '../../../controllers/notification_controller.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../features/chat/views/chat_inbox_view.dart';
+import '../../../features/interests/views/interests_view.dart';
+import '../../../features/payments/views/coin_usage_view.dart';
+import '../../../features/payments/views/membership_plans_view.dart';
+import '../../../features/profile_views/views/profile_views_view.dart';
+import '../../../features/proposals/views/proposals_view.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/notification_model.dart';
 import '../../../widgets/state_widgets.dart';
@@ -42,31 +47,31 @@ class _NotificationsViewState extends State<NotificationsView> {
   Widget _buildIcon(String type) {
     IconData iconData;
     Color color;
-    switch (type) {
-      case 'express_interest':
-      case 'accept_interest':
-      case 'reject_interest':
-        iconData = Icons.favorite_rounded;
-        color = AppColors.primary;
-        break;
-      case 'express_proposal':
-      case 'accept_proposal':
-      case 'reject_proposal':
-      case 'withdraw_proposal':
-      case 'cancel_proposal':
-        iconData = Icons.mail_rounded;
-        color = AppColors.success;
-        break;
-      case 'new_message':
-      case 'chat_message':
-      case 'message':
-        iconData = Icons.chat_rounded;
-        color = Colors.blueAccent;
-        break;
-      default:
-        iconData = Icons.notifications_rounded;
-        color = AppColors.gold;
+    final String lower = type.toLowerCase();
+
+    if (lower.contains('interest')) {
+      iconData = Icons.favorite_rounded;
+      color = AppColors.primary;
+    } else if (lower.contains('proposal')) {
+      iconData = Icons.mail_rounded;
+      color = AppColors.success;
+    } else if (lower.contains('message') || lower.contains('chat')) {
+      iconData = Icons.chat_rounded;
+      color = Colors.blueAccent;
+    } else if (lower.contains('view')) {
+      iconData = Icons.visibility_rounded;
+      color = const Color(0xFF6C5CE7);
+    } else if (lower.contains('coin') || lower.contains('bonus') || lower.contains('credit')) {
+      iconData = Icons.monetization_on_rounded;
+      color = AppColors.gold;
+    } else if (lower.contains('payment') || lower.contains('package') || lower.contains('plan')) {
+      iconData = Icons.workspace_premium_rounded;
+      color = AppColors.primary;
+    } else {
+      iconData = Icons.notifications_rounded;
+      color = AppColors.gold;
     }
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -81,16 +86,45 @@ class _NotificationsViewState extends State<NotificationsView> {
   void _handleNotificationTap(NotificationModel notif) {
     if (!notif.isRead) _controller.markAsRead(notif.id);
 
-    final String type = notif.type;
+    final String type = notif.type.toLowerCase();
 
-    // Message notification → navigate to the matching chat thread
-    if (type == 'new_message' || type == 'chat_message' || type == 'message') {
+    // 1. Chat messages
+    if (type.contains('message') || type.contains('chat')) {
       _openChatFromNotif(notif);
       return;
     }
 
-    // All other types: just close the notification screen or do nothing
+    // 2. Proposals
+    if (type.contains('proposal')) {
+      Get.to(() => const ProposalsView());
+      return;
+    }
+
+    // 3. Interests
+    if (type.contains('interest')) {
+      Get.to(() => const InterestsView());
+      return;
+    }
+
+    // 4. Profile Views
+    if (type.contains('profile_view') || type.contains('view_profile') || type.contains('view')) {
+      Get.to(() => const ProfileViewsView());
+      return;
+    }
+
+    // 5. Coins / Free Coins Bonus
+    if (type.contains('coin') || type.contains('bonus') || type.contains('credit')) {
+      Get.to(() => const CoinUsageView());
+      return;
+    }
+
+    // 6. Payments / Packages
+    if (type.contains('payment') || type.contains('package') || type.contains('plan') || type.contains('subscription')) {
+      Get.to(() => const MembershipPlansView());
+      return;
+    }
   }
+
 
   void _openChatFromNotif(NotificationModel notif) {
     // Try to look up the thread from the already-loaded ChatController state

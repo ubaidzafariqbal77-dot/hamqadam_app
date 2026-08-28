@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../constants/app_strings.dart';
 import '../core/routes/app_routes.dart';
+import '../core/services/notification_service.dart';
 import '../core/storage/current_user_service.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
@@ -82,6 +83,10 @@ class AuthController extends GetxController {
     }
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().fetchNotifications(refresh: true);
+      final String? token = NotificationService.instance.cachedFcmToken;
+      if (token != null && token.isNotEmpty) {
+        Get.find<NotificationController>().syncPushToken(token);
+      }
     }
   }
 
@@ -103,6 +108,9 @@ class AuthController extends GetxController {
   /// Invoked by the API client on HTTP 401. Clears the session but preserves
   /// registration drafts, then routes to login once (no redirect loops).
   Future<void> handleUnauthorized() async {
+    if (Get.isRegistered<NotificationController>()) {
+      await Get.find<NotificationController>().deletePushToken();
+    }
     await storage.clearSession();
     await currentUser.clear();
     _resetAuthenticatedServices();
@@ -113,6 +121,7 @@ class AuthController extends GetxController {
       Get.offAllNamed(AppRoutes.login);
     }
   }
+
 
   Future<void> logout() async {
     try {
@@ -159,9 +168,13 @@ class AuthController extends GetxController {
   }
 
   Future<void> _clearAndGoLogin() async {
+    if (Get.isRegistered<NotificationController>()) {
+      await Get.find<NotificationController>().deletePushToken();
+    }
     await storage.clearSession();
     await currentUser.clear();
     _resetAuthenticatedServices();
+
     // Explicit logout / deactivation also drops the registration draft and the
     // profile-completion record so the next account starts from a clean slate.
     if (Get.isRegistered<RegistrationController>()) {

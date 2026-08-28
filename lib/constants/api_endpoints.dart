@@ -216,5 +216,12 @@ class ApiEndpoints {
 
   /// Mark single notification as read (`POST /notifications/{id}/read`).
   static String notificationRead(int id) => '/notifications/$id/read';
+
+  /// Register FCM push token (`POST /notifications/push-tokens`).
+  static const String pushTokens = '/notifications/push-tokens';
+
+  /// Delete FCM push token on logout (`DELETE /notifications/push-tokens/{id}`).
+  static String pushTokenDelete(dynamic id) => '/notifications/push-tokens/$id';
 }
+
 

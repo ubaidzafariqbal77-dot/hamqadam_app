@@ -28,6 +28,9 @@ void _initFCMToken() {
   FirebaseMessaging.instance.getToken().then((String? token) {
     // ignore: avoid_print
     print('🔑 FCM Token: $token');
+    if (token != null && token.isNotEmpty) {
+      NotificationService.instance.updateFcmToken(token);
+    }
   }).catchError((Object error) {
     // ignore: avoid_print
     print('ℹ️ APNS/FCM token pending or running on iOS Simulator: $error');
@@ -36,8 +39,12 @@ void _initFCMToken() {
   FirebaseMessaging.instance.onTokenRefresh.listen((String token) {
     // ignore: avoid_print
     print('🔄 Refreshed FCM Token: $token');
+    if (token.isNotEmpty) {
+      NotificationService.instance.updateFcmToken(token);
+    }
   });
 }
+
 
 
 Future<void> main() async {
@@ -86,14 +93,19 @@ Future<void> main() async {
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().fetchNotifications(refresh: true);
     }
+    NotificationService.instance.handleRemoteMessageTap(message);
   });
+
 
   // When app is launched from a terminated state via notification tap.
   final RemoteMessage? initialMessage =
       await FirebaseMessaging.instance.getInitialMessage();
   if (initialMessage != null) {
-    // App will boot normally; notifications will load via NotificationController.onInit.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.handleRemoteMessageTap(initialMessage);
+    });
   }
+
 
   runApp(const HamQadamApp());
 }

@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
+import '../core/storage/secure_storage_service.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/search_filter_profile_model.dart';
 import '../models/shortlist_model.dart';
@@ -25,19 +26,37 @@ class ShortlistController extends GetxController {
   bool isShortlisted(int userId) => shortlistedUserIds.contains(userId);
   bool isBusy(int userId) => busyUserIds.contains(userId);
 
+  bool get _hasToken =>
+      Get.isRegistered<SecureStorageService>() &&
+      Get.find<SecureStorageService>().hasToken;
+
   @override
   void onInit() {
     super.onInit();
-    loadShortlists();
+    if (_hasToken) {
+      loadShortlists();
+    }
+  }
+
+  void reset() {
+    profiles.clear();
+    shortlistedUserIds.clear();
+    busyUserIds.clear();
+    state.value = const ApiState<ShortlistPage>.initial();
+    _currentPage = 1;
+    _lastPage = 1;
   }
 
   /// Loads shortlisted profiles (`GET /proposals/shortlists`).
   Future<void> loadShortlists({bool silent = false}) async {
+    if (!_hasToken) return;
+
     if (!silent) {
       state.value = const ApiState<ShortlistPage>.loading();
     }
     try {
       final ShortlistPage page = await _repo.fetchShortlists(page: 1);
+
       _currentPage = page.currentPage;
       _lastPage = page.lastPage;
       profiles.assignAll(page.profiles);

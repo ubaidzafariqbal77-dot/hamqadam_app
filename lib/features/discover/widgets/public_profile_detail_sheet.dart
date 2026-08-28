@@ -9,15 +9,18 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../controllers/interest_controller.dart';
 import '../../../controllers/lookup_controller.dart';
+import '../../../controllers/proposal_controller.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/public_profile_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../repositories/profile_repository.dart';
-import '../../../widgets/app_button.dart';
 import '../../../widgets/state_widgets.dart';
+import '../../proposals/widgets/send_proposal_dialog.dart';
 import 'send_interest_dialog.dart';
+
+
 
 /// Bottom modal sheet displaying complete details of a selected member profile
 /// loaded dynamically from `GET /api/v1/profiles/{id}`.
@@ -107,6 +110,10 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
     final InterestController? interestCtrl = Get.isRegistered<InterestController>()
         ? Get.find<InterestController>()
         : null;
+    final ProposalController? proposalCtrl = Get.isRegistered<ProposalController>()
+        ? Get.find<ProposalController>()
+        : null;
+
 
     return Container(
       constraints: BoxConstraints(
@@ -156,7 +163,7 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
                   }
 
                   final PublicProfileModel profile = snapshot.data!;
-                  return _buildContent(context, profile, isDark, interestCtrl);
+                  return _buildContent(context, profile, isDark, interestCtrl, proposalCtrl);
                 },
               ),
             ),
@@ -180,7 +187,9 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
     PublicProfileModel profile,
     bool isDark,
     InterestController? interestCtrl,
+    ProposalController? proposalCtrl,
   ) {
+
     // Resolve labels
     final String? religion = _lookupName(LookupKeys.religions, profile.religionId);
     final String? caste = _lookupName(LookupKeys.castes, profile.casteId);
@@ -371,63 +380,65 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
           ),
         ),
 
-        // Bottom Action Bar: Chat & Express Interest
+        // Bottom Action Bar: Send Proposal, Chat, and Express Interest
         Container(
           padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.md),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightBackground,
             border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
           ),
-          child: Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              // Chat Button
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.primary),
-                  label: const Text('Chat', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 13),
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
-                    shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
-                  ),
-                  onPressed: () => _startChat(profile),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-
-              // Express Interest Button
-              Expanded(
-                flex: 2,
-                child: Obx(() {
-                  final bool alreadySent = interestCtrl?.hasSentInterestTo(profile.id) == true;
-                  if (alreadySent) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'Interest Sent',
-                            style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+              // 1. Send Marriage Proposal Button
+              Obx(() {
+                final bool alreadyProposed = proposalCtrl?.hasSentProposalTo(profile.id) == true;
+                if (alreadyProposed) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.success.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          'Already Sent',
+                          style: TextStyle(
+                            color: AppColors.success,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 0.3,
                           ),
-                        ],
-                      ),
-                    );
-                  }
-                  return AppButton(
-                    label: 'Express Interest',
-                    icon: Icons.favorite_rounded,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.mail_outline_rounded, size: 18, color: Colors.white),
+                    label: const Text(
+                      'Send Proposal',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+                    ),
                     onPressed: () {
                       final SearchProfileModel searchModel = SearchProfileModel(
                         id: profile.id,
                         name: profile.name,
+                        code: profile.code,
                         photo: profile.photo,
                         age: profile.age,
                         gender: profile.gender,
@@ -439,10 +450,86 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
                         countryId: profile.countryId,
                         identityVerified: profile.identityVerified,
                       );
-                      SendInterestDialog.show(context, searchModel);
+                      SendProposalDialog.show(context, searchModel);
                     },
-                  );
-                }),
+                  ),
+                );
+              }),
+
+              const SizedBox(height: AppSpacing.xs),
+
+              // 2. Chat & Express Interest Buttons
+              Row(
+                children: <Widget>[
+                  // Chat Button
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 17, color: AppColors.primary),
+                      label: const Text('Chat', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                        side: const BorderSide(color: AppColors.primary, width: 1.5),
+                        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                      ),
+                      onPressed: () => _startChat(profile),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+
+                  // Express Interest Button
+                  Expanded(
+                    child: Obx(() {
+                      final bool alreadySent = interestCtrl?.hasSentInterestTo(profile.id) == true;
+                      if (alreadySent) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Icon(Icons.favorite_rounded, color: AppColors.gold, size: 16),
+                              SizedBox(width: 4),
+                              Text(
+                                'Interest Sent',
+                                style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return OutlinedButton.icon(
+                        icon: const Icon(Icons.favorite_rounded, size: 16, color: AppColors.gold),
+                        label: const Text('Interest', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 13)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          side: const BorderSide(color: AppColors.gold, width: 1.5),
+                          shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                        ),
+                        onPressed: () {
+                          final SearchProfileModel searchModel = SearchProfileModel(
+                            id: profile.id,
+                            name: profile.name,
+                            photo: profile.photo,
+                            age: profile.age,
+                            gender: profile.gender,
+                            maritalStatusId: profile.maritalStatusId,
+                            religionId: profile.religionId,
+                            casteId: profile.casteId,
+                            cityId: profile.cityId,
+                            stateId: profile.stateId,
+                            countryId: profile.countryId,
+                            identityVerified: profile.identityVerified,
+                          );
+                          SendInterestDialog.show(context, searchModel);
+                        },
+                      );
+                    }),
+                  ),
+                ],
               ),
             ],
           ),
@@ -450,6 +537,7 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
       ],
     );
   }
+
 
   Widget _infoChip(IconData icon, String text, {Color? color}) {
     final Color c = color ?? AppColors.primary;

@@ -6,17 +6,23 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../controllers/interest_controller.dart';
+import '../../../controllers/notification_controller.dart';
+import '../../../controllers/proposal_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
+
 import '../../../core/api/api_response.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../chat/views/chat_conversation_view.dart';
+import '../../notifications/views/notifications_view.dart';
 import '../widgets/public_profile_detail_sheet.dart';
 import '../widgets/report_profile_dialog.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
+import '../../proposals/widgets/send_proposal_dialog.dart';
+
  
 class DiscoverView extends StatelessWidget {
   const DiscoverView({super.key});
@@ -211,6 +217,73 @@ class _SearchBarHeader extends StatelessWidget {
                       child: Center(
                         child: Text(
                           '$filterCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+          const SizedBox(width: AppSpacing.sm),
+          // Notification Bell Button with unread badge
+          Obx(() {
+            final NotificationController? notifCtrl =
+                Get.isRegistered<NotificationController>()
+                    ? Get.find<NotificationController>()
+                    : null;
+            final int unread = notifCtrl?.unreadCount.value ?? 0;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                InkWell(
+                  onTap: () => Get.to(() => const NotificationsView()),
+                  borderRadius: AppRadius.lgAll,
+                  child: Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                      borderRadius: AppRadius.lgAll,
+                      border: Border.all(
+                        color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      unread > 0
+                          ? Icons.notifications_rounded
+                          : Icons.notifications_none_rounded,
+                      color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                if (unread > 0)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Center(
+                        child: Text(
+                          unread > 99 ? '99+' : '$unread',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 9.5,
@@ -871,6 +944,38 @@ class _SingleUserProfileCard extends StatelessWidget {
                   );
                 },
               ),
+              Obx(() {
+                final ProposalController? proposalCtrl = Get.isRegistered<ProposalController>()
+                    ? Get.find<ProposalController>()
+                    : null;
+                final bool proposed = proposalCtrl?.hasSentProposalTo(profile.id) == true;
+                if (proposed) {
+                  return ListTile(
+                    leading: const Icon(Icons.check_circle_rounded, color: AppColors.success),
+                    title: const Text(
+                      'Already Sent',
+                      style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                    ),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      PublicProfileDetailSheet.show(
+                        context,
+                        profileId: profile.id,
+                        searchProfile: profile,
+                      );
+                    },
+                  );
+                }
+                return ListTile(
+                  leading: const Icon(Icons.mail_outline_rounded, color: AppColors.primary),
+                  title: const Text('Send Proposal'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    SendProposalDialog.show(context, profile);
+                  },
+                );
+              }),
+
               ListTile(
                 leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
                 title: const Text('Send Interest'),
@@ -879,6 +984,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                   SendInterestDialog.show(context, profile);
                 },
               ),
+
               ListTile(
                 leading: const Icon(Icons.bookmark_outline_rounded, color: AppColors.gold),
                 title: const Text('Shortlist'),

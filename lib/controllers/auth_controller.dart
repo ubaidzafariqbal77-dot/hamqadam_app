@@ -11,7 +11,11 @@ import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
 import 'lookup_controller.dart';
+import 'notification_controller.dart';
+import 'payment_controller.dart';
+import 'proposal_controller.dart';
 import 'registration_controller.dart';
+import 'shortlist_controller.dart';
 
 /// App-wide session state. The token is kept in secure storage; the current
 /// user's full profile is kept locally in SharedPreferences via
@@ -37,6 +41,9 @@ class AuthController extends GetxController {
   Future<void> loadSession() async {
     user.value = currentUser.load();
     isAuthenticated.value = storage.hasToken;
+    if (storage.hasToken) {
+      _refreshAuthenticatedServices();
+    }
   }
 
   /// Called after login / mobile OTP / registration: save token securely + full
@@ -50,6 +57,7 @@ class AuthController extends GetxController {
     isAuthenticated.value = true;
     AppLogger.i('Session persisted for user ${res.user?.id ?? '?'}');
     _refreshLookups();
+    _refreshAuthenticatedServices();
   }
 
   /// `GET /profile/dropdown-reference-data` needs a bearer token, so every list
@@ -61,11 +69,43 @@ class AuthController extends GetxController {
     Get.find<LookupController>().preloadReference(force: true);
   }
 
+  void _refreshAuthenticatedServices() {
+    if (Get.isRegistered<PaymentController>()) {
+      Get.find<PaymentController>().loadCurrentPackage(silent: true);
+      Get.find<PaymentController>().loadPlans(silent: true);
+    }
+    if (Get.isRegistered<ShortlistController>()) {
+      Get.find<ShortlistController>().loadShortlists(silent: true);
+    }
+    if (Get.isRegistered<ProposalController>()) {
+      Get.find<ProposalController>().loadProposals(silent: true);
+    }
+    if (Get.isRegistered<NotificationController>()) {
+      Get.find<NotificationController>().fetchNotifications(refresh: true);
+    }
+  }
+
+  void _resetAuthenticatedServices() {
+    if (Get.isRegistered<PaymentController>()) {
+      Get.find<PaymentController>().reset();
+    }
+    if (Get.isRegistered<ShortlistController>()) {
+      Get.find<ShortlistController>().reset();
+    }
+    if (Get.isRegistered<ProposalController>()) {
+      Get.find<ProposalController>().reset();
+    }
+    if (Get.isRegistered<NotificationController>()) {
+      Get.find<NotificationController>().reset();
+    }
+  }
+
   /// Invoked by the API client on HTTP 401. Clears the session but preserves
   /// registration drafts, then routes to login once (no redirect loops).
   Future<void> handleUnauthorized() async {
     await storage.clearSession();
     await currentUser.clear();
+    _resetAuthenticatedServices();
     isAuthenticated.value = false;
     user.value = null;
     if (Get.currentRoute != AppRoutes.login) {
@@ -121,6 +161,7 @@ class AuthController extends GetxController {
   Future<void> _clearAndGoLogin() async {
     await storage.clearSession();
     await currentUser.clear();
+    _resetAuthenticatedServices();
     // Explicit logout / deactivation also drops the registration draft and the
     // profile-completion record so the next account starts from a clean slate.
     if (Get.isRegistered<RegistrationController>()) {

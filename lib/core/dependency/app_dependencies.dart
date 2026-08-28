@@ -6,9 +6,12 @@ import '../../controllers/chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
 import '../../controllers/interest_controller.dart';
+import '../../controllers/notification_controller.dart';
 import '../../controllers/partner_preference_controller.dart';
+import '../../controllers/payment_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/profile_view_controller.dart';
+import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/shortlist_controller.dart';
@@ -21,13 +24,19 @@ import '../../repositories/chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
 import '../../repositories/interest_repository.dart';
+import '../../repositories/notification_repository.dart';
 import '../../repositories/partner_preference_repository.dart';
+import '../../repositories/payment_repository.dart';
 import '../../repositories/profile_repository.dart';
 import '../../repositories/profile_view_repository.dart';
+import '../../repositories/proposal_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../../repositories/search_repository.dart';
 import '../../repositories/shortlist_repository.dart';
 import '../../repositories/verification_repository.dart';
+
+
+
 
 import '../api/api_client.dart';
 import '../network/network_info.dart';
@@ -83,6 +92,11 @@ class AppDependencies {
     Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
+    Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
+    Get.put<ProposalRepository>(ProposalRepository(apiClient), permanent: true);
+    Get.put<NotificationRepository>(NotificationRepository(apiClient), permanent: true);
+
+
 
     final PusherChatService pusherService = PusherChatService(storage: secureStorage);
     Get.put<PusherChatService>(pusherService, permanent: true);
@@ -100,9 +114,30 @@ class AppDependencies {
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
 
+    // Payment Controller (Permanent so plan/coin balances are accessible everywhere)
+    Get.put<PaymentController>(
+      PaymentController(Get.find<PaymentRepository>()),
+      permanent: true,
+    );
+
     // Shortlist Controller (Permanent so shortlist state is globally cached & synced)
     Get.put<ShortlistController>(
       ShortlistController(Get.find<ShortlistRepository>()),
+      permanent: true,
+    );
+
+    // Proposal Controller (Permanent so proposal state and send/accept/reject is synced across app)
+    Get.put<ProposalController>(
+      ProposalController(
+        Get.find<ProposalRepository>(),
+        Get.find<CurrentUserService>(),
+      ),
+      permanent: true,
+    );
+
+    // Notification Controller (Permanent so unread badge count stays synced everywhere)
+    Get.put<NotificationController>(
+      NotificationController(Get.find<NotificationRepository>()),
       permanent: true,
     );
 

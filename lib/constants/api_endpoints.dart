@@ -114,7 +114,25 @@ class ApiEndpoints {
   /// Remove profile from shortlist (`DELETE /proposals/shortlists/{userId}`).
   static String shortlistRemove(int userId) => '/proposals/shortlists/$userId';
 
+  // ---- Proposals ------------------------------------------------------------
+
+  /// List proposals (`GET /proposals`) and send proposal (`POST /proposals`).
+  static const String proposals = '/proposals';
+
+  /// Accept proposal (`POST /proposals/{id}/accept`).
+  static String proposalAccept(int id) => '/proposals/$id/accept';
+
+  /// Reject proposal (`POST /proposals/{id}/reject`).
+  static String proposalReject(int id) => '/proposals/$id/reject';
+
+  /// Withdraw sent proposal (`POST /proposals/{id}/withdraw`).
+  static String proposalWithdraw(int id) => '/proposals/$id/withdraw';
+
+  /// Cancel proposal (`POST /proposals/{id}/cancel`).
+  static String proposalCancel(int id) => '/proposals/$id/cancel';
+
   // ---- Profile Views --------------------------------------------------------
+
 
   /// Profiles viewed by the current authenticated user.
   static const String profileViews = '/profile-views';
@@ -163,4 +181,40 @@ class ApiEndpoints {
 
   /// Delete a single message (for the current user only).
   static String chatDeleteMessage(int messageId) => '/chat/messages/$messageId';
+
+  // ---- Payments & Subscriptions ---------------------------------------------
+  /// List of available membership plans (`GET /payments/plans`).
+  static const String paymentPlans = '/payments/plans';
+
+  /// Current active package and coin balance (`GET /payments/current`).
+  static const String paymentCurrent = '/payments/current';
+
+  /// Package details (`GET /payments/packages/{packageId}`).
+  static String paymentPackage(int packageId) => '/payments/packages/$packageId';
+
+  /// Feature usage breakdown (`GET /payments/usage`).
+  static const String paymentUsage = '/payments/usage';
+
+  /// Payment transaction history (`GET /payments/history`).
+  static const String paymentHistory = '/payments/history';
+
+  /// Payment invoice details (`GET /payments/invoices/{paymentId}`).
+  static String paymentInvoice(int paymentId) => '/payments/invoices/$paymentId';
+
+  /// Payment checkout initiation (`POST /payments/checkout`).
+  static const String paymentCheckout = '/payments/checkout';
+
+  /// Validate discount coupon (`POST /payments/coupons/validate`).
+  static const String paymentValidateCoupon = '/payments/coupons/validate';
+
+  // ---- Notifications --------------------------------------------------------
+  /// List user notifications (`GET /notifications`).
+  static const String notifications = '/notifications';
+
+  /// Mark all notifications as read (`POST /notifications/mark-all-read`).
+  static const String notificationsMarkAllRead = '/notifications/mark-all-read';
+
+  /// Mark single notification as read (`POST /notifications/{id}/read`).
+  static String notificationRead(int id) => '/notifications/$id/read';
 }
+

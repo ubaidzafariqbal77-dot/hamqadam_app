@@ -34,7 +34,27 @@ import '../../repositories/proposal_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../../repositories/search_repository.dart';
 import '../../repositories/shortlist_repository.dart';
+import '../../repositories/auth_extra_repository.dart';
+import '../../repositories/proposal_extra_repository.dart';
+import '../../repositories/search_extra_repository.dart';
+import '../../repositories/notification_extra_repository.dart';
+import '../../repositories/match_repository.dart';
+import '../../repositories/safety_repository.dart';
+import '../../repositories/ai_helper_repository.dart';
+import '../../repositories/content_repository.dart';
+import '../../repositories/family_repository.dart';
 import '../../repositories/verification_repository.dart';
+
+// New controllers
+import '../../controllers/match_controller.dart';
+import '../../controllers/safety_controller.dart';
+import '../../controllers/search_extra_controller.dart';
+import '../../controllers/proposal_extra_controller.dart';
+import '../../controllers/notification_extra_controller.dart';
+import '../../controllers/ai_helper_controller.dart';
+import '../../controllers/content_controller.dart';
+import '../../controllers/family_controller.dart';
+import '../../controllers/auth_extra_controller.dart';
 
 
 
@@ -96,6 +116,17 @@ class AppDependencies {
     Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
     Get.put<ProposalRepository>(ProposalRepository(apiClient), permanent: true);
     Get.put<NotificationRepository>(NotificationRepository(apiClient), permanent: true);
+
+    // New repositories
+    Get.put<MatchRepository>(MatchRepository(apiClient), permanent: true);
+    Get.put<SafetyRepository>(SafetyRepository(apiClient), permanent: true);
+    Get.put<SearchExtraRepository>(SearchExtraRepository(apiClient), permanent: true);
+    Get.put<ProposalExtraRepository>(ProposalExtraRepository(apiClient), permanent: true);
+    Get.put<NotificationExtraRepository>(NotificationExtraRepository(apiClient), permanent: true);
+    Get.put<AiHelperRepository>(AiHelperRepository(apiClient), permanent: true);
+    Get.put<ContentRepository>(ContentRepository(apiClient), permanent: true);
+    Get.put<FamilyRepository>(FamilyRepository(apiClient), permanent: true);
+    Get.put<AuthExtraRepository>(AuthExtraRepository(apiClient), permanent: true);
 
 
 
@@ -209,6 +240,18 @@ class AppDependencies {
       ),
       permanent: true,
     );
+
+    // New controllers
+    Get.put<SafetyController>(SafetyController(Get.find<SafetyRepository>()), permanent: true);
+    Get.put<NotificationExtraController>(NotificationExtraController(Get.find<NotificationExtraRepository>()), permanent: true);
+    Get.put<AiHelperController>(AiHelperController(Get.find<AiHelperRepository>()), permanent: true);
+    Get.put<AuthExtraController>(AuthExtraController(Get.find<AuthExtraRepository>()), permanent: true);
+
+    Get.lazyPut<MatchController>(() => MatchController(Get.find<MatchRepository>()), fenix: true);
+    Get.lazyPut<SearchExtraController>(() => SearchExtraController(Get.find<SearchExtraRepository>()), fenix: true);
+    Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
+    Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
+    Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);
 
     // Restore any persisted session for the splash bootstrap.
     await authController.loadSession();

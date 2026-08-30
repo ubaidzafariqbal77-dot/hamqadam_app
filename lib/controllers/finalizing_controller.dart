@@ -143,6 +143,14 @@ class FinalizingController extends GetxController {
     await _afterFix();
   }
 
+  /// Navigates to a specific missing mandatory step by its UI step number.
+  /// After the user fills it in and taps Save, they return here and the
+  /// controller rechecks all mandatory steps + rejected fields.
+  Future<void> goToMissingStep(int step) async {
+    await reg.openStepForFix(step);
+    await _afterFix();
+  }
+
   /// Titles of the screens still missing data, for the on-screen message.
   List<String> get missingTitles => missing
       .map((int s) => RegistrationController.steps[s - 1].title)

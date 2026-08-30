@@ -270,6 +270,10 @@ class _UploadProgress extends StatelessWidget {
 
 /// Shown when a mandatory screen was never filled in: the backend validates the
 /// whole payload at once, so it is caught here before the request goes out.
+///
+/// Each row is tappable — tapping jumps directly to that step, and after the
+/// user fills it in and taps Save the controller brings them back here and
+/// rechecks.
 class _MissingSteps extends StatelessWidget {
   const _MissingSteps({required this.controller});
   final FinalizingController controller;
@@ -284,15 +288,59 @@ class _MissingSteps extends StatelessWidget {
           style: AppTextStyles.bodyStrong,
         ),
         const SizedBox(height: AppSpacing.sm),
-        for (final String title in controller.missingTitles)
+        for (int i = 0; i < controller.missing.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              children: <Widget>[
-                const Icon(Icons.circle_outlined, size: 16, color: AppColors.error),
-                const SizedBox(width: AppSpacing.xs),
-                Expanded(child: Text(title, style: AppTextStyles.body)),
-              ],
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: AppRadius.mdAll,
+                onTap: () => controller.goToMissingStep(controller.missing[i]),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.06),
+                    borderRadius: AppRadius.mdAll,
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.edit_outlined, size: 18, color: AppColors.error),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              controller.missingTitles[i],
+                              style: AppTextStyles.bodyStrong.copyWith(
+                                color: AppColors.error,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              'Tap to fill in',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
       ],

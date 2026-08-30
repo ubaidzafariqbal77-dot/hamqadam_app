@@ -64,7 +64,10 @@ class ProfileRepository {
   /// the AI internals belong to the owner and are not returned here.
   Future<PublicProfileModel> fetchPublicProfile(int profileId) async {
     final ApiEnvelope res = await _client.get(ApiEndpoints.publicProfile(profileId));
-    return PublicProfileModel.fromJson(res.dataMap);
+    final Map<String, dynamic>? metaMap = res.meta?['profile_view'] is Map<String, dynamic>
+        ? res.meta!['profile_view'] as Map<String, dynamic>
+        : null;
+    return PublicProfileModel.fromJson(res.dataMap, metaJson: metaMap);
   }
 
   /// `GET /profiles/{id}/compatibility`

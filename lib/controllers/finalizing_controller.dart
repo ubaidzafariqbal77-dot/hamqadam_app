@@ -135,12 +135,12 @@ class FinalizingController extends GetxController {
     );
   }
 
-  /// Sends the user back to the first mandatory screen they left empty.
-  void fixMissingStep() {
+  /// Sends the user to the first mandatory screen they left empty, and brings
+  /// them back here when it is filled in.
+  Future<void> fixMissingStep() async {
     if (missing.isEmpty) return;
-    final int step = missing.first;
-    reg.currentStep.value = step;
-    Get.offNamed<void>(AppRoutes.routeForStep(step));
+    await reg.openStepForFix(missing.first);
+    await _afterFix();
   }
 
   /// Titles of the screens still missing data, for the on-screen message.
@@ -168,12 +168,39 @@ class FinalizingController extends GetxController {
     return out;
   }
 
-  /// Sends the user back to the screen that owns a rejected field.
-  void goToRejected(RejectedField f) {
+  /// Opens the screen that owns a rejected field so the user can correct it,
+  /// then returns here.
+  ///
+  /// This used to `Get.offNamed` the step, which replaced the finalizing screen
+  /// and dropped the user back into the ordinary forward flow — so correcting
+  /// one field meant walking every remaining step again instead of coming
+  /// straight back to submit. [RegistrationController.openStepForFix] pushes
+  /// the step over this screen and pops back to it.
+  Future<void> goToRejected(RejectedField f) async {
     final int? step = f.uiStep;
     if (step == null) return;
-    reg.currentStep.value = step;
-    Get.offNamed<void>(AppRoutes.routeForStep(step));
+    await reg.openStepForFix(step);
+    await _afterFix();
+  }
+
+  /// Back on the finalizing screen after a correction.
+  ///
+  /// Recomputes what is still outstanding, and retries the submission by itself
+  /// once nothing is — the user already said what they wanted by fixing the
+  /// last field; making them hunt for a retry button as well is busywork.
+  Future<void> _afterFix() async {
+    missing.assignAll(reg.missingMandatorySteps);
+    if (missing.isNotEmpty || rejectedFields.isNotEmpty) return;
+
+    // Re-arm whatever failed so `run` picks it up again. A task that already
+    // succeeded is left alone, so the account is never created twice.
+    for (final FinalizeStep s in steps) {
+      if (s.status.value == 3) {
+        s.status.value = 0;
+        s.message.value = '';
+      }
+    }
+    await run();
   }
 }
 
@@ -186,8 +213,21 @@ class RejectedField {
     this.stepTitle,
   });
 
+  /// The API's field name, e.g. `annual_income`.
   final String field;
+
   final String message;
   final int? uiStep;
   final String? stepTitle;
+
+  /// Human name for [field] — `siblings_brothers` reads as "Siblings brothers",
+  /// `religion_id` as "Religion". The server's message usually names the field
+  /// too, but in its own wording; this is what the user saw on the form.
+  String get label {
+    String s = field.split('.').first.trim();
+    if (s.endsWith('_id')) s = s.substring(0, s.length - 3);
+    s = s.replaceAll('_', ' ').trim();
+    if (s.isEmpty) return field;
+    return s[0].toUpperCase() + s.substring(1);
+  }
 }

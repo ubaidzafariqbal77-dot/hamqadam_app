@@ -1,0 +1,42 @@
+{
+    "success": true,
+    "message": null,
+    "data": {
+        "id": 23,
+        "status": "submitted",
+        "cnic_number": "32403-6925449-3",
+        "face_match_status": "matched",
+        "face_match_score": 77.28,
+        "rejection_reason": null,
+        "reviewer": null,
+        "documents": [
+            {
+                "id": 54,
+                "type": "cnic_back",
+                "upload_id": 124,
+                "url": "https://hamqadam.com/public/uploads/all/6a8b54c895bba.jpeg",
+                "metadata": null,
+                "created_at": "2026-08-23T20:15:04.000000Z"
+            },
+            {
+                "id": 53,
+                "type": "cnic_front",
+                "upload_id": 123,
+                "url": "https://hamqadam.com/public/uploads/all/6a8b54c894fbf.jpeg",
+                "metadata": null,
+                "created_at": "2026-08-23T20:15:04.000000Z"
+            },
+            {
+                "id": 55,
+                "type": "selfie",
+                "upload_id": 125,
+                "url": "https://hamqadam.com/public/uploads/all/6a8b54c896534.jpeg",
+                "metadata": null,
+                "created_at": "2026-08-23T20:15:04.000000Z"
+            }
+        ],
+        "submitted_at": "2026-08-23T20:15:04.000000Z",
+        "reviewed_at": null,
+        "created_at": "2026-08-23T20:15:04.000000Z"
+    }
+}

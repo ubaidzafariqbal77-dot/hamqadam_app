@@ -1,0 +1,719 @@
+import 'dart:async';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_dimensions.dart';
+import '../../../core/services/call_state_service.dart';
+
+/// Reusable Audio and Video Call Screen powered by official Agora RTC Engine.
+class VideoCallScreen extends StatefulWidget {
+  static const String defaultAppId = 'c26bb5b249ec475b8ba1159c836c1967';
+  static const String defaultToken =
+      '007eJxTYGBxnBf/QvJzs+HsX3OurBdxiP2wpSP8dpnU9ykivnL55pEKDMlGZklJpklGJpapySbmpkkWSYmGhqaWyRbGZsmGlmbmwfsnZjUEMjK4qRSzMDJAIIjPw2BmZmRgZGZgYWRqaMDAAAAhfx8n';
+
+  const VideoCallScreen({
+    super.key,
+    required this.channelName,
+    required this.userName,
+    this.userPhoto,
+    this.isVideoCall = true,
+    this.agoraAppId = defaultAppId,
+    this.token = defaultToken,
+  });
+
+  /// The unique channel name for this conversation / call.
+  final String channelName;
+
+  /// The name of the remote user being called.
+  final String userName;
+
+  /// Remote user's avatar photo URL.
+  final String? userPhoto;
+
+  /// `true` for 2-way Video Call, `false` for Audio-only Voice Call.
+  final bool isVideoCall;
+
+  /// Agora App ID.
+  final String agoraAppId;
+
+  /// Agora RTC token (uses default temp token or provided token).
+  final String? token;
+
+  /// Helper static launcher
+  static Future<void> open({
+    required String channelName,
+    required String userName,
+    String? userPhoto,
+    bool isVideoCall = true,
+    String agoraAppId = defaultAppId,
+    String token = defaultToken,
+  }) async {
+    await Get.to<void>(
+      () => VideoCallScreen(
+        channelName: channelName,
+        userName: userName,
+        userPhoto: userPhoto,
+        isVideoCall: isVideoCall,
+        agoraAppId: agoraAppId,
+        token: token,
+      ),
+      transition: Transition.fadeIn,
+    );
+  }
+
+
+  @override
+  State<VideoCallScreen> createState() => _VideoCallScreenState();
+}
+
+class _VideoCallScreenState extends State<VideoCallScreen> {
+  RtcEngine? _engine;
+  int? _remoteUid;
+  bool _localUserJoined = false;
+  bool _isMuted = false;
+  bool _isVideoDisabled = false;
+  bool _isSpeakerOn = true;
+  bool _engineReady = false; // tracks if engine is fully ready for API calls
+  Timer? _callTimer;
+  Timer? _ringTimer;
+  int _callDurationSeconds = 0;
+  StreamSubscription<int>? _declineSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _isVideoDisabled = !widget.isVideoCall;
+    _listenForDeclineSignals();
+    _initAgora();
+  }
+
+  /// Listen for call decline signals from the remote user.
+  void _listenForDeclineSignals() {
+    _declineSubscription = CallStateService.instance.onCallDeclined.listen((int threadId) {
+      if (!mounted) return;
+      // Show a snackbar and end the call
+      _showDeclinedMessage();
+      _endCall();
+    });
+  }
+
+  void _showDeclinedMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Call declined by the other user.',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  // ─── Agora Setup ─────────────────────────────────────────────────────────
+
+  Future<void> _initAgora() async {
+    // Register this as an outgoing call if not already in a call
+    if (!CallStateService.instance.isInCall) {
+      CallStateService.instance.startOutgoing(
+        channelName: widget.channelName,
+        threadId: 0, // threadId resolved from context, not needed for state
+        isVideo: widget.isVideoCall,
+      );
+    }
+
+    // Request permissions
+    await <Permission>[
+      Permission.microphone,
+      if (widget.isVideoCall) Permission.camera,
+    ].request();
+
+    // Create and initialize RtcEngine
+    final RtcEngine engine = createAgoraRtcEngine();
+    _engine = engine;
+
+    await engine.initialize(
+      RtcEngineContext(
+        appId: widget.agoraAppId,
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+      ),
+    );
+
+    engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          debugPrint('📞 Agora: Joined channel successfully');
+          if (mounted) {
+            setState(() {
+              _localUserJoined = true;
+              _engineReady = true;
+            });
+          }
+          // Enable speaker AFTER join — avoids ERR_NOT_READY (-3)
+          _safeSpeaker();
+          // Start ringing feedback
+          _startRinging();
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          debugPrint('📞 Agora: Remote user $remoteUid joined');
+          _stopRinging();
+          if (mounted) {
+            setState(() {
+              _remoteUid = remoteUid;
+            });
+            _startCallTimer();
+          }
+        },
+        onUserOffline:
+            (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+          debugPrint('📞 Agora: Remote user $remoteUid left');
+          if (mounted) {
+            setState(() {
+              _remoteUid = null;
+            });
+            // Auto-end call when remote user disconnects
+            _endCall();
+          }
+        },
+        onLeaveChannel: (RtcConnection connection, RtcStats stats) {
+          debugPrint('📞 Agora: Left channel');
+          _stopRinging();
+          if (mounted) {
+            setState(() {
+              _localUserJoined = false;
+              _remoteUid = null;
+              _engineReady = false;
+            });
+          }
+        },
+        onError: (ErrorCodeType err, String msg) {
+          debugPrint('📞 Agora ERROR: $err — $msg');
+        },
+      ),
+    );
+
+    if (widget.isVideoCall) {
+      await engine.enableVideo();
+      await engine.startPreview();
+    } else {
+      await engine.enableAudio();
+      await engine.disableVideo();
+    }
+
+    // Join channel — speaker & ringing happen in onJoinChannelSuccess
+    await engine.joinChannel(
+      token: widget.token ?? '',
+      channelId: widget.channelName,
+      uid: 0,
+      options: ChannelMediaOptions(
+        clientRoleType: ClientRoleType.clientRoleBroadcaster,
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+        publishCameraTrack: widget.isVideoCall,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
+        autoSubscribeVideo: widget.isVideoCall,
+      ),
+    );
+  }
+
+  // ─── Speaker (safe wrapper) ──────────────────────────────────────────────
+
+  Future<void> _safeSpeaker() async {
+    if (_engine == null) return;
+    // Small delay to let the engine fully settle after join
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    try {
+      await _engine!.setEnableSpeakerphone(_isSpeakerOn);
+    } catch (e) {
+      debugPrint('📞 Speaker toggle skipped: $e');
+    }
+  }
+
+  // ─── Ringing Feedback ────────────────────────────────────────────────────
+  // Play a system click sound every 2s to simulate ringing until remote joins.
+
+  void _startRinging() {
+    _ringTimer?.cancel();
+    // Play initial ring
+    SystemSound.play(SystemSoundType.click);
+    _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_remoteUid != null) {
+        _stopRinging();
+        return;
+      }
+      SystemSound.play(SystemSoundType.click);
+    });
+  }
+
+  void _stopRinging() {
+    _ringTimer?.cancel();
+    _ringTimer = null;
+  }
+
+  // ─── Call Timer ──────────────────────────────────────────────────────────
+
+  void _startCallTimer() {
+    _callTimer?.cancel();
+    _callDurationSeconds = 0;
+    _callTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) {
+      if (mounted) {
+        setState(() {
+          _callDurationSeconds++;
+        });
+      }
+    });
+  }
+
+  String _formatDuration(int seconds) {
+    final int minutes = seconds ~/ 60;
+    final int remainingSeconds = seconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+  }
+
+  // ─── Call Controls ───────────────────────────────────────────────────────
+
+  Future<void> _toggleMute() async {
+    if (_engine == null || !_engineReady) return;
+    setState(() {
+      _isMuted = !_isMuted;
+    });
+    try {
+      await _engine!.muteLocalAudioStream(_isMuted);
+    } catch (e) {
+      debugPrint('📞 Mute error: $e');
+    }
+  }
+
+  Future<void> _toggleVideo() async {
+    if (_engine == null || !_engineReady) return;
+    setState(() {
+      _isVideoDisabled = !_isVideoDisabled;
+    });
+    try {
+      if (_isVideoDisabled) {
+        await _engine!.disableVideo();
+        await _engine!.muteLocalVideoStream(true);
+      } else {
+        await _engine!.enableVideo();
+        await _engine!.muteLocalVideoStream(false);
+        await _engine!.startPreview();
+      }
+    } catch (e) {
+      debugPrint('📞 Video toggle error: $e');
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_engine == null || !_engineReady) return;
+    try {
+      await _engine!.switchCamera();
+    } catch (e) {
+      debugPrint('📞 Camera switch error: $e');
+    }
+  }
+
+  Future<void> _toggleSpeaker() async {
+    if (_engine == null || !_engineReady) return;
+    setState(() {
+      _isSpeakerOn = !_isSpeakerOn;
+    });
+    try {
+      await _engine!.setEnableSpeakerphone(_isSpeakerOn);
+    } catch (e) {
+      debugPrint('📞 Speaker error: $e');
+    }
+  }
+
+  Future<void> _endCall() async {
+    _callTimer?.cancel();
+    _stopRinging();
+    CallStateService.instance.endCall();
+    _declineSubscription?.cancel();
+    _declineSubscription = null;
+    if (_engine != null) {
+      try {
+        await _engine!.leaveChannel();
+        await _engine!.release();
+      } catch (_) {}
+      _engine = null;
+    }
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _callTimer?.cancel();
+    _stopRinging();
+    _declineSubscription?.cancel();
+    CallStateService.instance.endCall();
+    try {
+      _engine?.leaveChannel();
+      _engine?.release();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  // ─── Call Status Helper ──────────────────────────────────────────────────
+
+  String get _callStatus {
+    if (_remoteUid != null) {
+      return 'Connected • ${_formatDuration(_callDurationSeconds)}';
+    }
+    if (_localUserJoined) {
+      return 'Ringing…';
+    }
+    return 'Connecting…';
+  }
+
+  IconData get _callStatusIcon {
+    if (_remoteUid != null) return Icons.call_rounded;
+    if (_localUserJoined) return Icons.ring_volume_rounded;
+    return Icons.wifi_calling_3_rounded;
+  }
+
+  Color get _callStatusColor {
+    if (_remoteUid != null) return AppColors.success;
+    if (_localUserJoined) return Colors.orangeAccent;
+    return Colors.white54;
+  }
+
+  // ─── Build ───────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final bool showVideoLayout = widget.isVideoCall && !_isVideoDisabled;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      body: SafeArea(
+        child: Stack(
+          children: <Widget>[
+            // ── Main Video / Audio View ──────────────────────────────────
+            if (showVideoLayout)
+              _buildVideoLayout()
+            else
+              _buildAudioLayout(),
+
+            // ── Top Bar Overlay ──────────────────────────────────────────
+            Positioned(
+              top: 12,
+              left: 16,
+              right: 16,
+              child: _buildTopBar(),
+            ),
+
+            // ── Bottom Call Controls ─────────────────────────────────────
+            Positioned(
+              bottom: 28,
+              left: 16,
+              right: 16,
+              child: _buildBottomControls(showVideoLayout),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoLayout() {
+    return Stack(
+      children: <Widget>[
+        // Remote Fullscreen Video
+        Center(
+          child: _remoteUid != null && _engine != null
+              ? AgoraVideoView(
+                  controller: VideoViewController.remote(
+                    rtcEngine: _engine!,
+                    canvas: VideoCanvas(uid: _remoteUid),
+                    connection: RtcConnection(channelId: widget.channelName),
+                  ),
+                )
+              : _buildWaitingView(),
+        ),
+
+        // Local Floating PIP Video
+        if (_localUserJoined && _engine != null)
+          Positioned(
+            top: 75,
+            right: 16,
+            width: 110,
+            height: 155,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: Colors.white24, width: 1.5),
+                boxShadow: const <BoxShadow>[
+                  BoxShadow(color: Colors.black45, blurRadius: 8, spreadRadius: 2),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: AgoraVideoView(
+                  controller: VideoViewController(
+                    rtcEngine: _engine!,
+                    canvas: const VideoCanvas(uid: 0),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildWaitingView() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        CircleAvatar(
+          radius: 50,
+          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+          backgroundImage: widget.userPhoto != null && widget.userPhoto!.isNotEmpty
+              ? NetworkImage(widget.userPhoto!)
+              : null,
+          child: widget.userPhoto == null || widget.userPhoto!.isEmpty
+              ? Text(
+                  widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+                )
+              : null,
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        Text(
+          widget.userName,
+          style:
+              const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(_callStatusIcon, color: _callStatusColor, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              _callStatus,
+              style: const TextStyle(fontSize: 14, color: Colors.white70),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        if (_remoteUid == null)
+          const CircularProgressIndicator(color: AppColors.primary),
+      ],
+    );
+  }
+
+  Widget _buildAudioLayout() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          // Animated ring indicator around avatar
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 600),
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _remoteUid != null ? AppColors.success : AppColors.primary,
+                width: _remoteUid != null ? 3.0 : 2.5,
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: (_remoteUid != null ? AppColors.success : AppColors.primary)
+                      .withValues(alpha: 0.25),
+                  blurRadius: _remoteUid != null ? 16 : 24,
+                  spreadRadius: _remoteUid != null ? 4 : 8,
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 58,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+              backgroundImage: widget.userPhoto != null && widget.userPhoto!.isNotEmpty
+                  ? NetworkImage(widget.userPhoto!)
+                  : null,
+              child: widget.userPhoto == null || widget.userPhoto!.isEmpty
+                  ? Text(
+                      widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                          fontSize: 42, fontWeight: FontWeight.bold, color: Colors.white),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          Text(
+            widget.userName,
+            style: const TextStyle(
+                fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white12,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(_callStatusIcon, color: _callStatusColor, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  _callStatus,
+                  style: const TextStyle(
+                      fontSize: 13, color: Colors.white70, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        children: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+            onPressed: _endCall,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  widget.userName,
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _callStatus,
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          if (widget.isVideoCall)
+            IconButton(
+              icon: Icon(
+                _isVideoDisabled ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+                color: _isVideoDisabled ? Colors.white54 : AppColors.primary,
+                size: 22,
+              ),
+              tooltip: _isVideoDisabled ? 'Enable Video' : 'Switch to Audio',
+              onPressed: _toggleVideo,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomControls(bool showVideo) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: <Widget>[
+          // Mute Button
+          _controlButton(
+            onPressed: _toggleMute,
+            icon: _isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+            bgColor: _isMuted ? Colors.white : Colors.white24,
+            iconColor: _isMuted ? Colors.black : Colors.white,
+            label: _isMuted ? 'Unmute' : 'Mute',
+          ),
+
+          // Speaker Button
+          _controlButton(
+            onPressed: _toggleSpeaker,
+            icon: _isSpeakerOn ? Icons.volume_up_rounded : Icons.volume_down_rounded,
+            bgColor: _isSpeakerOn ? AppColors.primary : Colors.white24,
+            iconColor: Colors.white,
+            label: 'Speaker',
+          ),
+
+          // Switch Camera (only when video is active)
+          if (showVideo)
+            _controlButton(
+              onPressed: _switchCamera,
+              icon: Icons.cameraswitch_rounded,
+              bgColor: Colors.white24,
+              iconColor: Colors.white,
+              label: 'Flip',
+            ),
+
+          // End Call Button
+          GestureDetector(
+            onTap: _endCall,
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                CircleAvatar(
+                  backgroundColor: AppColors.error,
+                  radius: 26,
+                  child: Icon(Icons.call_end_rounded, color: Colors.white, size: 26),
+                ),
+                SizedBox(height: 4),
+                Text('End', style: TextStyle(fontSize: 10, color: Colors.white54)),
+              ],
+            ),
+
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required Color bgColor,
+    required Color iconColor,
+    required String label,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          CircleAvatar(
+            backgroundColor: bgColor,
+            radius: 22,
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+        ],
+      ),
+    );
+  }
+}

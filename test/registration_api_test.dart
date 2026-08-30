@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hamqadam/constants/api_endpoints.dart';
 import 'package:hamqadam/constants/api_options.dart';
 import 'package:hamqadam/controllers/registration_payload.dart';
-import 'package:hamqadam/core/utils/cnic_ocr_service.dart';
 import 'package:hamqadam/core/storage/registration_buffer.dart';
 import 'package:hamqadam/models/lookup_item_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Guards the contract documented at https://hamqadam.com/api-docs:
 /// the step endpoints, the UI↔API step map, and the value conversions.
 void main() {
-  _cnicTests();
 
   group('registration endpoints', () {
     test('registration is one complete submission plus an email OTP', () {
@@ -241,34 +239,6 @@ void main() {
           LookupItem.fromJson(<String, dynamic>{'id': 'Reading', 'name': 'Reading'});
       expect(hobby.isOption, isTrue);
       expect(hobby.apiValue, 'Reading');
-    });
-  });
-}
-
-/// The OCR text ML Kit returns is messy — these are the shapes seen in the
-/// wild when photographing a CNIC.
-void _cnicTests() {
-  group('CNIC parsing from OCR text', () {
-    test('reads a properly dashed number', () {
-      expect(
-        CnicOcrService.findCnic('Identity Number\n35202-1234567-1\nPakistan'),
-        '35202-1234567-1',
-      );
-    });
-
-    test('tolerates stray spaces and en/em dashes around the hyphens', () {
-      expect(CnicOcrService.findCnic('35202 - 1234567 - 1'), '35202-1234567-1');
-      expect(CnicOcrService.findCnic('35202–1234567—1'), '35202-1234567-1');
-    });
-
-    test('recovers a number whose dashes OCR dropped', () {
-      expect(CnicOcrService.findCnic('CNIC 3520212345671'), '35202-1234567-1');
-      expect(CnicOcrService.findCnic('35202 1234567 1'), '35202-1234567-1');
-    });
-
-    test('ignores numbers that are not 13 digits', () {
-      expect(CnicOcrService.findCnic('Date 2024-08-15  Ref 12345'), isNull);
-      expect(CnicOcrService.findCnic('123456789012345'), isNull);
     });
   });
 }

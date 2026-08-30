@@ -29,16 +29,18 @@ class LookupController extends GetxController {
   /// Fetches the whole `dropdown-reference-data` payload once, then warms the
   /// lists the registration flow opens with. Safe to call repeatedly.
   Future<void> preloadReference({bool force = false}) async {
-    // A forced refresh happens when a token appears, i.e. when everything
-    // cached so far may be bundled fallback data. Drop the per-list states too,
-    // otherwise `ensure` short-circuits on their stale "success" and dropdowns
-    // keep showing ids the server does not recognise.
-    if (force) states.clear();
     try {
       await _repo.preload(force: force);
     } catch (e) {
       AppLogger.w('Dropdown reference preload failed (bundled data will be used): $e');
     }
+    // A forced refresh happens when a token appears, i.e. when everything
+    // cached so far may be bundled fallback data. Drop the per-list states too,
+    // otherwise `ensure` short-circuits on their stale "success" and dropdowns
+    // keep showing ids the server does not recognise. Cleared only now that the
+    // fresh payload is in hand — clearing first would blank every dropdown on
+    // screen for the whole length of the request.
+    if (force) states.clear();
     // The payload is parsed by now, so each list is a slice of memory. Warming
     // them concurrently keeps the first step from waiting on a chain of awaits.
     await Future.wait<void>(<Future<void>>[

@@ -69,9 +69,16 @@ class StepScaffold extends StatelessWidget {
     // own ("Save"), can always be left, and offers no Skip.
     final bool editing = reg?.isEditingSection ?? false;
 
+    // Correcting a field the finalizing screen rejected. Same shape as editing
+    // — the step returns to its caller instead of advancing — but the wording
+    // says what actually happens next.
+    final bool fixing = reg?.isFixingForFinalize ?? false;
+
     // Every step except the account ones (name, contact, password) can be
     // skipped and completed later, so the Skip action is offered automatically.
-    final bool skipVisible = !editing && (showSkip || (reg?.canSkip(stepNumber) ?? false));
+    // A rejected field is never skippable: skipping is what left it empty.
+    final bool skipVisible =
+        !editing && !fixing && (showSkip || (reg?.canSkip(stepNumber) ?? false));
     final VoidCallback? skipAction =
         onSkip ?? (reg == null ? null : () => reg.skipStep(stepNumber));
     final VoidCallback? backAction = onBack ?? (editing ? () => Get.back<void>() : null);
@@ -116,39 +123,56 @@ class StepScaffold extends StatelessWidget {
       ],
     );
 
-    return DismissKeyboard(
-      child: Scaffold(
-        body: SafeArea(
-          child: Column(
-            children: <Widget>[
-              _Constrained(
-                expand: false,
-                child: _TopBar(
-                  stepNumber: stepNumber,
-                  totalSteps: totalSteps,
-                  onBack: backAction,
+    return PopScope(
+      // The system back gesture must go through the same path as the on-screen
+      // back button. Left to itself it pops the route without telling the
+      // registration controller, so `currentStep` and the buffer resume point
+      // drift out of sync with what is on screen — and on a resumed session,
+      // where the stack holds a single route, it closes the app outright.
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        backAction?.call();
+      },
+      child: DismissKeyboard(
+        child: Scaffold(
+          body: SafeArea(
+            child: Column(
+              children: <Widget>[
+                _Constrained(
+                  expand: false,
+                  child: _TopBar(
+                    stepNumber: stepNumber,
+                    totalSteps: totalSteps,
+                    onBack: backAction,
+                  ),
                 ),
-              ),
-              Expanded(
-                child: _Constrained(
-                  child: formKey == null ? list : Form(key: formKey, child: list),
+                Expanded(
+                  child: _Constrained(
+                    child: formKey == null ? list : Form(key: formKey, child: list),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        bottomNavigationBar: _BottomBar(
-          // Editing a section saves it on its own; steps that drive their own
-          // label (e.g. partner preferences) keep it.
-          primaryLabel: editing ? 'Save' : primaryLabel,
-          primaryLabelRx: primaryLabelRx,
-          onPrimary: onPrimary,
-          busy: busy,
-          primaryEnabled: primaryEnabled,
-          showSkip: skipVisible,
-          onSkip: skipAction,
-          onBack: backAction,
-          footer: footer,
+          bottomNavigationBar: _BottomBar(
+            // Editing a section saves it on its own; a correction returns to
+            // finalizing; steps that drive their own label (e.g. partner
+            // preferences) keep it.
+            primaryLabel: fixing
+                ? 'Save & continue setup'
+                : editing
+                    ? 'Save'
+                    : primaryLabel,
+            primaryLabelRx: primaryLabelRx,
+            onPrimary: onPrimary,
+            busy: busy,
+            primaryEnabled: primaryEnabled,
+            showSkip: skipVisible,
+            onSkip: skipAction,
+            onBack: backAction,
+            footer: footer,
+          ),
         ),
       ),
     );

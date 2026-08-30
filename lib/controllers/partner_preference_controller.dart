@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
+import '../core/storage/profile_completion_service.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/partner_preference_model.dart';
 import '../repositories/partner_preference_repository.dart';
@@ -47,6 +48,13 @@ class PartnerPreferenceController extends GetxController {
     try {
       final PartnerPreferenceModel data = await _repo.fetch();
       draft.value = data;
+      // Section 18 of the completion picture. `GET /profile` cannot report it —
+      // preferences live behind their own endpoint — so this is the only place
+      // that knows whether the member has set any.
+      if (Get.isRegistered<ProfileCompletionService>()) {
+        Get.find<ProfileCompletionService>()
+            .reconcilePartnerPreferences(hasPreferences: !data.isEmpty);
+      }
       // An empty set is a real, valid state — the member simply has not set
       // preferences — so it is `success`, not `empty`. The UI shows an invite
       // to fill them in based on `isEmpty`.

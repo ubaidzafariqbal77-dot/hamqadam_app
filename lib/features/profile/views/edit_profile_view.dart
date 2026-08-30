@@ -49,6 +49,9 @@ class _EditProfileViewState extends State<EditProfileView> {
     super.dispose();
   }
 
+  static String? _yesNo(bool? v) => v == null ? null : (v ? 'Yes' : 'No');
+  static bool? _boolOf(String? v) => v == null ? null : v == 'Yes';
+
   @override
   Widget build(BuildContext context) {
     final DateTime now = DateTime.now();
@@ -82,12 +85,21 @@ class _EditProfileViewState extends State<EditProfileView> {
                   validator: (String? v) => AppValidators.required(v, field: 'Last name'),
                 ),
                 const SizedBox(height: AppSpacing.sm),
+                // Read-only: `PUT /profile` declares no email rule, so a change
+                // typed here was silently discarded. Changing the address needs
+                // the verification flow (request code -> verify).
                 AppTextFormField(
                   label: 'Email',
                   controller: c.email,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  validator: (String? v) => AppValidators.email(v),
+                  enabled: false,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Email changes go through verification — contact support.',
+                  style: AppTextStyles.caption.copyWith(
+                    color: Theme.of(context).hintColor,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 AppTextFormField(
@@ -235,6 +247,457 @@ class _EditProfileViewState extends State<EditProfileView> {
                   maxLines: 3,
                   minLines: 2,
                   maxLength: 300,
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.mosque_rounded,
+              title: 'Religion & language',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Religion',
+                    lookupKey: LookupKeys.religions,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.religions, c.religionId.value),
+                    onChanged: (LookupItem? v) => c.religionId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Sect',
+                    lookupKey: LookupKeys.sectMain,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.sectMain, c.sectMainId.value),
+                    onChanged: (LookupItem? v) => c.sectMainId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'School of thought',
+                    lookupKey: LookupKeys.schoolOfThought,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.schoolOfThought,
+                      c.schoolOfThoughtId.value,
+                    ),
+                    onChanged: (LookupItem? v) => c.schoolOfThoughtId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Tradition',
+                    lookupKey: LookupKeys.traditions,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.traditions, c.traditionId.value),
+                    onChanged: (LookupItem? v) => c.traditionId.value = v?.id,
+                  ),
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.diversity_3_rounded,
+              title: 'Caste & community',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Caste',
+                    lookupKey: LookupKeys.castes,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.castes, c.casteId.value),
+                    onChanged: c.onCaste,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Sub-caste',
+                    lookupKey: LookupKeys.subCastes,
+                    controller: c.lookup,
+                    parentId: c.casteId.value,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.subCastes, c.subCasteId.value),
+                    onChanged: (LookupItem? v) => c.subCasteId.value = v?.id,
+                  ),
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.place_rounded,
+              title: 'Location',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Country',
+                    lookupKey: LookupKeys.countries,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.countries, c.countryId.value),
+                    onChanged: c.onCountry,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'State / Province',
+                    lookupKey: LookupKeys.states,
+                    controller: c.lookup,
+                    parentId: c.countryId.value,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.states, c.stateId.value),
+                    onChanged: c.onState,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'City',
+                    lookupKey: LookupKeys.cities,
+                    controller: c.lookup,
+                    parentId: c.stateId.value,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.cities, c.cityId.value),
+                    onChanged: (LookupItem? v) => c.cityId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Area',
+                  controller: c.area,
+                  requirement: FieldRequirement.optional,
+                  hint: 'Neighbourhood or town',
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.school_rounded,
+              title: 'Education',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Education level',
+                    lookupKey: LookupKeys.educationLevels,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.educationLevels,
+                      c.educationLevelId.value,
+                    ),
+                    onChanged: c.onEducationLevel,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Degree',
+                    lookupKey: LookupKeys.degrees,
+                    controller: c.lookup,
+                    parentId: c.educationLevelId.value,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(LookupKeys.degrees, c.degreeId.value),
+                    onChanged: (LookupItem? v) => c.degreeId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Field of study',
+                    lookupKey: LookupKeys.fieldsOfStudy,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.fieldsOfStudy,
+                      c.fieldOfStudyId.value,
+                    ),
+                    onChanged: (LookupItem? v) => c.fieldOfStudyId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Institution',
+                    lookupKey: LookupKeys.institutions,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.institutions,
+                      c.institutionId.value,
+                    ),
+                    onChanged: (LookupItem? v) => c.institutionId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Education status',
+                    lookupKey: LookupKeys.educationStatus,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.optionFor(
+                      LookupKeys.educationStatus,
+                      c.educationStatus.value,
+                    ),
+                    onChanged: (LookupItem? v) =>
+                        c.educationStatus.value = v?.code,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Graduation year',
+                  controller: c.graduationYear,
+                  requirement: FieldRequirement.optional,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  hint: 'e.g. 2020',
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.accessibility_new_rounded,
+              title: 'Physical',
+              children: <Widget>[
+                AppTextFormField(
+                  label: 'Height (feet.inches)',
+                  controller: c.height,
+                  requirement: FieldRequirement.optional,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  hint: "e.g. 5.6 for 5'6\"",
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Weight (kg)',
+                  controller: c.weight,
+                  requirement: FieldRequirement.optional,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppStringPicker(
+                    label: 'Body type',
+                    value: c.bodyType.value,
+                    options: FieldOptions.bodyType,
+                    requirement: FieldRequirement.optional,
+                    onChanged: (String? v) => c.bodyType.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppStringPicker(
+                    label: 'Complexion',
+                    value: c.complexion.value,
+                    options: FieldOptions.complexion,
+                    requirement: FieldRequirement.optional,
+                    onChanged: (String? v) => c.complexion.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppStringPicker(
+                    label: 'Blood group',
+                    value: c.bloodGroup.value,
+                    options: const <String>[
+                      'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-',
+                    ],
+                    requirement: FieldRequirement.optional,
+                    onChanged: (String? v) => c.bloodGroup.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Diet',
+                    lookupKey: LookupKeys.diet,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.optionFor(LookupKeys.diet, c.diet.value),
+                    onChanged: (LookupItem? v) => c.diet.value = v?.code,
+                  ),
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.work_outline_rounded,
+              title: 'Career & income',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Annual income (PKR)',
+                    lookupKey: LookupKeys.annualIncome,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.annualIncome.value,
+                    onChanged: (LookupItem? v) => c.annualIncome.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Employment status',
+                    lookupKey: LookupKeys.employmentStatus,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.optionFor(
+                      LookupKeys.employmentStatus,
+                      c.employmentStatus.value,
+                    ),
+                    onChanged: (LookupItem? v) =>
+                        c.employmentStatus.value = v?.code,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Profession category',
+                    lookupKey: LookupKeys.professionCategories,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.professionCategories,
+                      c.professionCategoryId.value,
+                    ),
+                    onChanged: c.onProfessionCategory,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Profession',
+                    lookupKey: LookupKeys.professions,
+                    controller: c.lookup,
+                    parentId: c.professionCategoryId.value,
+                    requirement: FieldRequirement.optional,
+                    selected: c.itemFor(
+                      LookupKeys.professions,
+                      c.professionId.value,
+                    ),
+                    onChanged: (LookupItem? v) => c.professionId.value = v?.id,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Job title',
+                  controller: c.jobTitle,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Organization',
+                  controller: c.organization,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Years of experience',
+                  controller: c.yearsOfExperience,
+                  requirement: FieldRequirement.optional,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.family_restroom_rounded,
+              title: 'Family',
+              children: <Widget>[
+                AppTextFormField(
+                  label: "Father's occupation",
+                  controller: c.fatherOccupation,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: "Mother's occupation",
+                  controller: c.motherOccupation,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Number of brothers',
+                    lookupKey: LookupKeys.siblings,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.brothers.value,
+                    onChanged: (LookupItem? v) => c.brothers.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Number of sisters',
+                    lookupKey: LookupKeys.siblings,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.sisters.value,
+                    onChanged: (LookupItem? v) => c.sisters.value = v,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Family location',
+                  controller: c.familyLocation,
+                  requirement: FieldRequirement.optional,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                AppTextFormField(
+                  label: 'Family values',
+                  controller: c.familyValues,
+                  requirement: FieldRequirement.optional,
+                ),
+              ],
+            ),
+            _Section(
+              icon: Icons.favorite_outline_rounded,
+              title: 'Marriage plans',
+              children: <Widget>[
+                Obx(
+                  () => AppLookupPicker(
+                    label: 'Marriage timeline',
+                    lookupKey: LookupKeys.marriageTimeline,
+                    controller: c.lookup,
+                    requirement: FieldRequirement.optional,
+                    selected: c.optionFor(
+                      LookupKeys.marriageTimeline,
+                      c.marriageTimeline.value,
+                    ),
+                    onChanged: (LookupItem? v) =>
+                        c.marriageTimeline.value = v?.code,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // `PUT /profile` validates these as booleans, so the three-way
+                // "depends on mutual understanding" from signup is not offered.
+                Obx(
+                  () => AppStringPicker(
+                    label: 'Willing to work after marriage',
+                    value: _yesNo(c.willingToWorkAfterMarriage.value),
+                    options: const <String>['Yes', 'No'],
+                    requirement: FieldRequirement.optional,
+                    onChanged: (String? v) =>
+                        c.willingToWorkAfterMarriage.value = _boolOf(v),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppStringPicker(
+                    label: 'Expects spouse to work',
+                    value: _yesNo(c.expectsSpouseToWork.value),
+                    options: const <String>['Yes', 'No'],
+                    requirement: FieldRequirement.optional,
+                    onChanged: (String? v) => c.expectsSpouseToWork.value = _boolOf(v),
+                  ),
                 ),
               ],
             ),

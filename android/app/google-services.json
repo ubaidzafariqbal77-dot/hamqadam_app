@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895538475573",
+    "project_id": "hamqadam-13e2b",
+    "storage_bucket": "hamqadam-13e2b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895538475573:android:8e66d73b1e91863ec2b77c",
+        "android_client_info": {
+          "package_name": "com.app.hamqadam"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDrSqMn2lvBNqpoj5PkCeHkYhhic0r9pw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

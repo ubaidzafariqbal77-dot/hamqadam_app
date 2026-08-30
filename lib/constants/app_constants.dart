@@ -61,3 +61,18 @@ class AppConstants {
     'step13', 'step14', 'step15', 'step16', 'step17', 'step18', //
   ];
 }
+
+/// Pusher Channels configuration for realtime chat.
+/// Keys are non-secret – they identify the Pusher app, not the user.
+class PusherConfig {
+  const PusherConfig._();
+
+  /// Pusher app key obtained from hamqadam.com Pusher dashboard.
+  static const String key = 'YOUR_PUSHER_APP_KEY';
+
+  /// Cluster (e.g. 'ap2', 'eu', 'mt1').
+  static const String cluster = 'mt1';
+
+  /// Laravel Echo / Pusher auth endpoint for private/presence channels.
+  static const String authEndpoint = '${ApiConfig.baseUrl}/broadcasting/auth';
+}

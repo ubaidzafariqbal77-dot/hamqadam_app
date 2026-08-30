@@ -4,6 +4,12 @@ platform :ios, '15.5'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Ensure CocoaPods uses the existing Podfile.lock as-is and does not
+# attempt CDN re-resolution when Flutter calls `pod install` internally.
+install! 'cocoapods', :disable_input_output_paths => true
+
+
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,

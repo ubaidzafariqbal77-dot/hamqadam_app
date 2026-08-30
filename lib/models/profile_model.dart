@@ -202,10 +202,32 @@ class ProfileVerification {
   /// what the UI wants to show anyway.
   final AiVerificationModel ai;
 
+  /// A moderator approved the documents. On the backend this is the only thing
+  /// that writes `verification_status = 'verified'` (VerificationService::approve).
   bool get documentsVerified => status == 'verified';
 
-  /// What the profile badge should show: either path counts.
-  bool get identityVerified => documentsVerified || ai.isApproved;
+  /// Documents are submitted and sitting with a human reviewer.
+  bool get inManualReview => status == 'submitted' || status == 'under_review';
+
+  /// Documents were reviewed and turned down.
+  bool get documentsRejected => status == 'rejected';
+
+  /// Nothing has been submitted yet.
+  bool get notSubmitted => status == null || status == 'unverified' || status == 'draft';
+
+  /// What the profile badge should show.
+  ///
+  /// ONLY a moderator approval counts. The AI check is a pre-screen that runs
+  /// automatically the moment documents land, so treating it as the answer put
+  /// a "verified" badge on every account whose photos merely looked plausible —
+  /// while `verification_status` was still `submitted` and no human had looked.
+  /// That contradiction is what the client reported; keep the two separate.
+  bool get identityVerified => documentsVerified;
+
+  /// The AI pre-screen passed but manual review has not signed off yet. Worth
+  /// telling the member, because it means their part is done and the wait is
+  /// ours.
+  bool get aiClearedAwaitingReview => !documentsVerified && !documentsRejected && ai.isApproved;
 
   factory ProfileVerification.fromJson(Map<String, dynamic> json) {
     return ProfileVerification(

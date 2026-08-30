@@ -2,21 +2,43 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../controllers/chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
 import '../../controllers/interest_controller.dart';
+import '../../controllers/notification_controller.dart';
 import '../../controllers/partner_preference_controller.dart';
+import '../../controllers/payment_controller.dart';
 import '../../controllers/profile_controller.dart';
+import '../../controllers/profile_view_controller.dart';
+import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
+import '../../controllers/search_profiles_controller.dart';
+import '../../controllers/shortlist_controller.dart';
 import '../../controllers/theme_controller.dart';
+import '../../controllers/verification_controller.dart';
+import '../../core/services/call_state_service.dart';
+import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
+import '../../repositories/chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
 import '../../repositories/interest_repository.dart';
+import '../../repositories/notification_repository.dart';
 import '../../repositories/partner_preference_repository.dart';
+import '../../repositories/payment_repository.dart';
 import '../../repositories/profile_repository.dart';
+import '../../repositories/profile_view_repository.dart';
+import '../../repositories/proposal_repository.dart';
 import '../../repositories/registration_repository.dart';
+import '../../repositories/search_repository.dart';
+import '../../repositories/shortlist_repository.dart';
+import '../../repositories/verification_repository.dart';
+
+
+
+
 import '../api/api_client.dart';
 import '../network/network_info.dart';
 import '../storage/current_user_service.dart';
@@ -63,9 +85,25 @@ class AppDependencies {
     Get.put<RegistrationRepository>(RegistrationRepository(apiClient), permanent: true);
     Get.put<LookupRepository>(LookupRepository(apiClient), permanent: true);
     Get.put<ProfileRepository>(ProfileRepository(apiClient), permanent: true);
+    Get.put<SearchRepository>(SearchRepository(apiClient), permanent: true);
     Get.put<AiVerificationRepository>(AiVerificationRepository(apiClient), permanent: true);
     Get.put<InterestRepository>(InterestRepository(apiClient), permanent: true);
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
+    Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
+    Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
+    Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
+    Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
+    Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
+    Get.put<ProposalRepository>(ProposalRepository(apiClient), permanent: true);
+    Get.put<NotificationRepository>(NotificationRepository(apiClient), permanent: true);
+
+
+
+    final PusherChatService pusherService = PusherChatService(storage: secureStorage);
+    Get.put<PusherChatService>(pusherService, permanent: true);
+
+    // Call state service (tracks active calls, prevents duplicates)
+    Get.put<CallStateService>(CallStateService.instance, permanent: true);
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(
@@ -79,6 +117,53 @@ class AppDependencies {
     apiClient.onUnauthorized = authController.handleUnauthorized;
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
+
+    // Payment Controller (Permanent so plan/coin balances are accessible everywhere)
+    Get.put<PaymentController>(
+      PaymentController(Get.find<PaymentRepository>()),
+      permanent: true,
+    );
+
+    // Shortlist Controller (Permanent so shortlist state is globally cached & synced)
+    Get.put<ShortlistController>(
+      ShortlistController(Get.find<ShortlistRepository>()),
+      permanent: true,
+    );
+
+    // Proposal Controller (Permanent so proposal state and send/accept/reject is synced across app)
+    Get.put<ProposalController>(
+      ProposalController(
+        Get.find<ProposalRepository>(),
+        Get.find<CurrentUserService>(),
+      ),
+      permanent: true,
+    );
+
+    // Notification Controller (Permanent so unread badge count stays synced everywhere)
+    Get.put<NotificationController>(
+      NotificationController(Get.find<NotificationRepository>()),
+      permanent: true,
+    );
+
+    // Discover / Search Controller
+    Get.lazyPut<SearchProfilesController>(
+      () => SearchProfilesController(
+        repository: Get.find<SearchRepository>(),
+        lookupController: Get.find<LookupController>(),
+      ),
+      fenix: true,
+    );
+
+
+    // Chat Controller
+    Get.lazyPut<ChatController>(
+      () => ChatController(
+        repository: Get.find<ChatRepository>(),
+        pusher: Get.find<PusherChatService>(),
+        currentUser: Get.find<CurrentUserService>(),
+      ),
+      fenix: true,
+    );
 
     // Lazy: only fetches `/profile` when the Profile tab is first opened.
     // `fenix` recreates it if it is ever disposed, keeping the tab reusable.
@@ -103,6 +188,14 @@ class AppDependencies {
     );
     Get.lazyPut<PartnerPreferenceController>(
       () => PartnerPreferenceController(Get.find<PartnerPreferenceRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<VerificationController>(
+      () => VerificationController(Get.find<VerificationRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<ProfileViewController>(
+      () => ProfileViewController(Get.find<ProfileViewRepository>()),
       fenix: true,
     );
 

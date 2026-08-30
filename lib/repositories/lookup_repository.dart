@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../constants/api_endpoints.dart';
 import '../constants/api_options.dart';
 import '../constants/app_lookups.dart';
+import '../constants/income_options.dart';
 import '../core/api/api_client.dart';
 import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
@@ -261,9 +262,20 @@ class LookupRepository {
     }
   }
 
+  /// Lists the server does not serve at all, so they can only ever come from
+  /// here. Not const, because the rows are generated.
+  static List<LookupItem> _generatedFallback(String key) => switch (key) {
+    LookupKeys.annualIncome => IncomeBand.options,
+    LookupKeys.partnerIncome => IncomeBand.options,
+    LookupKeys.siblings => SiblingOptions.options,
+    _ => const <LookupItem>[],
+  };
+
   List<LookupItem> _fallback(String key) {
     final List<LookupItem>? statics = _staticFallback[key];
     if (statics != null) return statics;
+    final List<LookupItem> generated = _generatedFallback(key);
+    if (generated.isNotEmpty) return generated;
     final List<Map<String, dynamic>>? bundled = BundledLookups.byKey[key];
     if (bundled == null) return const <LookupItem>[];
     return bundled.map(LookupItem.fromJson).toList();

@@ -93,6 +93,19 @@ class RegistrationController extends GetxController {
 
   bool get isEditingSection => editingStep.value != null;
 
+  /// The step opened from the FINALIZING screen to correct a field the backend
+  /// rejected.
+  ///
+  /// Deliberately separate from [editingStep]: that one re-saves a section
+  /// after signup and posts it to the server. Here the account does not exist
+  /// yet — the whole payload was refused — so the correction is written to the
+  /// buffer and the flow returns to finalizing to retry the submission. Without
+  /// this mode, tapping a rejected field dropped the user back into the normal
+  /// forward flow and made them walk every remaining step again.
+  final RxnInt fixingStep = RxnInt();
+
+  bool get isFixingForFinalize => fixingStep.value != null;
+
   int get totalSteps => AppConstants.totalRegistrationSteps;
 
   /// Kept for the screens that still read the old name.
@@ -371,13 +384,69 @@ class RegistrationController extends GetxController {
     Get.toNamed(AppRoutes.routeForStep(step));
   }
 
+  /// Moves one step back in the signup flow.
+  ///
+  /// This used to be an unconditional `Get.back()`, which broke as soon as the
+  /// app was closed and reopened part-way through: [resume] lands the user on
+  /// their current step with `Get.offAllNamed`, which leaves NOTHING on the
+  /// navigation stack, so `Get.back()` had nothing to pop and the step became a
+  /// dead end. Pop when there is something to pop, and otherwise navigate to the
+  /// previous step directly — the answers live in the buffer either way, so the
+  /// step rebuilds fully populated.
   void goToPreviousStep() {
     if (isEditingSection) {
       Get.back();
       return;
     }
-    if (currentStep.value > 1) currentStep.value -= 1;
-    Get.back();
+
+    final int target = currentStep.value - 1;
+    if (target < 1) return;
+
+    currentStep.value = target;
+    // Resume should return to where the user actually is, not to the furthest
+    // step they once reached; otherwise closing the app after going back throws
+    // them forward again.
+    buffer.lastStep = target;
+
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back();
+    } else {
+      Get.offNamed<void>(AppRoutes.routeForStep(target));
+    }
+  }
+
+  // ---- Correcting a rejected field from the finalizing screen ---------------
+
+  /// Opens [step] so the user can correct a rejected field, and returns to the
+  /// finalizing screen when they are done.
+  Future<void> openStepForFix(int step) async {
+    if (step < 1 || step > totalSteps) return;
+    final int? previous = fixingStep.value;
+    fixingStep.value = step;
+    currentStep.value = step;
+    await Get.toNamed<dynamic>(AppRoutes.routeForStep(step));
+    // Restore rather than blanking: a nested open would otherwise clear the
+    // outer one on the way back.
+    fixingStep.value = previous;
+  }
+
+  /// Accepts a corrected step: the answer is already in the buffer, so this
+  /// only clears the errors that step owned and pops back to finalizing.
+  bool completeFix(int step) {
+    buffer.markCompleted(step);
+    clearFieldErrorsForStep(step);
+    Get.back<void>();
+    return true;
+  }
+
+  /// Drops the field errors belonging to [step], so the finalizing list shrinks
+  /// as each one is corrected.
+  void clearFieldErrorsForStep(int step) {
+    fieldErrors.removeWhere(
+      (String field, _) => RegSteps.uiStepForField(field) == step,
+    );
+    stepError.value =
+        fieldErrors.values.isNotEmpty ? fieldErrors.values.first : '';
   }
 
   // ---- Editing one section after signup -------------------------------------
@@ -515,6 +584,7 @@ class RegistrationController extends GetxController {
   /// Wipes the buffered draft + completion record (new signup / logout).
   Future<void> resetForNewAccount() async {
     editingStep.value = null;
+    fixingStep.value = null;
     currentStep.value = 1;
     stepError.value = '';
     fieldErrors.clear();
@@ -522,7 +592,12 @@ class RegistrationController extends GetxController {
     await buffer.clear();
     await completion.clear();
     if (Get.isRegistered<LookupController>()) {
-      Get.find<LookupController>().resetAll();
+      final LookupController lookups = Get.find<LookupController>();
+      lookups.resetAll();
+      // Dropping the cache puts every list back to `initial`. A step already on
+      // screen has run its own `ensure` and will not ask again, so the lists are
+      // warmed right back up here instead of leaving its dropdowns empty.
+      lookups.preloadReference();
     }
   }
 }

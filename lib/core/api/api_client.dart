@@ -15,11 +15,21 @@ import 'api_error_parser.dart';
 
 /// Normalised successful envelope returned to repositories.
 class ApiEnvelope {
-  const ApiEnvelope({required this.success, required this.message, required this.data});
+  const ApiEnvelope({
+    required this.success,
+    required this.message,
+    required this.data,
+    this.meta,
+    this.links,
+    this.raw,
+  });
 
   final bool success;
   final String message;
   final dynamic data;
+  final Map<String, dynamic>? meta;
+  final Map<String, dynamic>? links;
+  final dynamic raw;
 
   Map<String, dynamic> get dataMap =>
       data is Map<String, dynamic> ? data as Map<String, dynamic> : <String, dynamic>{};
@@ -227,12 +237,15 @@ class ApiClient {
   ApiEnvelope _envelope(dynamic body) {
     if (body is Map<String, dynamic>) {
       return ApiEnvelope(
-        success: body['success'] == true,
+        success: body['success'] == true || body['success'] == 1 || body['data'] != null,
         message: (body['message'] ?? '').toString(),
         data: body['data'],
+        meta: body['meta'] is Map<String, dynamic> ? body['meta'] as Map<String, dynamic> : null,
+        links: body['links'] is Map<String, dynamic> ? body['links'] as Map<String, dynamic> : null,
+        raw: body,
       );
     }
     // Non-standard body — wrap so callers still get something usable.
-    return ApiEnvelope(success: true, message: '', data: body);
+    return ApiEnvelope(success: true, message: '', data: body, raw: body);
   }
 }

@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../constants/income_options.dart';
 import '../../../constants/registration_options.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
+import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_picker_field.dart';
-import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
@@ -41,8 +41,11 @@ class Step18Controller extends StepController {
   final Rxn<LookupItem> city = Rxn<LookupItem>();
   final RxnString education = RxnString();
   final RxnString profession = RxnString();
-  final TextEditingController incomeMin = TextEditingController();
-  final TextEditingController incomeMax = TextEditingController();
+  /// Preferred income, picked as a band at each end rather than typed. `From`
+  /// posts the band's lower bound and `To` its upper bound, which is what
+  /// `income_min` / `income_max` expect (both numeric).
+  final Rxn<LookupItem> incomeFrom = Rxn<LookupItem>();
+  final Rxn<LookupItem> incomeTo = Rxn<LookupItem>();
   final RxnString diet = RxnString();
   final RxnString managedBy = RxnString();
 
@@ -98,8 +101,9 @@ class Step18Controller extends StepController {
     maritalStatus.value = buffer.getInt('partner_marital_status_id');
     education.value = buffer.getString('partner_education');
     profession.value = buffer.getString('partner_profession');
-    incomeMin.text = buffer.getInt('partner_income_min')?.toString() ?? '';
-    incomeMax.text = buffer.getInt('partner_income_max')?.toString() ?? '';
+    lookup.ensure(LookupKeys.partnerIncome);
+    incomeFrom.value = _band(buffer.getInt('partner_income_min'));
+    incomeTo.value = _band(buffer.getInt('partner_income_max'));
     diet.value = buffer.getString('partner_diet');
     managedBy.value = buffer.getString('profile_managed_by');
     _syncLabel();
@@ -151,8 +155,8 @@ class Step18Controller extends StepController {
         if (profession.value == null) return 'Please select a preferred profession.';
         return null;
       case 'income':
-        final int? iMin = int.tryParse(incomeMin.text.trim());
-        final int? iMax = int.tryParse(incomeMax.text.trim());
+        final int? iMin = incomeFrom.value?.id;
+        final int? iMax = incomeTo.value?.id;
         if (iMin != null && iMax != null && iMin > iMax) {
           return 'Minimum income cannot exceed the maximum.';
         }
@@ -204,17 +208,15 @@ class Step18Controller extends StepController {
     'partner_city_id': city.value?.id,
     'partner_education': education.value,
     'partner_profession': profession.value,
-    'partner_income_min': int.tryParse(incomeMin.text.trim()),
-    'partner_income_max': int.tryParse(incomeMax.text.trim()),
+    'partner_income_min': incomeFrom.value?.id,
+    // The top band is open-ended, so it contributes no ceiling.
+    'partner_income_max': IncomeBand.forValue(incomeTo.value?.id)?.max,
     'partner_diet': diet.value,
     'profile_managed_by': managedBy.value,
   };
 
-  @override
-  void disposeFields() {
-    incomeMin.dispose();
-    incomeMax.dispose();
-  }
+  /// Rebuilds a picked band row from a saved amount.
+  static LookupItem? _band(int? amount) => IncomeBand.forValue(amount)?.item;
 }
 
 class Step18View extends StatefulWidget {
@@ -427,28 +429,29 @@ class _Step18ViewState extends State<Step18View> {
       case 'income':
         return _wrap(
           'Preferred annual income (PKR)',
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: AppTextFormField(
-                  label: 'Min income',
-                  controller: c.incomeMin,
+          Obx(
+            () => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                AppLookupDropdown(
+                  label: 'From',
+                  lookupKey: LookupKeys.partnerIncome,
+                  controller: c.lookup,
+                  selected: c.incomeFrom.value,
                   requirement: FieldRequirement.optional,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (LookupItem? v) => c.incomeFrom.value = v,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AppTextFormField(
-                  label: 'Max income',
-                  controller: c.incomeMax,
+                const SizedBox(height: 20),
+                AppLookupDropdown(
+                  label: 'Up to',
+                  lookupKey: LookupKeys.partnerIncome,
+                  controller: c.lookup,
+                  selected: c.incomeTo.value,
                   requirement: FieldRequirement.optional,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (LookupItem? v) => c.incomeTo.value = v,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       case 'diet':

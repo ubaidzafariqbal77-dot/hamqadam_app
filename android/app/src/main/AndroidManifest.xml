@@ -1,18 +1,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Uploads (profile photos) and the registration identity step. -->
+    <!-- Uploads, Agora Calling and Realtime Communications -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- Voice introduction recording (`record` package). image_picker takes
-         photos through a camera intent, so it needs no CAMERA permission of its
-         own; the feature flags below just keep the app installable on devices
-         without a camera. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+    <uses-permission android:name="android.permission.BLUETOOTH"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
+
 
     <application
         android:label="hamqadam"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="high_importance_channel" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

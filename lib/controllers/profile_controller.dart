@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../constants/app_lookups.dart';
+import '../constants/income_options.dart';
 import '../core/api/api_response.dart';
 import '../core/storage/profile_completion_service.dart';
 import '../exceptions/app_exceptions.dart';
@@ -32,13 +33,13 @@ class ProfileController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // Warm the lookup lists used for id → label resolution (bundled fallback is
-    // instant; a network refresh, if available, updates in place).
-    _lookup
-      ..ensure(LookupKeys.genders)
-      ..ensure(LookupKeys.maritalStatuses)
-      ..ensure(LookupKeys.languages)
-      ..ensure(LookupKeys.onBehalf);
+    // Warm every list the profile resolves ids against (the bundled copy is
+    // instant; a network refresh, if available, updates in place). Without this
+    // the section cards would render blanks where `religion_id: 1` should read
+    // "Islam".
+    for (final String key in lookupKeysUsed) {
+      _lookup.ensure(key);
+    }
     load();
   }
 
@@ -175,6 +176,220 @@ class ProfileController extends GetxController {
   }
 
   // ---- Label resolution -----------------------------------------------------
+
+  /// Field name → the lookup list that resolves its id.
+  ///
+  /// `GET /profile` hands back raw foreign keys (`religion_id: 1`) and the
+  /// sections are rendered generically, so resolution is keyed by field name:
+  /// a field the backend adds later reads as a name the moment it is listed
+  /// here, and falls back to its raw text until then.
+  static const Map<String, String> _lookupForField = <String, String>{
+    'gender': LookupKeys.genders,
+    'on_behalf_id': LookupKeys.onBehalf,
+    'marital_status_id': LookupKeys.maritalStatuses,
+    'mother_tongue': LookupKeys.languages,
+    'known_languages': LookupKeys.languages,
+    'languages_spoken_fluently': LookupKeys.languages,
+    'religion_id': LookupKeys.religions,
+    'sect_main_id': LookupKeys.sectMain,
+    'school_of_thought_id': LookupKeys.schoolOfThought,
+    'tradition_id': LookupKeys.traditions,
+    'caste_id': LookupKeys.castes,
+    'sub_caste_id': LookupKeys.subCastes,
+    'country_id': LookupKeys.countries,
+    'state_id': LookupKeys.states,
+    'city_id': LookupKeys.cities,
+    'area_id': LookupKeys.areas,
+    'education_level_id': LookupKeys.educationLevels,
+    'degree_id': LookupKeys.degrees,
+    'field_of_study_id': LookupKeys.fieldsOfStudy,
+    'institution_id': LookupKeys.institutions,
+    'profession_category_id': LookupKeys.professionCategories,
+    'profession_id': LookupKeys.professions,
+    'diet': LookupKeys.diet,
+    'employment_status': LookupKeys.employmentStatus,
+    'education_status': LookupKeys.educationStatus,
+    'live_with_family': LookupKeys.liveWithFamily,
+    'family_values': LookupKeys.familyValues,
+    'marriage_timeline': LookupKeys.marriageTimeline,
+    'willing_to_work_after_marriage': LookupKeys.willingToWork,
+    'expects_spouse_to_work': LookupKeys.expectsSpouseToWork,
+    'hobbies': LookupKeys.hobbies,
+    'interests': LookupKeys.hobbies,
+    // App-supplied lists (the reference endpoint serves neither).
+    'siblings_brothers': LookupKeys.siblings,
+    'siblings_sisters': LookupKeys.siblings,
+  };
+
+  /// The distinct lists the profile needs warmed.
+  static final List<String> lookupKeysUsed = _lookupForField.values.toSet().toList();
+
+  /// Plumbing the profile never shows.
+  static const Set<String> hiddenFields = <String>{
+    'id',
+    'member_id',
+    'user_id',
+    'created_at',
+    'updated_at',
+    'deleted_at',
+  };
+
+  /// Labels that would read badly if derived mechanically from the field name.
+  static const Map<String, String> _fieldLabels = <String, String>{
+    'about_me': 'About',
+    'ai_generated_bio': 'AI bio',
+    'cnic_number': 'CNIC number',
+    'mother_tongue': 'Mother tongue',
+    'on_behalf_id': 'Profile for',
+    'sect_main_id': 'Sect',
+    'school_of_thought_id': 'School of thought',
+    'field_of_study_id': 'Field of study',
+    'profession_category_id': 'Profession category',
+    'annual_salary_range_id': 'Salary range',
+    'years_of_experience': 'Experience (years)',
+    'siblings_brothers': 'Brothers',
+    'siblings_sisters': 'Sisters',
+    'languages_spoken_fluently': 'Languages spoken',
+    'hijab_beard_preference': 'Hijab / beard',
+    'sub_caste_id': 'Sub-caste',
+  };
+
+  /// Human label for a raw field name (`religion_id` → `Religion`).
+  static String fieldLabel(String field) {
+    final String? special = _fieldLabels[field];
+    if (special != null) return special;
+    String s = field;
+    if (s.endsWith('_id')) s = s.substring(0, s.length - 3);
+    s = s.replaceAll('_', ' ').trim();
+    if (s.isEmpty) return field;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  /// Touch this inside an `Obx` to subscribe to the lookup store, so id → label
+  /// text fills itself in the moment a list lands.
+  int get lookupRevision => _lookup.states.length;
+
+  /// One profile field ready to render: ids become names, booleans become
+  /// Yes / No, dates and money are formatted.
+  ///
+  /// Null means "nothing worth showing", so a caller can treat every flavour of
+  /// missing the same way.
+  String? displayValue(String field, dynamic raw) {
+    final List<String> parts = displayList(field, raw);
+    return parts.isEmpty ? null : parts.join(', ');
+  }
+
+  /// [displayValue] kept as separate items, so a list field (hobbies,
+  /// languages) can render as chips instead of one long comma-joined line.
+  List<String> displayList(String field, dynamic raw) {
+    if (raw == null) return const <String>[];
+    if (raw is List) {
+      return raw
+          .map((dynamic e) => _displayOne(field, e))
+          .whereType<String>()
+          .toList(growable: false);
+    }
+    if (raw is Map) {
+      return raw.values
+          .map((dynamic e) => _displayOne(field, e))
+          .whereType<String>()
+          .toList(growable: false);
+    }
+    final String? single = _displayOne(field, raw);
+    return single == null ? const <String>[] : <String>[single];
+  }
+
+  String? _displayOne(String field, dynamic raw) {
+    if (raw == null) return null;
+    if (raw is bool) return raw ? 'Yes' : 'No';
+    final String text = '$raw'.trim();
+    if (text.isEmpty) return null;
+
+    // Income is stored as a decimal, so it never equals a band's id exactly —
+    // resolve it to the band that CONTAINS it instead of looking it up.
+    if (field == 'annual_income') {
+      final double? amount = double.tryParse(text);
+      final String? band = IncomeBand.labelFor(amount);
+      if (band != null) return band;
+    }
+
+    final String? lookupKey = _lookupForField[field];
+    if (lookupKey != null) {
+      final String? label = _labelIn(lookupKey, text);
+      if (label != null) return label;
+      // An id with no name yet (list still loading, or the server knows a row
+      // this build does not) reads as nothing — "Religion: 1" is worse than a
+      // field that simply fills in a moment later.
+      if (int.tryParse(text) != null) return null;
+    }
+    if (_isDateField(field)) return _fmtDate(DateTime.tryParse(text)) ?? text;
+    if (field == 'height') return _fmtHeight(text) ?? text;
+    if (_isMoneyField(field)) return _fmtMoney(text) ?? text;
+    return _tidyNumber(text);
+  }
+
+  /// Matches on [LookupItem.apiValue], so numeric ids and the string codes of
+  /// the hardcoded lists (`immediate`, `yes`) both resolve.
+  String? _labelIn(String lookupKey, String needle) {
+    for (final LookupItem i in _lookup.itemsOf(lookupKey)) {
+      if ('${i.apiValue}' == needle) return i.name;
+    }
+    return null;
+  }
+
+  static bool _isDateField(String field) =>
+      field.contains('date') || field.contains('birthday') || field.endsWith('_at');
+
+  static bool _isMoneyField(String field) =>
+      field.contains('income') || field.contains('salary');
+
+  static const List<String> _months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  static String? _fmtDate(DateTime? d) =>
+      d == null ? null : '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  /// The API stores height as feet-and-inches packed into one decimal
+  /// (168 cm → 5.6, i.e. 5'6"), so the fractional digits are the inches.
+  static String? _fmtHeight(String text) {
+    final List<String> parts = text.split('.');
+    final int? feet = int.tryParse(parts.first);
+    if (feet == null || feet <= 0) return null;
+    final int inches = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
+    if (inches > 11) return null;
+    return "$feet' $inches\"";
+  }
+
+  static String? _fmtMoney(String text) {
+    final double? v = double.tryParse(text);
+    if (v == null) return null;
+    final String whole = v.truncate().toString();
+    final StringBuffer out = StringBuffer();
+    for (int i = 0; i < whole.length; i++) {
+      if (i > 0 && (whole.length - i) % 3 == 0) out.write(',');
+      out.write(whole[i]);
+    }
+    return out.toString();
+  }
+
+  /// Drops the trailing `.0` the backend sends on whole numbers.
+  static String _tidyNumber(String text) {
+    final double? v = double.tryParse(text);
+    if (v == null) return text;
+    return v == v.truncateToDouble() ? v.truncate().toString() : text;
+  }
 
   String? _nameFor(String key, int? id) {
     if (id == null) return null;

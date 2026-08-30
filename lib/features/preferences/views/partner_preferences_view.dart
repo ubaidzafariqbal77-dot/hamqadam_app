@@ -5,6 +5,7 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../constants/income_options.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/partner_preference_controller.dart';
 import '../../../core/api/api_response.dart';
@@ -261,6 +262,43 @@ class _FormState extends State<_Form> {
                   serverError: controller.errorFor('profession'),
                   onChanged: (String v) =>
                       controller.edit((PartnerPreferenceModel c) => c.copyWith(profession: v)),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                // Preferred annual income. The endpoint takes plain numbers
+                // (`income_min` / `income_max`); the bands are an app-side list
+                // because the reference endpoint serves no income list at all.
+                Obx(
+                  () => AppLookupDropdown(
+                    label: 'Income from (PKR / year)',
+                    lookupKey: LookupKeys.partnerIncome,
+                    controller: Get.find<LookupController>(),
+                    requirement: FieldRequirement.optional,
+                    selected: IncomeBand.forValue(
+                      controller.draft.value.incomeMin,
+                    )?.item,
+                    onChanged: (LookupItem? v) => controller.edit(
+                      (PartnerPreferenceModel c) =>
+                          c.copyWith(incomeMin: v?.id.toDouble()),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Obx(
+                  () => AppLookupDropdown(
+                    label: 'Income up to (PKR / year)',
+                    lookupKey: LookupKeys.partnerIncome,
+                    controller: Get.find<LookupController>(),
+                    requirement: FieldRequirement.optional,
+                    selected: IncomeBand.forValue(
+                      controller.draft.value.incomeMax,
+                    )?.item,
+                    onChanged: (LookupItem? v) => controller.edit(
+                      (PartnerPreferenceModel c) => c.copyWith(
+                        // The top band is open-ended, so it sets no ceiling.
+                        incomeMax: IncomeBand.forValue(v?.id)?.max?.toDouble(),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

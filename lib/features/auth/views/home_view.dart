@@ -10,8 +10,21 @@ import '../../../controllers/theme_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/premium_bottom_nav.dart';
+import '../../chat/views/chat_inbox_view.dart';
+import '../../discover/views/discover_view.dart';
+import '../../discover/widgets/search_filter_bottom_sheet.dart';
+import '../../interests/views/interests_view.dart';
 import '../../profile/views/edit_profile_view.dart';
 import '../../profile/views/profile_view.dart';
+import '../../profile_views/views/profile_views_view.dart';
+import '../../shortlist/views/shortlist_view.dart';
+import '../../payments/views/membership_plans_view.dart';
+import '../../payments/views/payment_history_view.dart';
+import '../../payments/views/coin_usage_view.dart';
+import '../../proposals/views/proposals_view.dart';
+
+
+
 
 /// Authenticated app shell: premium gradient AppBar, floating bottom navigation
 /// and a luxury navigation drawer.
@@ -35,6 +48,9 @@ class _HomeViewState extends State<HomeView> {
 
   /// Real screens are wired here; the rest keep the "coming soon" placeholder.
   Widget _bodyFor(_TabItem tab) {
+    if (tab.label == 'Discover') return const DiscoverView();
+    if (tab.label == 'Matches') return const InterestsView();
+    if (tab.label == 'Chat') return const ChatInboxView();
     if (tab.label == 'Profile') return const ProfileView();
     return _TabBody(tab: tab);
   }
@@ -50,7 +66,27 @@ class _HomeViewState extends State<HomeView> {
     final _TabItem tab = _tabs[_index];
     return Scaffold(
       extendBody: true,
-      appBar: PremiumAppBar(title: tab.label, subtitle: tab.subtitle),
+      appBar: PremiumAppBar(
+        title: tab.label,
+        subtitle: tab.subtitle,
+        actions: _index == 0
+            ? <Widget>[
+                IconButton(
+                  icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                  tooltip: 'Filter Profiles',
+                  onPressed: () => SearchFilterBottomSheet.show(context),
+                ),
+              ]
+            : _index == 3
+                ? <Widget>[
+                    IconButton(
+                      icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.white),
+                      tooltip: 'Profile Views',
+                      onPressed: () => Get.to<void>(() => const ProfileViewsView()),
+                    ),
+                  ]
+                : null,
+      ),
       drawer: _AppDrawer(auth: _auth),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -157,8 +193,25 @@ class _AppDrawer extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.sm),
               children: <Widget>[
+                _sectionLabel(context, 'MEMBERSHIP & PAYMENTS'),
+                _tile(context, Icons.workspace_premium_outlined, 'Membership Plans',
+                    () => Get.to<void>(() => const MembershipPlansView())),
+                _tile(context, Icons.receipt_long_outlined, 'Payment History & Invoices',
+                    () => Get.to<void>(() => const PaymentHistoryView())),
+                _tile(context, Icons.monetization_on_outlined, 'Coin & Feature Usage',
+                    () => Get.to<void>(() => const CoinUsageView())),
+                const SizedBox(height: AppSpacing.sm),
                 _sectionLabel(context, 'ACCOUNT'),
+                _tile(context, Icons.mail_outline_rounded, 'Proposals / Rishtay',
+                    () => Get.to<void>(() => const ProposalsView())),
+                _tile(context, Icons.bookmark_added_outlined, 'Shortlisted Profiles',
+                    () => Get.to<void>(() => const ShortlistView())),
+                _tile(context, Icons.favorite_border_rounded, 'Manage Interests',
+                    () => Get.to<void>(() => const InterestsView())),
+
                 _tile(context, Icons.edit_outlined, 'Edit Profile',
+
+
                     () => Get.to<void>(() => const EditProfileView())),
                 _tile(context, Icons.playlist_add_check_rounded, 'Complete your profile',
                     () => Get.toNamed<void>(AppRoutes.profileCompletion)),

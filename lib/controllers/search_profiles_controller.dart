@@ -8,6 +8,7 @@ import '../exceptions/app_exceptions.dart';
 import '../models/lookup_item_model.dart';
 import '../models/search_filter_profile_model.dart';
 import '../repositories/search_repository.dart';
+import 'auth_controller.dart';
 import 'lookup_controller.dart';
 import 'shortlist_controller.dart';
 
@@ -91,7 +92,27 @@ class SearchProfilesController extends GetxController {
   void onInit() {
     super.onInit();
     _warmLookups();
+    _applyOppositeGenderDefault();
     loadProfiles();
+  }
+
+  /// Returns the opposite gender string of the logged-in user, or null if
+  /// the user's gender is unknown.
+  String? get _oppositeGender {
+    if (!Get.isRegistered<AuthController>()) return null;
+    final String? myGender = Get.find<AuthController>().user.value?.gender;
+    if (myGender == null || myGender.isEmpty) return null;
+    // Backend uses "1" = male, "2" = female
+    return myGender == '1' ? '2' : myGender == '2' ? '1' : null;
+  }
+
+  /// Pre-fills the filter with the opposite gender so a male user sees
+  /// female profiles and vice versa — the default matrimonial behaviour.
+  void _applyOppositeGenderDefault() {
+    final String? opposite = _oppositeGender;
+    if (opposite == null) return;
+    filter.value = filter.value.copyWith(gender: opposite);
+    draftFilter.value = draftFilter.value.copyWith(gender: opposite);
   }
 
   @override
@@ -179,11 +200,13 @@ class SearchProfilesController extends GetxController {
     loadProfiles();
   }
 
-  /// Resets all filters back to empty and reloads.
+  /// Resets all filters back to empty — but preserves the opposite-gender
+  /// default so the user always sees profiles of the other gender first.
   void resetFilter() {
     filter.value = SearchFilterModel.empty();
     draftFilter.value = SearchFilterModel.empty();
     searchInputController.clear();
+    _applyOppositeGenderDefault();
     loadProfiles();
   }
 

@@ -16,6 +16,9 @@ class ApiEndpoints {
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
   static const String deleteAccount = '/auth/account';
+  static const String authDevices = '/auth/devices';
+  static const String authEmailVerificationCode = '/auth/email/verification-code';
+  static const String authEmailVerify = '/auth/email/verify';
 
   // ---- Registration (single complete submission + email OTP) ----------------
   /// The whole 18-step payload in ONE `multipart/form-data` request. Public:
@@ -131,6 +134,26 @@ class ApiEndpoints {
   /// Cancel proposal (`POST /proposals/{id}/cancel`).
   static String proposalCancel(int id) => '/proposals/$id/cancel';
 
+  // ---- Proposal Favourites ---------------------------------------------------
+  static const String proposalFavourites = '/proposals/favourites';
+  static String proposalFavouriteCheck(int userId) => '/proposals/favourites/$userId/check';
+  static String proposalFavouriteRemove(int userId) => '/proposals/favourites/$userId';
+
+  // ---- Proposal Ignored ------------------------------------------------------
+  static const String proposalIgnored = '/proposals/ignored';
+  static String proposalIgnoredRemove(int userId) => '/proposals/ignored/$userId';
+
+  // ---- Proposal Notes & Timeline --------------------------------------------
+  static String proposalNotes(int proposalId) => '/proposals/$proposalId/notes';
+  static String proposalTimeline(int proposalId) => '/proposals/$proposalId/timeline';
+
+  // ---- Proposal Meetings -----------------------------------------------------
+  static String proposalMeetings(int proposalId) => '/proposals/$proposalId/meetings';
+  static String proposalMeetingUpdate(int meetingId) => '/proposals/meetings/$meetingId';
+  static String proposalMeetingFeedback(int meetingId) => '/proposals/meetings/$meetingId/feedback';
+  static String proposalMeetingRecordingConsent(int meetingId) => '/proposals/meetings/$meetingId/recording-consent';
+  static const String proposalRelationshipStatus = '/proposals/relationship-status';
+
   // ---- Profile Views --------------------------------------------------------
 
 
@@ -153,6 +176,19 @@ class ApiEndpoints {
   // ---- Search / Discover ----------------------------------------------------
   /// Search and filter member profiles (`GET /search/profiles`).
   static const String searchProfiles = '/search/profiles';
+  static const String searchHistory = '/search/history';
+  static const String searchSaved = '/search/saved';
+  static String searchSavedDelete(int id) => '/search/saved/$id';
+  static const String searchHiddenUsers = '/search/hidden-users';
+  static String searchHiddenUsersDelete(int userId) => '/search/hidden-users/$userId';
+
+  // ---- Matching -------------------------------------------------------------
+  static const String matches = '/matches';
+  static const String matchesRecommended = '/matches/recommended';
+  static const String matchesDaily = '/matches/daily';
+  static String matchDetail(int profileId) => '/matches/$profileId';
+  static const String matchesFeedback = '/matches/feedback';
+  static const String matchesRecalculate = '/matches/recalculate';
 
   // ---- Chat -----------------------------------------------------------------
   /// List all conversation threads for the authenticated user.
@@ -195,6 +231,15 @@ class ApiEndpoints {
   /// Feature usage breakdown (`GET /payments/usage`).
   static const String paymentUsage = '/payments/usage';
 
+  /// Available payment gateways (`GET /payments/gateways`).
+  static const String paymentGateways = '/payments/gateways';
+
+  /// Gateway details (`GET /payments/gateways/{gateway}`).
+  static String paymentGatewayDetail(String gateway) => '/payments/gateways/$gateway';
+
+  /// Checkout status (`GET /payments/checkout/{payment}/status`).
+  static String paymentCheckoutStatus(int paymentId) => '/payments/checkout/$paymentId/status';
+
   /// Payment transaction history (`GET /payments/history`).
   static const String paymentHistory = '/payments/history';
 
@@ -222,6 +267,52 @@ class ApiEndpoints {
 
   /// Delete FCM push token on logout (`DELETE /notifications/push-tokens/{id}`).
   static String pushTokenDelete(dynamic id) => '/notifications/push-tokens/$id';
+  static const String notificationsUnreadCount = '/notifications/unread-count';
+  static const String notificationsPreferences = '/notifications/preferences';
+
+  // ---- Safety ---------------------------------------------------------------
+  static const String safetyReport = '/safety/report';
+  static const String safetyBlock = '/safety/block';
+  static const String safetyMute = '/safety/mute';
+  static const String safetyRestrict = '/safety/restrict';
+
+  // ---- AI Helpers -----------------------------------------------------------
+  static const String aiBio = '/ai/bio';
+  static const String aiConversationStarters = '/ai/conversation-starters';
+  static const String aiProfileQuality = '/ai/profile-quality';
+  static const String aiScamCheck = '/ai/scam-check';
+  static const String aiRedFlagCheck = '/ai/red-flag-check';
+
+  // ---- Content --------------------------------------------------------------
+  static const String contentArticles = '/content/articles';
+  static String contentArticle(String slug) => '/content/articles/$slug';
+  static const String contentSuccessStories = '/content/success-stories';
+  static const String contentAdvice = '/content/advice';
+  static const String contentExpertQuestions = '/content/expert/questions';
+  static const String contentForums = '/content/forums';
+  static String contentForumThreads(int forumId) => '/content/forums/$forumId/threads';
+  static String contentThreadPosts(int threadId) => '/content/threads/$threadId/posts';
+  static const String contentWebinars = '/content/webinars';
+  static String contentWebinarRegister(int webinarId) => '/content/webinars/$webinarId/register';
+  static const String contentMarriageTips = '/content/marriage-tips';
+  static const String contentRegionalUpdates = '/content/regional-updates';
+
+  // ---- Family ---------------------------------------------------------------
+  static const String familyDashboard = '/family/dashboard';
+  static const String familyGuardians = '/family/guardians';
+  static String familyGuardianUpdate(int guardianId) => '/family/guardians/$guardianId';
+  static String familyGuardianApprove(int guardianId) => '/family/guardians/$guardianId/approve';
+  static String familyGuardianDelete(int guardianId) => '/family/guardians/$guardianId';
+  static const String familyWaliMode = '/family/wali-mode';
+  static const String familyManagedProfiles = '/family/managed-profiles';
+  static const String familyApprovalRequests = '/family/approval-requests';
+  static String familyApprovalApprove(int approvalId) => '/family/approval-requests/$approvalId/approve';
+  static String familyApprovalReject(int approvalId) => '/family/approval-requests/$approvalId/reject';
+  static String familyNotes(int profileId) => '/family/notes/$profileId';
+  static const String familyNotesStore = '/family/notes';
+  static const String familyConversations = '/family/conversations';
+  static String familyConversationMessages(int conversationId) => '/family/conversations/$conversationId/messages';
+  static const String familyDigestPreview = '/family/digest/preview';
 }
 
 

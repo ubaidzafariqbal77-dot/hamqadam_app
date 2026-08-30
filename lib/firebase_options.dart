@@ -52,28 +52,26 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBDrSqMn2lvBNqpoj5PkCeHkYhhic0r9pw',
-    appId: '1:895538475573:android:b7e26af6109bcdfbc2b77c',
+    appId: '1:895538475573:android:8e66d73b1e91863ec2b77c',
     messagingSenderId: '895538475573',
     projectId: 'hamqadam-13e2b',
     storageBucket: 'hamqadam-13e2b.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyD0_B9QTh3HAkrOggR3aLej6_l9VQlBGBw',
-    appId: '1:895538475573:ios:65f96e1137b1d6e1c2b77c',
+    appId: '1:895538475573:ios:a8a79428e16384edc2b77c',
     messagingSenderId: '895538475573',
     projectId: 'hamqadam-13e2b',
     storageBucket: 'hamqadam-13e2b.firebasestorage.app',
-    iosBundleId: 'com.example.hamqadam',
+    iosBundleId: 'com.app.hamqadam',
   );
-
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyD0_B9QTh3HAkrOggR3aLej6_l9VQlBGBw',
     appId: '1:895538475573:ios:65f96e1137b1d6e1c2b77c',
     messagingSenderId: '895538475573',
     projectId: 'hamqadam-13e2b',
     storageBucket: 'hamqadam-13e2b.firebasestorage.app',
-    iosBundleId: 'com.example.hamqadam',
+    iosBundleId: 'com.app.hamqadam',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

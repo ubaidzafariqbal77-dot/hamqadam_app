@@ -5,6 +5,9 @@ import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../controllers/chat_controller.dart';
+import '../../../core/services/call_signaling_service.dart';
+import '../../../core/services/call_state_service.dart';
 import '../views/incoming_call_screen.dart';
 import '../views/video_call_screen.dart';
 
@@ -58,23 +61,19 @@ class IncomingCallOverlayBar {
         threadId: threadId,
         onAccept: () {
           dismiss();
-          Get.to<void>(
-            () => VideoCallScreen(
-              channelName: channelName,
-              userName: callerName,
-              userPhoto: callerPhoto,
-              isVideoCall: isVideoCall,
-            ),
-            routeName: '/VideoCallScreen',
-            transition: Transition.fadeIn,
+          VideoCallScreen.open(
+            channelName: channelName,
+            userName: callerName,
+            userPhoto: callerPhoto,
+            isVideoCall: isVideoCall,
           );
         },
         onDecline: () {
           dismiss();
+          _sendDeclineSignal(threadId);
         },
         onTapBanner: () {
-          dismiss();
-          IncomingCallScreen.show(
+          IncomingCallScreen.expandFromOverlay(
             channelName: channelName,
             callerName: callerName,
             callerPhoto: callerPhoto,
@@ -117,6 +116,27 @@ class IncomingCallOverlayBar {
         _currentEntry?.remove();
       } catch (_) {}
       _currentEntry = null;
+    }
+  }
+
+  /// Sends a decline signal back to the caller via chat message.
+  static void _sendDeclineSignal(int? threadId) {
+    if (threadId == null || threadId <= 0) return;
+    CallStateService.instance.endCall();
+    // Find the active ChatController to get the thread's participant info
+    if (Get.isRegistered<ChatController>()) {
+      final ChatController chatCtrl = Get.find<ChatController>();
+      final dynamic activeThread = chatCtrl.activeThread.value;
+      int recipientId = 0;
+      if (activeThread != null && activeThread.id == threadId) {
+        recipientId = activeThread.participant.id;
+      }
+      if (recipientId > 0) {
+        CallSignalingService.instance.sendCallDecline(
+          threadId: threadId,
+          recipientUserId: recipientId,
+        );
+      }
     }
   }
 }

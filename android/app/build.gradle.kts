@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.hamqadam"
+    namespace = "com.app.hamqadam"
     // flutter_plugin_android_lifecycle and file_picker require API 36 to
     // compile against. This only affects which APIs are available at compile
     // time — runtime behaviour still follows targetSdk below.
@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.hamqadam"
+        applicationId = "com.app.hamqadam"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

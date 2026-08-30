@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:895538475573:android:b7e26af6109bcdfbc2b77c",
+        "mobilesdk_app_id": "1:895538475573:android:8e66d73b1e91863ec2b77c",
         "android_client_info": {
-          "package_name": "com.example.hamqadam"
+          "package_name": "com.app.hamqadam"
         }
       },
       "oauth_client": [],

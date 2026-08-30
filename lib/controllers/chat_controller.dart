@@ -154,6 +154,7 @@ class ChatController extends GetxController {
       final dynamic rawMsg = data['message'] ?? data;
       if (rawMsg is Map<String, dynamic>) {
         final ChatMessage msg = ChatMessage.fromJson(rawMsg);
+        // Always check for call signals, regardless of which thread
         CallSignalingService.instance.handleIncomingSignal(
           message: msg.message,
           senderId: msg.senderId,
@@ -171,7 +172,10 @@ class ChatController extends GetxController {
         // Also refresh the inbox preview
         loadThreads(silent: true);
       }
-    } catch (_) {}
+    } catch (e) {
+      // Log but don't crash — background message handling must be resilient
+      debugPrint('ChatController._handleIncomingMessage error: $e');
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -254,9 +258,11 @@ class ChatController extends GetxController {
           ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
           : ApiState<List<ChatThread>>.success(list);
 
-      // Check for incoming call signals in unread threads
+      // Check for incoming call signals in threads with recent messages.
+      // We check ALL threads (not just unread) because the call invite might
+      // arrive before the unread count is updated by the backend.
       for (final ChatThread thread in list) {
-        if (thread.lastMessage != null && thread.unreadCount > 0) {
+        if (thread.lastMessage != null) {
           CallSignalingService.instance.handleIncomingSignal(
             message: thread.lastMessage!.message,
             senderId: thread.lastMessage!.senderId,

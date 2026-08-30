@@ -110,13 +110,19 @@ class ChatMessage {
 
   String? get callChannelName {
     if (!isCallInvite) return null;
-    final RegExp reg = RegExp(r'channel=([^&]+)');
-    return reg.firstMatch(message)?.group(1);
+    // Support both short key 'ch=' (new) and legacy 'channel=' (old)
+    final RegExp shortReg = RegExp(r'ch=([^&\]]+)');
+    final RegExp longReg = RegExp(r'channel=([^&\]]+)');
+    final Match? shortMatch = shortReg.firstMatch(message);
+    if (shortMatch != null) return shortMatch.group(1);
+    final Match? longMatch = longReg.firstMatch(message);
+    return longMatch?.group(1);
   }
 
   bool get isCallVideo {
     if (!isCallInvite) return false;
-    return message.contains('isVideo=true');
+    // Support both 'vid=1' (new short) and 'isVideo=true' (legacy)
+    return message.contains('vid=1') || message.contains('isVideo=true');
   }
 
   String get callDisplayName {

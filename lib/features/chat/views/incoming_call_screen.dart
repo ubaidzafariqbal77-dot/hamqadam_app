@@ -5,6 +5,10 @@ import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../controllers/chat_controller.dart';
+import '../../../core/services/call_signaling_service.dart';
+import '../../../core/services/call_state_service.dart';
+import '../widgets/incoming_call_overlay_bar.dart';
 import 'video_call_screen.dart';
 
 /// Full-screen incoming call dialog with Accept and Decline actions.
@@ -62,6 +66,27 @@ class IncomingCallScreen extends StatefulWidget {
     isShowing = false;
   }
 
+  /// Tapping the floating overlay bar should expand to full-screen incoming
+  /// call dialog. Dismisses the overlay bar first.
+  static Future<void> expandFromOverlay({
+    required String channelName,
+    required String callerName,
+    String? callerPhoto,
+    bool isVideoCall = false,
+    String? agoraToken,
+    int? threadId,
+  }) async {
+    IncomingCallOverlayBar.dismiss();
+    await show(
+      channelName: channelName,
+      callerName: callerName,
+      callerPhoto: callerPhoto,
+      isVideoCall: isVideoCall,
+      agoraToken: agoraToken,
+      threadId: threadId,
+    );
+  }
+
   @override
   State<IncomingCallScreen> createState() => _IncomingCallScreenState();
 }
@@ -110,6 +135,8 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   void _acceptCall() {
     _stopRinging();
     IncomingCallScreen.isShowing = false;
+    IncomingCallOverlayBar.dismiss();
+
     // Dismiss the incoming dialog first
     Get.back<void>();
 
@@ -126,8 +153,32 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   void _declineCall() {
     _stopRinging();
     IncomingCallScreen.isShowing = false;
+    IncomingCallOverlayBar.dismiss();
+    CallStateService.instance.endCall();
+
+    // Send decline signal back to the caller
+    _sendDeclineSignal();
+
     if (Get.isDialogOpen ?? false) {
       Get.back<void>();
+    }
+  }
+
+  void _sendDeclineSignal() {
+    if (widget.threadId == null || widget.threadId! <= 0) return;
+    if (Get.isRegistered<ChatController>()) {
+      final ChatController chatCtrl = Get.find<ChatController>();
+      final dynamic activeThread = chatCtrl.activeThread.value;
+      int recipientId = 0;
+      if (activeThread != null && activeThread.id == widget.threadId) {
+        recipientId = activeThread.participant.id;
+      }
+      if (recipientId > 0) {
+        CallSignalingService.instance.sendCallDecline(
+          threadId: widget.threadId!,
+          recipientUserId: recipientId,
+        );
+      }
     }
   }
 

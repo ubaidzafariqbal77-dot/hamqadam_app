@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.hamqadam</string>
+	<string>com.app.hamqadam</string>
 	<key>PROJECT_ID</key>
 	<string>hamqadam-13e2b</string>
 	<key>STORAGE_BUCKET</key>
@@ -25,6 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:895538475573:ios:65f96e1137b1d6e1c2b77c</string>
+	<string>1:895538475573:ios:a8a79428e16384edc2b77c</string>
 </dict>
 </plist>

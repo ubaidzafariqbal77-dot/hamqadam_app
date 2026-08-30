@@ -11,7 +11,8 @@ import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
-import '../../features/chat/views/incoming_call_screen.dart';
+import '../../features/chat/widgets/incoming_call_overlay_bar.dart';
+import 'call_signaling_service.dart';
 import '../../features/interests/views/interests_view.dart';
 
 import '../../features/notifications/views/notifications_view.dart';
@@ -133,20 +134,35 @@ class NotificationService {
       notificationDetails,
       payload: payload,
     );
-  }
-
-  /// Extracts information from an FCM [RemoteMessage] and displays it in the system tray,
+  }  /// Extracts information from an FCM [RemoteMessage] and displays it in the system tray,
   /// while triggering appropriate background controller refreshes.
   Future<void> showFromRemoteMessage(RemoteMessage message) async {
     final String title = message.notification?.title ??
         message.data['title']?.toString() ??
         'HamQadam';
 
-    final String? body = message.notification?.body ??
-        message.data['message']?.toString() ??
-        message.data['body']?.toString();
+    final String? body = message.notification?.body ?? message.data['message']?.toString() ?? message.data['body']?.toString();
 
     if (body == null || body.isEmpty) return;
+
+    // ── Detect call invite in FCM data payload ──────────────────────────────
+    // The backend sends a regular chat message via FCM. If the message text
+    // starts with [CALL_INVITE:], we must show the incoming call overlay
+    // instead of (or in addition to) the normal notification.
+    final String msgText = (message.data['message'] ?? '').toString();
+    if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
+      _handleCallSignalFromFcm(message.data, msgText);
+      // Still show a tray notification as fallback
+      final int id = message.messageId?.hashCode ??
+          DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      await showNotification(
+        id: id,
+        title: title,
+        body: body,
+        payload: jsonEncode(message.data),
+      );
+      return;
+    }
 
     final int id = message.messageId?.hashCode ??
         DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -161,6 +177,22 @@ class NotificationService {
 
     // Trigger realtime UI / State refreshes based on notification type
     _refreshCorrespondingController(message.data);
+  }
+
+  /// Parses an FCM data payload that contains a call invite or decline signal
+  /// and shows the appropriate incoming call UI.
+  void _handleCallSignalFromFcm(Map<String, dynamic> data, String msgText) {
+    try {
+      CallSignalingService.instance.handleIncomingSignal(
+        message: msgText,
+        senderId: int.tryParse((data['sender_id'] ?? data['notify_by'] ?? '').toString()) ?? 0,
+        threadId: int.tryParse((data['thread_id'] ?? data['info_id'] ?? '').toString()),
+        senderName: (data['sender_name'] ?? data['title'] ?? '').toString(),
+        senderPhoto: (data['sender_photo'] ?? data['sender_avatar'] ?? '').toString(),
+      );
+    } catch (e) {
+      AppLogger.w('Failed to handle call signal from FCM: $e');
+    }
   }
 
   void _refreshCorrespondingController(Map<String, dynamic> data) {
@@ -228,10 +260,11 @@ class NotificationService {
         final String callerName = (data['callerName'] ?? 'Caller').toString();
         final String? callerPhoto = data['callerPhoto']?.toString();
         final bool isVideoCall = data['isVideoCall'] == true;
-        final int? threadId = data['threadId'] as int?;
+        final int? threadId = int.tryParse(data['threadId']?.toString() ?? '');
 
         if (channelName.isNotEmpty) {
-          IncomingCallScreen.show(
+          // Show the floating overlay bar first (less intrusive)
+          IncomingCallOverlayBar.show(
             channelName: channelName,
             callerName: callerName,
             callerPhoto: callerPhoto,
@@ -240,6 +273,14 @@ class NotificationService {
           );
           return;
         }
+      }
+
+      // Also detect call invites that arrive as regular chat message notifications
+      // (backend sends them as type: 'message' but the message text contains the signal)
+      final String msgText = (data['message'] ?? '').toString();
+      if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
+        _handleCallSignalFromFcm(data, msgText);
+        return;
       }
 
       // 1. Chat messages

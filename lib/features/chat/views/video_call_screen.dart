@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../core/services/call_state_service.dart';
 
 /// Reusable Audio and Video Call Screen powered by official Agora RTC Engine.
 class VideoCallScreen extends StatefulWidget {
@@ -80,17 +81,54 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   Timer? _callTimer;
   Timer? _ringTimer;
   int _callDurationSeconds = 0;
+  StreamSubscription<int>? _declineSubscription;
 
   @override
   void initState() {
     super.initState();
     _isVideoDisabled = !widget.isVideoCall;
+    _listenForDeclineSignals();
     _initAgora();
+  }
+
+  /// Listen for call decline signals from the remote user.
+  void _listenForDeclineSignals() {
+    _declineSubscription = CallStateService.instance.onCallDeclined.listen((int threadId) {
+      if (!mounted) return;
+      // Show a snackbar and end the call
+      _showDeclinedMessage();
+      _endCall();
+    });
+  }
+
+  void _showDeclinedMessage() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'Call declined by the other user.',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: AppColors.error,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   // ─── Agora Setup ─────────────────────────────────────────────────────────
 
   Future<void> _initAgora() async {
+    // Register this as an outgoing call if not already in a call
+    if (!CallStateService.instance.isInCall) {
+      CallStateService.instance.startOutgoing(
+        channelName: widget.channelName,
+        threadId: 0, // threadId resolved from context, not needed for state
+        isVideo: widget.isVideoCall,
+      );
+    }
+
     // Request permissions
     await <Permission>[
       Permission.microphone,
@@ -297,6 +335,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   Future<void> _endCall() async {
     _callTimer?.cancel();
     _stopRinging();
+    CallStateService.instance.endCall();
+    _declineSubscription?.cancel();
+    _declineSubscription = null;
     if (_engine != null) {
       try {
         await _engine!.leaveChannel();
@@ -313,6 +354,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   void dispose() {
     _callTimer?.cancel();
     _stopRinging();
+    _declineSubscription?.cancel();
+    CallStateService.instance.endCall();
     try {
       _engine?.leaveChannel();
       _engine?.release();

@@ -93,6 +93,13 @@ Future<void> main() async {
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().fetchNotifications(refresh: true);
     }
+    // Check if this is a call invite signal in the data payload
+    final String msgText = (message.data['message'] ?? '').toString();
+    if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
+      // Show incoming call overlay directly
+      NotificationService.instance.showFromRemoteMessage(message);
+      return;
+    }
     NotificationService.instance.handleRemoteMessageTap(message);
   });
 

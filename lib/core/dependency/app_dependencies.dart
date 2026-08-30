@@ -17,6 +17,7 @@ import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/shortlist_controller.dart';
 import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
+import '../../core/services/call_state_service.dart';
 import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
@@ -100,6 +101,9 @@ class AppDependencies {
 
     final PusherChatService pusherService = PusherChatService(storage: secureStorage);
     Get.put<PusherChatService>(pusherService, permanent: true);
+
+    // Call state service (tracks active calls, prevents duplicates)
+    Get.put<CallStateService>(CallStateService.instance, permanent: true);
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(

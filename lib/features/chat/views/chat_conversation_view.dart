@@ -13,6 +13,7 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/services/call_signaling_service.dart';
+import '../../../core/services/call_state_service.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../widgets/chat_report_dialog.dart';
@@ -466,54 +467,12 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         IconButton(
           icon: const Icon(Icons.call_rounded, color: AppColors.primary, size: 22),
           tooltip: 'Voice Call',
-          onPressed: () {
-            final String channelName = widget.thread.threadCode.isNotEmpty
-                ? widget.thread.threadCode
-                : 'call_${widget.thread.id}';
-
-            // Send call invite signal to recipient
-            CallSignalingService.instance.sendCallInvite(
-              threadId: widget.thread.id,
-              recipientUserId: widget.thread.participant.id,
-              channelName: channelName,
-              isVideoCall: false,
-              callerName: _controller.myUserId > 0 ? 'Hamqadam Member' : 'Member',
-            );
-
-            // Open outgoing calling screen
-            VideoCallScreen.open(
-              channelName: channelName,
-              userName: widget.thread.participant.name,
-              userPhoto: widget.thread.participant.photo,
-              isVideoCall: false,
-            );
-          },
+          onPressed: () => _startCall(isVideo: false),
         ),
         IconButton(
           icon: const Icon(Icons.videocam_rounded, color: AppColors.primary, size: 24),
           tooltip: 'Video Call',
-          onPressed: () {
-            final String channelName = widget.thread.threadCode.isNotEmpty
-                ? widget.thread.threadCode
-                : 'call_${widget.thread.id}';
-
-            // Send call invite signal to recipient
-            CallSignalingService.instance.sendCallInvite(
-              threadId: widget.thread.id,
-              recipientUserId: widget.thread.participant.id,
-              channelName: channelName,
-              isVideoCall: true,
-              callerName: _controller.myUserId > 0 ? 'Hamqadam Member' : 'Member',
-            );
-
-            // Open outgoing calling screen
-            VideoCallScreen.open(
-              channelName: channelName,
-              userName: widget.thread.participant.name,
-              userPhoto: widget.thread.participant.photo,
-              isVideoCall: true,
-            );
-          },
+          onPressed: () => _startCall(isVideo: true),
         ),
 
         PopupMenuButton<String>(
@@ -671,6 +630,36 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Unified call initiation — checks if already in a call, uses consistent
+  /// channel naming, and passes the real caller name.
+  void _startCall({required bool isVideo}) {
+    // Prevent starting a call if already in one
+    if (CallStateService.instance.isInCall) {
+      AppSnackbar.info('You are already in a call.');
+      return;
+    }
+
+    final String channelName = CallSignalingService.getChannelName(widget.thread.id);
+
+    // Send call invite signal to recipient
+    CallSignalingService.instance.sendCallInvite(
+      threadId: widget.thread.id,
+      recipientUserId: widget.thread.participant.id,
+      channelName: channelName,
+      isVideoCall: isVideo,
+      callerName: CallStateService.instance.currentUserDisplayName,
+      callerPhoto: CallStateService.instance.currentUserPhoto,
+    );
+
+    // Open outgoing calling screen
+    VideoCallScreen.open(
+      channelName: channelName,
+      userName: widget.thread.participant.name,
+      userPhoto: widget.thread.participant.photo,
+      isVideoCall: isVideo,
     );
   }
 }

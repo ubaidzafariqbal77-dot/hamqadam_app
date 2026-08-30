@@ -3,11 +3,11 @@ import 'package:get/get.dart';
 
 import '../../controllers/auth_controller.dart';
 import '../../controllers/chat_controller.dart';
-import '../../features/chat/views/incoming_call_screen.dart';
 import '../../features/chat/widgets/incoming_call_overlay_bar.dart';
 import '../../repositories/chat_repository.dart';
 import '../storage/current_user_service.dart';
 import '../utils/app_logger.dart';
+import 'call_state_service.dart';
 import 'notification_service.dart';
 
 
@@ -73,12 +73,16 @@ class CallSignalingService {
           recipientUserId: recipientUserId,
         );
       }
+      // Also end local call state
+      CallStateService.instance.endCall();
+      IncomingCallOverlayBar.dismiss();
     } catch (e) {
       AppLogger.w('Failed to send call decline signal: $e');
     }
   }
 
-  /// Intercepts and parses incoming chat/pusher messages to detect call invitations.
+  /// Intercepts and parses incoming chat/pusher messages to detect call
+  /// invitations AND decline signals.
   bool handleIncomingSignal({
     required String message,
     required int senderId,
@@ -86,13 +90,33 @@ class CallSignalingService {
     String? senderName,
     String? senderPhoto,
   }) {
+    final int myUserId = _getMyUserId();
+
+    // ── Handle decline signals ──────────────────────────────────────────────
+    if (message.startsWith(declinePrefix)) {
+      if (senderId > 0 && senderId == myUserId) return false; // ignore self
+      final int resolvedThreadId = threadId ?? 0;
+      AppLogger.i('📞 Call decline signal received for thread $resolvedThreadId');
+      // Notify the active outgoing call screen to auto-end
+      CallStateService.instance.notifyDeclined(resolvedThreadId);
+      // Clean up incoming call UI if showing
+      IncomingCallOverlayBar.dismiss();
+      return true;
+    }
+
+    // ── Handle invite signals ───────────────────────────────────────────────
     if (!message.startsWith(invitePrefix)) {
       return false;
     }
 
-    final int myUserId = _getMyUserId();
     // Do not trigger incoming banner for the caller themselves
     if (senderId > 0 && senderId == myUserId) {
+      return false;
+    }
+
+    // If already in a call, reject new incoming call
+    if (CallStateService.instance.isInCall) {
+      AppLogger.i('📞 Incoming call rejected — already in a call');
       return false;
     }
 
@@ -130,8 +154,15 @@ class CallSignalingService {
 
       AppLogger.i('📞 Incoming Call Signal Detected: $callerName (channel: $channelName, video: $isVideoCall)');
 
-      // 1. Show full-screen WhatsApp-style incoming call overlay dialog over the entire app
-      IncomingCallScreen.show(
+      // Mark incoming call as active in global state
+      CallStateService.instance.startIncoming(
+        channelName: channelName,
+        threadId: resolvedThreadId,
+        isVideo: isVideoCall,
+      );
+
+      // 1. Show WhatsApp-style floating top banner (less intrusive first)
+      IncomingCallOverlayBar.show(
         channelName: channelName,
         callerName: callerName,
         callerPhoto: callerPhoto,
@@ -171,7 +202,7 @@ class CallSignalingService {
       if (id > 0) return id;
     }
     if (Get.isRegistered<AuthController>()) {
-      final int id = Get.find<AuthController>().currentUser.value?.id ?? 0;
+      final int id = Get.find<AuthController>().user.value?.id ?? 0;
       if (id > 0) return id;
     }
     return 0;

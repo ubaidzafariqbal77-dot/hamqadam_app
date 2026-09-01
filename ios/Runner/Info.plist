@@ -30,9 +30,14 @@
 	<string>HamQadam uses the camera for audio/video calling, profile photos, and verification selfies.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>HamQadam uses the microphone for audio/video calling and voice notes.</string>
-
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>HamQadam needs access to your photos so you can choose the pictures shown on your profile.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HamQadam needs permission to save photos to your library.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>HamQadam may access contacts to help you find people you know.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>HamQadam uses Face ID for secure app access.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

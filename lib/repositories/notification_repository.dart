@@ -41,6 +41,10 @@ class NotificationRepository {
       ApiEndpoints.pushTokens,
       body: <String, dynamic>{
         'token': token,
+        // `StorePushTokenRequest` validates `platform`; `device_type` was the
+        // app's own name for it, so the column was always saved null. Both are
+        // sent so an older backend keeps working.
+        'platform': deviceType,
         'device_type': deviceType,
       },
     );

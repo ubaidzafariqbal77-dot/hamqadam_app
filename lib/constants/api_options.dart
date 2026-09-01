@@ -222,6 +222,7 @@ class RegSteps {
     'height': 9,
     'diet': 9,
     'annual_income': 10,
+    'annual_salary_range_id': 10,
     'employment_status': 10,
     'profession_category_id': 10,
     'profession_id': 10,

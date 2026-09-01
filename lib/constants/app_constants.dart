@@ -70,9 +70,12 @@ class PusherConfig {
   /// Pusher app key obtained from hamqadam.com Pusher dashboard.
   static const String key = 'YOUR_PUSHER_APP_KEY';
 
-  /// Cluster (e.g. 'ap2', 'eu', 'mt1').
-  static const String cluster = 'mt1';
+  /// Cluster (e.g. 'ap2', 'eu', 'mt1'). `ap2` is what the production website
+  /// boots Echo with; the live value still comes from `/bridge/connector-a`.
+  static const String cluster = 'ap2';
 
   /// Laravel Echo / Pusher auth endpoint for private/presence channels.
-  static const String authEndpoint = '${ApiConfig.baseUrl}/broadcasting/auth';
+  /// Points to the web domain (not /api/v1) since broadcasting routes
+  /// live outside the v1 API prefix.
+  static const String authEndpoint = '${ApiConfig.assetBaseUrl}/broadcasting/auth';
 }

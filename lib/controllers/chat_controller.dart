@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
-import '../core/services/call_signaling_service.dart';
+import 'call_controller.dart';
+import '../core/services/notification_service.dart';
 import '../core/services/pusher_chat_service.dart';
+import '../core/utils/app_logger.dart';
 
 import '../core/storage/current_user_service.dart';
 import '../models/chat_model.dart';
@@ -96,6 +98,23 @@ class ChatController extends GetxController {
     _setupPusherListeners();
     loadThreads();
     _startInboxHeartbeat();
+    // Ensure Pusher is connected and subscribed to user channel immediately.
+    // This is critical: calls can arrive via Pusher on ANY screen, not just chat.
+    _initPusher();
+  }
+
+  /// Connect Pusher and subscribe to the user channel right away.
+  /// Safe to call multiple times — PusherChatService guards against double-init.
+  Future<void> _initPusher() async {
+    try {
+      final int userId = myUserId;
+      if (userId > 0) {
+        await _pusher.init();
+        await _pusher.subscribeToUserChannel(userId);
+      }
+    } catch (e) {
+      // Non-fatal: Pusher will retry connection on its own.
+    }
   }
 
   @override
@@ -106,7 +125,11 @@ class ChatController extends GetxController {
     _sendTypingDebounce?.cancel();
     _stopActiveThreadHeartbeat();
     _inboxHeartbeat?.cancel();
-    _pusher.disconnect();
+    // IMPORTANT: Do NOT call _pusher.disconnect() here!
+    // Pusher must stay connected for the entire app lifecycle so that
+    // call-incoming events, typing indicators, and new messages arrive
+    // on ANY screen — not just when the Chat tab is open.
+    // Pusher disconnects only on logout (AuthController.logout).
     super.onClose();
   }
 
@@ -118,6 +141,10 @@ class ChatController extends GetxController {
     _pusher.onUserEvent = (Map<String, dynamic> data) {
       // Inbox / preview update on App.User.{userId}
       loadThreads(silent: true);
+
+      // Show tray notification for incoming messages from Pusher user channel.
+      // This is the PRIMARY path for messages when user is NOT viewing that thread.
+      _showTrayFromUserEvent(data);
     };
 
     _pusher.onThreadMessage = (Map<String, dynamic> data) {
@@ -143,6 +170,17 @@ class ChatController extends GetxController {
       loadThreads(silent: true);
     };
 
+    // Call signalling is the backend's own `call-*` broadcast now, handed
+    // straight to the controller that owns the call API. The app used to infer
+    // calls from `[CALL_INVITE:…]` text inside chat messages and poll for them
+    // every three seconds — invisible to the server, so nothing was logged and
+    // a closed app never rang.
+    _pusher.onCallEvent = (String event, Map<String, dynamic> data) {
+      if (Get.isRegistered<CallController>()) {
+        Get.find<CallController>().handleCallEvent(event, data);
+      }
+    };
+
     // Subscribe to user channel
     if (myUserId > 0) {
       _pusher.subscribeToUserChannel(myUserId);
@@ -154,14 +192,32 @@ class ChatController extends GetxController {
       final dynamic rawMsg = data['message'] ?? data;
       if (rawMsg is Map<String, dynamic>) {
         final ChatMessage msg = ChatMessage.fromJson(rawMsg);
-        // Always check for call signals, regardless of which thread
-        CallSignalingService.instance.handleIncomingSignal(
-          message: msg.message,
-          senderId: msg.senderId,
-          threadId: msg.threadId,
-          senderName: msg.senderName,
-          senderPhoto: msg.senderPhoto,
-        );
+        
+        // Only show tray notification if sender is NOT the current user
+        // AND the active thread is NOT the one the message belongs to
+        final bool isMyMessage = msg.senderId == myUserId;
+        final bool isActiveThread = activeThread.value != null &&
+            msg.threadId == activeThread.value!.id;
+
+        if (!isMyMessage && !isActiveThread) {
+          // Show tray notification for incoming messages from other users
+          final String senderLabel = (msg.senderName != null && msg.senderName!.isNotEmpty)
+              ? msg.senderName!
+              : 'Someone';
+          final String body = msg.messageType == 'text'
+              ? (msg.message.isNotEmpty ? msg.message : 'Sent a message')
+              : 'Sent a ${msg.messageType}';
+
+          NotificationService.instance.showNotification(
+            id: msg.id,
+            title: senderLabel,
+            body: body,
+            payload: '{"type": "chat_message", "thread_id": ${msg.threadId}, "sender_id": ${msg.senderId}}',
+          ).catchError((e) {
+            AppLogger.w('Failed to show tray notification for message: $e');
+          });
+        }
+
         if (activeThread.value != null &&
             (msg.threadId == activeThread.value!.id || activeThread.value!.id == 0)) {
           // Avoid duplicate appends
@@ -175,6 +231,67 @@ class ChatController extends GetxController {
     } catch (e) {
       // Log but don't crash — background message handling must be resilient
       debugPrint('ChatController._handleIncomingMessage error: $e');
+    }
+  }
+
+  /// Shows a tray notification when a Pusher user-channel event arrives.
+  /// This covers messages, interests, proposals, and other activity types
+  /// broadcast on `private-App.User.{userId}`.
+  void _showTrayFromUserEvent(Map<String, dynamic> data) {
+    try {
+      // Extract event type and sender info from the Pusher payload
+      final String eventType = (data['event'] ?? data['type'] ?? '').toString().toLowerCase();
+      final dynamic senderData = data['sender'] ?? data['user'] ?? data['from'];
+      final String senderName = senderData is Map<String, dynamic>
+          ? (senderData['name'] ?? senderData['first_name'] ?? 'Someone').toString()
+          : 'Someone';
+
+      // Determine tray title and body based on event type
+      String title = '';
+      String body = '';
+      int notifId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+
+      if (eventType.contains('message') || eventType.contains('chat')) {
+        // Chat message — extract message preview
+        final dynamic msgData = data['message'] ?? data;
+        final String msgText = msgData is Map<String, dynamic>
+            ? (msgData['message'] ?? msgData['body'] ?? '').toString()
+            : '';
+        title = senderName;
+        body = msgText.isNotEmpty ? (msgText.length > 100 ? '${msgText.substring(0, 100)}...' : msgText) : 'Sent a message';
+        notifId = data['id'] is int ? data['id'] as int : notifId;
+      } else if (eventType.contains('interest')) {
+        title = 'New Interest';
+        body = '$senderName is interested in you!';
+      } else if (eventType.contains('proposal')) {
+        title = 'New Proposal';
+        body = '$senderName sent you a proposal!';
+      } else if (eventType.contains('view')) {
+        title = 'Profile View';
+        body = '$senderName viewed your profile';
+      } else if (eventType.contains('call')) {
+        // Call events are handled by CallController — skip here
+        return;
+      } else {
+        // Generic notification for unknown event types
+        title = 'HamQadam';
+        body = 'You have a new notification';
+      }
+
+      if (title.isNotEmpty && body.isNotEmpty) {
+        AppLogger.i('Tray from Pusher user event: [$title] $body');
+        NotificationService.instance.showNotification(
+          id: notifId,
+          title: title,
+          body: body,
+          payload: '{"type": "$eventType"}',
+        ).catchError((e) {
+          AppLogger.w('Failed to show tray notification from user event: $e');
+        });
+      }
+    } catch (e) {
+      // Non-fatal — Pusher events must never crash the app
+      AppLogger.w('Error in _showTrayFromUserEvent: $e');
     }
   }
 
@@ -207,6 +324,9 @@ class ChatController extends GetxController {
     });
   }
 
+  /// Dedicated call signal poller — runs every 3 seconds to detect incoming
+  /// call invitations even when Pusher is unavailable (e.g. iOS simulator).
+  /// Checks the latest message in each thread for [CALL_INVITE:...] prefix.
   /// Silently syncs new incoming messages into the active conversation.
   Future<void> _syncLatestMessages(int threadId) async {
     if (_isSyncing || threadId <= 0) return;
@@ -222,13 +342,6 @@ class ChatController extends GetxController {
         if (!messages.any((ChatMessage m) => m.id == msg.id)) {
           messages.insert(0, msg);
           hasNew = true;
-          CallSignalingService.instance.handleIncomingSignal(
-            message: msg.message,
-            senderId: msg.senderId,
-            threadId: msg.threadId,
-            senderName: msg.senderName,
-            senderPhoto: msg.senderPhoto,
-          );
         }
       }
 
@@ -258,20 +371,6 @@ class ChatController extends GetxController {
           ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
           : ApiState<List<ChatThread>>.success(list);
 
-      // Check for incoming call signals in threads with recent messages.
-      // We check ALL threads (not just unread) because the call invite might
-      // arrive before the unread count is updated by the backend.
-      for (final ChatThread thread in list) {
-        if (thread.lastMessage != null) {
-          CallSignalingService.instance.handleIncomingSignal(
-            message: thread.lastMessage!.message,
-            senderId: thread.lastMessage!.senderId,
-            threadId: thread.id,
-            senderName: thread.participant.name,
-            senderPhoto: thread.participant.photo,
-          );
-        }
-      }
 
       // Re-verify user channel subscription
       if (myUserId > 0) {

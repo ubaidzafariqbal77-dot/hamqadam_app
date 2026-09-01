@@ -6,10 +6,13 @@ import '../constants/app_lookups.dart';
 import '../core/api/api_response.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/lookup_item_model.dart';
+import '../models/profile_model.dart';
+import '../models/user_model.dart';
 import '../models/search_filter_profile_model.dart';
 import '../repositories/search_repository.dart';
 import 'auth_controller.dart';
 import 'lookup_controller.dart';
+import 'profile_controller.dart';
 import 'shortlist_controller.dart';
 
 
@@ -55,8 +58,20 @@ class SearchProfilesController extends GetxController {
 
   SearchProfilesPage? get pageData => state.value.data;
   List<SearchProfileModel> get profiles => pageData?.profiles ?? <SearchProfileModel>[];
-  List<SearchProfileModel> get visibleProfiles =>
-      profiles.where((SearchProfileModel p) => !ignoredUserIds.contains(p.id)).toList();
+  /// What the grid renders: ignored members removed, and — the last line of
+  /// defence for the opposite-gender rule — anything the backend returned that
+  /// is not the allowed gender dropped. Sending `gender` on the query is a
+  /// request; this makes it a guarantee.
+  List<SearchProfileModel> get visibleProfiles {
+    final String? allowed = _allowedGender;
+    return profiles.where((SearchProfileModel p) {
+      if (ignoredUserIds.contains(p.id)) return false;
+      if (allowed == null) return true;
+      final String g = (p.gender ?? '').trim();
+      // An unlabelled profile is kept: hiding it would be guessing.
+      return g.isEmpty || g == allowed;
+    }).toList();
+  }
   bool get hasMore => pageData?.hasMore ?? false;
   int get activeFilterCount => filter.value.activeFilterCount;
 
@@ -88,43 +103,131 @@ class SearchProfilesController extends GetxController {
     ignoredUserIds.remove(userId);
   }
 
+  /// Watches the profile until it reveals the member's gender. Disposed as soon
+  /// as it fires, and again in [onClose] if it never did.
+  Worker? _genderWorker;
+
   @override
   void onInit() {
     super.onInit();
     _warmLookups();
-    _applyOppositeGenderDefault();
+    _lockFilterToOppositeGender();
+    if (_allowedGender == null && _awaitGender()) {
+      // Hold the grid on its spinner rather than showing an unfiltered page
+      // that would flash the member's own gender before the corrected reload.
+      state.value = const ApiState<SearchProfilesPage>.loading();
+      return;
+    }
     loadProfiles();
   }
 
-  /// Returns the opposite gender string of the logged-in user, or null if
-  /// the user's gender is unknown.
-  String? get _oppositeGender {
-    if (!Get.isRegistered<AuthController>()) return null;
-    final String? myGender = Get.find<AuthController>().user.value?.gender;
-    if (myGender == null || myGender.isEmpty) return null;
-    // Backend uses "1" = male, "2" = female
-    return myGender == '1' ? '2' : myGender == '2' ? '1' : null;
+  /// Kicks off the profile fetch that carries `member.gender` and reloads once
+  /// it lands. Returns false when the gender cannot be resolved that way, in
+  /// which case the caller should just search unfiltered.
+  ///
+  /// `ProfileController` is registered lazily and only fetches `/profile` when
+  /// the Profile tab is first opened — so on a fresh login, opening Discover
+  /// first left the gender unknown. Resolving it here is what makes the rule
+  /// hold from the very first search instead of from the second.
+  bool _awaitGender() {
+    if (!Get.isRegistered<ProfileController>() && !Get.isPrepared<ProfileController>()) {
+      return false;
+    }
+    final ProfileController profile = Get.find<ProfileController>();
+    if (_allowedGender != null) return false; // already there, nothing to wait for
+
+    // The profile has already settled and still tells us nothing (it failed, or
+    // the member record carries no gender). Waiting on `ever` here would hang
+    // the grid on a spinner that nothing is left to resolve.
+    final ApiState<ProfileModel> now = profile.state.value;
+    if (!now.isLoading && !now.isInitial) return false;
+
+    _genderWorker = ever<ApiState<ProfileModel>>(profile.state, (ApiState<ProfileModel> s) {
+      if (s.isLoading || s.isInitial) return;
+      // Either the gender arrived or the profile failed; both end the wait, so
+      // a broken /profile call degrades to an unfiltered search instead of a
+      // permanently empty screen.
+      _disposeGenderWorker();
+      _lockFilterToOppositeGender();
+      loadProfiles();
+    });
+    return true;
   }
 
-  /// Pre-fills the filter with the opposite gender so a male user sees
-  /// female profiles and vice versa — the default matrimonial behaviour.
-  void _applyOppositeGenderDefault() {
-    final String? opposite = _oppositeGender;
-    if (opposite == null) return;
-    filter.value = filter.value.copyWith(gender: opposite);
-    draftFilter.value = draftFilter.value.copyWith(gender: opposite);
+  void _disposeGenderWorker() {
+    _genderWorker?.dispose();
+    _genderWorker = null;
+  }
+
+  // ---- Opposite-gender rule -------------------------------------------------
+  //
+  // Discover only ever shows the other gender: a male member sees women, a
+  // female member sees men. This is a rule, not a preference — the gender
+  // filter is not something the member can widen or clear, so it is applied to
+  // the stored filter AND re-applied to every outgoing request, and the results
+  // are screened once more on the way in.
+
+  /// The signed-in member's gender as the API spells it ("1" male, "2" female).
+  ///
+  /// `/auth/me` does not carry it: gender lives on the PROFILE (`member.gender`
+  /// — see the captured `dev_stubs/api_samples/profile.json`), which is why
+  /// reading only `AuthController.user.gender` left this null and showed
+  /// everybody both genders. The profile is preferred and the user record is a
+  /// fallback for the window before the profile has loaded.
+  String? get _myGender {
+    if (Get.isRegistered<ProfileController>()) {
+      final String? fromProfile =
+          Get.find<ProfileController>().profile?.member.gender;
+      if (fromProfile != null && fromProfile.trim().isNotEmpty) {
+        return fromProfile.trim();
+      }
+    }
+    if (Get.isRegistered<AuthController>()) {
+      final UserModel? me = Get.find<AuthController>().user.value;
+      final String? fromUser = me?.gender;
+      if (fromUser != null && fromUser.trim().isNotEmpty) return fromUser.trim();
+      // Some payloads nest the member record inside the user object.
+      final dynamic nested = me?.raw['member'];
+      if (nested is Map<String, dynamic>) {
+        final String nestedGender = (nested['gender'] ?? '').toString().trim();
+        if (nestedGender.isNotEmpty) return nestedGender;
+      }
+    }
+    return null;
+  }
+
+  /// The only gender Discover may show, or null while the member's own gender
+  /// is still unknown (a fresh session that has not loaded the profile yet).
+  String? get _allowedGender => switch (_myGender) {
+        '1' => '2',
+        '2' => '1',
+        _ => null,
+      };
+
+  /// Forces [f] onto the allowed gender. A no-op while [_allowedGender] is
+  /// null, so an unknown gender degrades to the old unfiltered behaviour
+  /// instead of returning an empty screen.
+  SearchFilterModel _lockGender(SearchFilterModel f) {
+    final String? allowed = _allowedGender;
+    return allowed == null ? f : f.copyWith(gender: allowed);
+  }
+
+  /// Pins the live and draft filters to the allowed gender.
+  void _lockFilterToOppositeGender() {
+    filter.value = _lockGender(filter.value);
+    draftFilter.value = _lockGender(draftFilter.value);
   }
 
   @override
   void onClose() {
     _debounceTimer?.cancel();
+    _disposeGenderWorker();
     searchInputController.dispose();
     super.onClose();
   }
 
   void _warmLookups() {
     // Preload lookups needed for filtering & profile cards display
-    _lookup.ensure(LookupKeys.genders);
     _lookup.ensure(LookupKeys.maritalStatuses);
     _lookup.ensure(LookupKeys.religions);
     _lookup.ensure(LookupKeys.castes);
@@ -137,6 +240,10 @@ class SearchProfilesController extends GetxController {
 
   /// Loads profiles for page 1 using the current [filter].
   Future<void> loadProfiles({bool showLoading = true}) async {
+    // Re-applied on every load, not just once in `onInit`: the profile that
+    // carries the member's gender is fetched lazily, so the first Discover
+    // build can happen before the gender is known.
+    _lockFilterToOppositeGender();
     if (showLoading) {
       state.value = const ApiState<SearchProfilesPage>.loading();
     }
@@ -172,7 +279,7 @@ class SearchProfilesController extends GetxController {
     isLoadingMore.value = true;
     try {
       final SearchProfilesPage next = await _repo.fetchProfiles(
-        filter: filter.value,
+        filter: _lockGender(filter.value),
         page: current.currentPage + 1,
         perPage: _perPage,
       );
@@ -191,22 +298,25 @@ class SearchProfilesController extends GetxController {
 
   /// Prepares the draft filter before opening the filter bottom sheet.
   void prepareDraftFilter() {
-    draftFilter.value = filter.value;
+    draftFilter.value = _lockGender(filter.value);
   }
 
   /// Applies the draft filter or a new [SearchFilterModel] and reloads.
+  ///
+  /// The gender is re-pinned here too, so neither the filter sheet nor a
+  /// "remove this filter" chip can widen the search to both genders.
   void applyFilter([SearchFilterModel? newFilter]) {
-    filter.value = newFilter ?? draftFilter.value;
+    filter.value = _lockGender(newFilter ?? draftFilter.value);
     loadProfiles();
   }
 
-  /// Resets all filters back to empty — but preserves the opposite-gender
-  /// default so the user always sees profiles of the other gender first.
+  /// Resets all filters back to empty — except the gender, which is a rule
+  /// rather than a filter and survives the reset.
   void resetFilter() {
     filter.value = SearchFilterModel.empty();
     draftFilter.value = SearchFilterModel.empty();
     searchInputController.clear();
-    _applyOppositeGenderDefault();
+    _lockFilterToOppositeGender();
     loadProfiles();
   }
 
@@ -246,6 +356,16 @@ class SearchProfilesController extends GetxController {
     loadProfiles();
   }
 
+  /// Toggles the partner-preference filter. When enabled, sends
+  /// `partner_preference=false` so the backend filters results by the
+  /// logged-in user's saved partner preferences.
+  void togglePartnerPreferenceFilter() {
+    filter.value = filter.value.copyWith(
+      partnerPreferenceFilter: !filter.value.partnerPreferenceFilter,
+    );
+    loadProfiles();
+  }
+
   // ---- Lookup Resolution Helpers -------------------------------------------
 
   String? _lookupName(String key, int? id) {
@@ -254,12 +374,6 @@ class SearchProfilesController extends GetxController {
       if (item.id == id) return item.name;
     }
     return null;
-  }
-
-  String? genderLabel(String? gender) {
-    if (gender == null || gender.isEmpty) return null;
-    final int? gid = int.tryParse(gender);
-    return _lookupName(LookupKeys.genders, gid) ?? (gender == '1' ? 'Male' : gender == '2' ? 'Female' : gender);
   }
 
   String? maritalStatusLabel(int? id) => _lookupName(LookupKeys.maritalStatuses, id);

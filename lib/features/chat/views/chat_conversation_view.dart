@@ -12,12 +12,10 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
-import '../../../core/services/call_signaling_service.dart';
-import '../../../core/services/call_state_service.dart';
+import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../widgets/chat_report_dialog.dart';
-import 'video_call_screen.dart';
 
 
 
@@ -635,31 +633,18 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
   /// Unified call initiation — checks if already in a call, uses consistent
   /// channel naming, and passes the real caller name.
+  /// Starts a call through the backend (`POST /calls`), the same way the
+  /// website does. The server creates the call row, mints this member's Agora
+  /// token and rings the other side over `call-incoming`; the controller opens
+  /// the call screen once it has the credentials.
   void _startCall({required bool isVideo}) {
-    // Prevent starting a call if already in one
-    if (CallStateService.instance.isInCall) {
-      AppSnackbar.info('You are already in a call.');
+    if (!Get.isRegistered<CallController>()) {
+      AppSnackbar.error('Calling is unavailable right now.');
       return;
     }
-
-    final String channelName = CallSignalingService.getChannelName(widget.thread.id);
-
-    // Send call invite signal to recipient
-    CallSignalingService.instance.sendCallInvite(
+    Get.find<CallController>().startCall(
       threadId: widget.thread.id,
-      recipientUserId: widget.thread.participant.id,
-      channelName: channelName,
-      isVideoCall: isVideo,
-      callerName: CallStateService.instance.currentUserDisplayName,
-      callerPhoto: CallStateService.instance.currentUserPhoto,
-    );
-
-    // Open outgoing calling screen
-    VideoCallScreen.open(
-      channelName: channelName,
-      userName: widget.thread.participant.name,
-      userPhoto: widget.thread.participant.photo,
-      isVideoCall: isVideo,
+      isVideo: isVideo,
     );
   }
 }
@@ -867,19 +852,17 @@ class _MessageBubble extends StatelessWidget {
                         // Message text / Call event tile
                         if (message.isCallEvent)
                           InkWell(
+                            // A call tile is a record of a past call, so tapping
+                            // it calls back rather than rejoining: the channel it
+                            // names belonged to that call and the server has long
+                            // since closed it.
                             onTap: () {
-                              if (message.isCallInvite && message.callChannelName != null) {
-                                VideoCallScreen.open(
-                                  channelName: message.callChannelName!,
-                                  userName: isMine
-                                      ? (participantName ?? 'Member')
-                                      : (message.senderName ?? participantName ?? 'Member'),
-                                  userPhoto: isMine
-                                      ? participantPhoto
-                                      : (message.senderPhoto ?? participantPhoto),
-                                  isVideoCall: message.isCallVideo,
-                                );
-                              }
+                              if (!message.isCallInvite) return;
+                              if (!Get.isRegistered<CallController>()) return;
+                              Get.find<CallController>().startCall(
+                                threadId: message.threadId,
+                                isVideo: message.isCallVideo,
+                              );
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

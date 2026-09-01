@@ -19,6 +19,7 @@ import '../../chat/views/chat_conversation_view.dart';
 import '../../notifications/views/notifications_view.dart';
 import '../widgets/public_profile_detail_sheet.dart';
 import '../widgets/report_profile_dialog.dart';
+import '../widgets/horoscope_form_sheet.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
 import '../../proposals/widgets/send_proposal_dialog.dart';
@@ -231,6 +232,35 @@ class _SearchBarHeader extends StatelessWidget {
             );
           }),
           const SizedBox(width: AppSpacing.sm),
+          // Horoscope Button
+          InkWell(
+            onTap: () => HoroscopeFormSheet.show(context),
+            borderRadius: AppRadius.lgAll,
+            child: Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                borderRadius: AppRadius.lgAll,
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: AppColors.gold,
+                size: 22,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
           // Notification Bell Button with unread badge
           Obx(() {
             final NotificationController? notifCtrl =
@@ -291,6 +321,63 @@ class _SearchBarHeader extends StatelessWidget {
                             height: 1,
                           ),
                         ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          }),
+          const SizedBox(width: AppSpacing.sm),
+          // Partner Preference Filter Toggle
+          Obx(() {
+            final bool active = controller.filter.value.partnerPreferenceFilter;
+            return Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                InkWell(
+                  onTap: controller.togglePartnerPreferenceFilter,
+                  borderRadius: AppRadius.lgAll,
+                  child: Container(
+                    height: 44,
+                    width: 44,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.primary
+                          : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
+                      borderRadius: AppRadius.lgAll,
+                      border: Border.all(
+                        color: active
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                      ),
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: (active ? AppColors.primary : Colors.black)
+                              .withValues(alpha: active ? 0.25 : 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.tune_rounded,
+                      color: active
+                          ? Colors.white
+                          : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
+                      size: 20,
+                    ),
+                  ),
+                ),
+                if (active)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: AppColors.success,
+                        shape: BoxShape.circle,
                       ),
                     ),
                   ),
@@ -376,15 +463,9 @@ class _ActiveFilterChips extends StatelessWidget {
           ),
         );
       }
-      if (f.gender != null) {
-        final String g = controller.genderLabel(f.gender) ?? f.gender!;
-        chips.add(
-          _FilterChipItem(
-            label: g,
-            onRemove: () => controller.applyFilter(f.copyWith(clearGender: true)),
-          ),
-        );
-      }
+      // Gender is intentionally NOT listed here. It is the opposite-gender
+      // rule, and a chip implies a filter the member may remove — tapping the
+      // × used to widen Discover to both genders.
       if (f.maritalStatusId != null) {
         final String? m = controller.maritalStatusLabel(f.maritalStatusId);
         if (m != null) {
@@ -428,6 +509,14 @@ class _ActiveFilterChips extends StatelessWidget {
             ),
           );
         }
+      }
+      if (f.partnerPreferenceFilter) {
+        chips.add(
+          _FilterChipItem(
+            label: 'Partner Match',
+            onRemove: () => controller.applyFilter(f.copyWith(partnerPreferenceFilter: false)),
+          ),
+        );
       }
 
       if (chips.isEmpty) return const SizedBox.shrink();
@@ -569,10 +658,10 @@ class _VerticalProfilesFeedState extends State<_VerticalProfilesFeed> {
 }
 
 // ---------------------------------------------------------------------------
-// Single User Card matching exact reference design:
-// - Left/Center: Full-Screen Portrait Photo Card
-// - Right: Inside Card Action Icons (3-Dots, Interest, Full Profile, Shortlist, Ignore, Report)
-// - Bottom Overlay: Name, Verification Badge, Trust Score, Religion, Country, City, Marital Status
+// Single User Card — Enterprise-Level Dating App Design
+// - Full-Screen Portrait Photo Card
+// - Right: Action Icons (Chat, Interest, Profile, Shortlist, Ignore, Report)
+// - Bottom Overlay: Name+Age+Verified, Quick Info Chips, Detail Grid, Actions
 // ---------------------------------------------------------------------------
 
 class _SingleUserProfileCard extends StatelessWidget {
@@ -595,8 +684,13 @@ class _SingleUserProfileCard extends StatelessWidget {
     final String? marital = controller.maritalStatusLabel(profile.maritalStatusId);
     final String? religion = controller.religionLabel(profile.religionId);
     final String? city = controller.cityLabel(profile.cityId);
+    final String? state = controller.stateLabel(profile.stateId);
     final String? country = controller.countryLabel(profile.countryId);
+    final String? caste = controller.casteLabel(profile.casteId);
 
+    final String genderLabel = profile.gender == '1' ? 'Male' : profile.gender == '2' ? 'Female' : '';
+    final String heightLabel = profile.heightFormatted ?? '';
+    final String ageLabel = profile.age != null ? '${profile.age} yrs' : '';
     final int trustPercentage = profile.compatibilityPercentage ?? (profile.isVerified ? 80 : 70);
 
     return Container(
@@ -631,7 +725,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                 : _FallbackBackground(profile: profile),
 
             // ==============================================================
-            // 2. Bottom Gradient Shadow for text readability & right vignette
+            // 2. Multi-Stop Gradient for text readability
             // ==============================================================
             Positioned.fill(
               child: DecoratedBox(
@@ -639,11 +733,12 @@ class _SingleUserProfileCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    stops: const <double>[0.35, 0.7, 1.0],
+                    stops: const <double>[0.25, 0.55, 0.8, 1.0],
                     colors: <Color>[
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.38),
-                      Colors.black.withValues(alpha: 0.95),
+                      Colors.black.withValues(alpha: 0.15),
+                      Colors.black.withValues(alpha: 0.65),
+                      Colors.black.withValues(alpha: 0.97),
                     ],
                   ),
                 ),
@@ -651,8 +746,7 @@ class _SingleUserProfileCard extends StatelessWidget {
             ),
 
             // ==============================================================
-            // 3. RIGHT SIDE: Action Icons placed INSIDE the card
-            // (3-Dots, Interest, Full Profile, Shortlist, Ignore, Report)
+            // 3. RIGHT SIDE: Action Icons
             // ==============================================================
             Positioned(
               right: 12,
@@ -661,26 +755,18 @@ class _SingleUserProfileCard extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  // 1. Three-dots Menu (More options)
                   _glassIconButton(
                     icon: Icons.more_vert_rounded,
                     tooltip: 'More options',
-                    onTap: () {
-                      _showOptionsMenu(context);
-                    },
+                    onTap: () => _showOptionsMenu(context),
                   ),
-                  const SizedBox(height: 12),
-
-                  // 2. Chat Icon (Direct Message)
+                  const SizedBox(height: 10),
                   _glassIconButton(
                     icon: Icons.chat_bubble_outline_rounded,
                     tooltip: 'Chat',
                     onTap: () => _handleChatTap(context, profile),
                   ),
-                  const SizedBox(height: 12),
-
-
-                  // 3. Interest (Heart Icon)
+                  const SizedBox(height: 10),
                   Obx(() {
                     final bool hasSent = interestCtrl?.hasSentInterestTo(profile.id) == true;
                     return _glassIconButton(
@@ -690,9 +776,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                       onTap: () => SendInterestDialog.show(context, profile),
                     );
                   }),
-                  const SizedBox(height: 12),
-
-                  // 4. Full Profile (Person Icon)
+                  const SizedBox(height: 10),
                   _glassIconButton(
                     icon: Icons.person_outline_rounded,
                     tooltip: 'Full Profile',
@@ -702,9 +786,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                       searchProfile: profile,
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  // 4. Shortlist (Bookmark Icon)
+                  const SizedBox(height: 10),
                   Obx(() {
                     final bool isShortlisted = controller.isShortlisted(profile.id);
                     return _glassIconButton(
@@ -714,18 +796,13 @@ class _SingleUserProfileCard extends StatelessWidget {
                       onTap: () => controller.toggleShortlist(profile.id, displayName: profile.displayName),
                     );
                   }),
-                  const SizedBox(height: 12),
-
-
-                  // 5. Ignore (Dismiss Icon)
+                  const SizedBox(height: 10),
                   _glassIconButton(
                     icon: Icons.do_not_disturb_on_outlined,
                     tooltip: 'Ignore',
                     onTap: onIgnore,
                   ),
-                  const SizedBox(height: 12),
-
-                  // 6. Report (Flag Icon)
+                  const SizedBox(height: 10),
                   _glassIconButton(
                     icon: Icons.flag_outlined,
                     tooltip: 'Report',
@@ -736,18 +813,17 @@ class _SingleUserProfileCard extends StatelessWidget {
             ),
 
             // ==============================================================
-            // 4. BOTTOM OVERLAY: Complete Profile Details
-            // (Name, Verification Badge, Trust Score, Religion, Country, City, Marital Status)
+            // 4. BOTTOM OVERLAY: Enterprise-Level Profile Card
             // ==============================================================
             Positioned(
-              left: 18,
+              left: 16,
               right: 68,
-              bottom: 20,
+              bottom: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // Row 1: Name + Verification Icon + Trust Score Pill
+                  // ── Row 1: Name + Age + Verified + Compatibility ──────
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
@@ -758,58 +834,61 @@ class _SingleUserProfileCard extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 profile.displayName,
-                                style: AppTextStyles.display.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 23,
-                                  fontWeight: FontWeight.w800,
-                                  shadows: const <Shadow>[
-                                    Shadow(
-                                      color: Colors.black54,
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
+                                style: _headingStyle.copyWith(fontSize: 24),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 6),
-                            // Verification Status Icon
+                            if (ageLabel.isNotEmpty) ...<Widget>[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  ageLabel,
+                                  style: _chipTextStyle.copyWith(fontSize: 12, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(width: 5),
                             Icon(
                               profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
-                              color: profile.isVerified ? const Color(0xFF1DA1F2) : Colors.white70,
-                              size: 20,
+                              color: profile.isVerified ? const Color(0xFF1DA1F2) : Colors.white54,
+                              size: 19,
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Trust Score Badge
+                      // Compatibility / Trust Score Pill
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: <Color>[Color(0xFFE89538), Color(0xFFE93B77)],
                           ),
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: const Color(0xFFE93B77).withValues(alpha: 0.4),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            const Text(
-                              'Trust Score ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
+                            const SizedBox(width: 3),
                             Text(
                               '$trustPercentage%',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -818,18 +897,83 @@ class _SingleUserProfileCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  const Divider(height: 1, color: Colors.white24),
-                  const SizedBox(height: 8),
 
-                  // Detail rows: icon + label + value (always shown, N/A if null)
-                  _detailRow(Icons.wc_rounded, 'Marital', marital ?? 'N/A'),
-                  const SizedBox(height: 5),
-                  _detailRow(Icons.mosque_outlined, 'Religion', religion ?? 'N/A'),
-                  const SizedBox(height: 5),
-                  _detailRow(Icons.location_city_rounded, 'City', city ?? 'N/A'),
-                  const SizedBox(height: 5),
-                  _detailRow(Icons.public_rounded, 'Country', country ?? 'N/A'),
+                  const SizedBox(height: 10),
+
+                  // ── Row 2: Quick Info Chips ──────────────────────────
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      if (genderLabel.isNotEmpty)
+                        _InfoChip(icon: Icons.person_outline_rounded, label: genderLabel),
+                      if (marital != null && marital.isNotEmpty)
+                        _InfoChip(icon: Icons.favorite_border_rounded, label: marital),
+                      if (heightLabel.isNotEmpty)
+                        _InfoChip(icon: Icons.height_rounded, label: heightLabel),
+                      if (religion != null && religion.isNotEmpty)
+                        _InfoChip(icon: Icons.mosque_outlined, label: religion),
+                      if (caste != null && caste.isNotEmpty)
+                        _InfoChip(icon: Icons.groups_outlined, label: caste),
+                    ],
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // ── Row 3: Location ─────────────────────────────────
+                  Row(
+                    children: <Widget>[
+                      Icon(Icons.location_on_outlined, color: Colors.white54, size: 14),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          _buildLocationString(city, state, country),
+                          style: _subtitleStyle.copyWith(fontSize: 12.5, color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── Row 4: Quick Action Buttons ─────────────────────
+                  Row(
+                    children: <Widget>[
+                      _QuickActionButton(
+                        icon: Icons.favorite_outline_rounded,
+                        label: 'Interest',
+                        color: const Color(0xFFE93B77),
+                        onTap: () => SendInterestDialog.show(context, profile),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickActionButton(
+                        icon: Icons.chat_bubble_outline_rounded,
+                        label: 'Chat',
+                        color: AppColors.primary,
+                        onTap: () => _handleChatTap(context, profile),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickActionButton(
+                        icon: Icons.mail_outline_rounded,
+                        label: 'Proposal',
+                        color: AppColors.gold,
+                        onTap: () => SendProposalDialog.show(context, profile),
+                      ),
+                      const SizedBox(width: 8),
+                      _QuickActionButton(
+                        icon: Icons.person_search_outlined,
+                        label: 'Profile',
+                        color: Colors.white70,
+                        onTap: () => PublicProfileDetailSheet.show(
+                          context,
+                          profileId: profile.id,
+                          searchProfile: profile,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -839,50 +983,36 @@ class _SingleUserProfileCard extends StatelessWidget {
     );
   }
 
+  static const TextStyle _headingStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 23,
+    fontWeight: FontWeight.w800,
+    shadows: <Shadow>[
+      Shadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 2)),
+    ],
+  );
+
   static const TextStyle _subtitleStyle = TextStyle(
     color: Colors.white,
     fontSize: 13,
     fontWeight: FontWeight.w400,
     shadows: <Shadow>[
-      Shadow(
-        color: Colors.black54,
-        blurRadius: 4,
-        offset: Offset(0, 1),
-      ),
+      Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
     ],
   );
 
-  /// Icon + label + value row shown in the bottom overlay. Always shown;
-  /// displays "N/A" when [value] is null or empty.
-  Widget _detailRow(IconData icon, String label, String value) {
-    final bool isNull = value == 'N/A';
-    return Row(
-      children: <Widget>[
-        Icon(icon, color: Colors.white70, size: 14),
-        const SizedBox(width: 6),
-        Text(
-          '$label: ',
-          style: _subtitleStyle.copyWith(
-            fontSize: 12.5,
-            color: Colors.white60,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            style: _subtitleStyle.copyWith(
-              fontSize: 12.5,
-              color: isNull ? Colors.white38 : Colors.white,
-              fontStyle: isNull ? FontStyle.italic : FontStyle.normal,
-              fontWeight: isNull ? FontWeight.w300 : FontWeight.w600,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
+  static const TextStyle _chipTextStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 11,
+    fontWeight: FontWeight.w500,
+  );
+
+  String _buildLocationString(String? city, String? state, String? country) {
+    final List<String> parts = <String>[];
+    if (city != null && city.isNotEmpty) parts.add(city);
+    if (state != null && state.isNotEmpty) parts.add(state);
+    if (country != null && country.isNotEmpty) parts.add(country);
+    return parts.isEmpty ? 'Location not set' : parts.join(', ');
   }
 
   Widget _glassIconButton({
@@ -1093,6 +1223,92 @@ class _SingleUserProfileCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Info Chip — glass-style tag shown in the profile card detail section
+// ---------------------------------------------------------------------------
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, color: Colors.white70, size: 13),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Quick Action Button — horizontal action bar at the bottom of the card
+// ---------------------------------------------------------------------------
+class _QuickActionButton extends StatelessWidget {
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withValues(alpha: 0.35)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

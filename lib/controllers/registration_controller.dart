@@ -400,7 +400,14 @@ class RegistrationController extends GetxController {
     }
 
     final int target = currentStep.value - 1;
-    if (target < 1) return;
+    // Step 1 has no previous step, so "back" there means leaving signup
+    // altogether. Without this the first screen was a dead end: the chevron and
+    // the system back gesture both did nothing, and a user who tapped "Create
+    // account" by mistake could not return to the login screen.
+    if (target < 1) {
+      exitToLogin();
+      return;
+    }
 
     currentStep.value = target;
     // Resume should return to where the user actually is, not to the furthest
@@ -412,6 +419,22 @@ class RegistrationController extends GetxController {
       Get.back();
     } else {
       Get.offNamed<void>(AppRoutes.routeForStep(target));
+    }
+  }
+
+  /// Leaves the signup flow and returns to the login screen.
+  ///
+  /// Called when the user backs out of step 1. The buffered answers are KEPT —
+  /// tapping "Create account" again runs [resetForNewAccount], so nothing is
+  /// silently carried into a different signup, while a user who only wanted to
+  /// glance at login can come straight back to a half-filled draft.
+  void exitToLogin() {
+    // Login is normally still on the stack (it pushed step 1), so popping keeps
+    // its state. After a resume there is nothing to pop, hence the fallback.
+    if (Get.key.currentState?.canPop() ?? false) {
+      Get.back<void>();
+    } else {
+      Get.offAllNamed(AppRoutes.login);
     }
   }
 

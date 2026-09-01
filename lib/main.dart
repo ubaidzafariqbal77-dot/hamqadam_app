@@ -10,6 +10,7 @@ import 'core/dependency/app_dependencies.dart';
 import 'core/routes/app_pages.dart';
 import 'core/routes/app_routes.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/permissions_service.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 
@@ -61,7 +62,11 @@ Future<void> main() async {
   // Register background message handler.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Request notification permissions (iOS / macOS / Android 13+).
+  // Request ALL permissions at app start (camera, mic, photos, notifications, contacts)
+  // so the user is never prompted mid-action.
+  await PermissionsService.instance.requestAll();
+
+  // Also request Firebase-specific notification permissions (iOS / macOS).
   try {
     await FirebaseMessaging.instance.requestPermission(
       alert: true,
@@ -93,10 +98,9 @@ Future<void> main() async {
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().fetchNotifications(refresh: true);
     }
-    // Check if this is a call invite signal in the data payload
-    final String msgText = (message.data['message'] ?? '').toString();
-    if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
-      // Show incoming call overlay directly
+    // A call push must ring, not route: `showFromRemoteMessage` re-reads the
+    // call and puts the incoming screen up if it is still live.
+    if ((message.data['type'] ?? '').toString().toLowerCase() == 'call_incoming') {
       NotificationService.instance.showFromRemoteMessage(message);
       return;
     }

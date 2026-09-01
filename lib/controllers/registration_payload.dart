@@ -151,8 +151,11 @@ class RegPayload {
     _put(m, 'height', ApiValues.heightFromCm(b.getInt('height_cm')));
     _put(m, 'diet', b.getString('diet'));
 
-    // Step 10 — career & income.
-    _put(m, 'annual_income', b.getInt('annual_income'));
+    // Step 10 — career & income. `annual_salary_range_id` replaced the numeric
+    // `annual_income` here: `GET /auth/register/steps` no longer lists
+    // `annual_income` for step 10, and omitting the id fails the whole
+    // submission with "The annual salary range id field is required."
+    _put(m, 'annual_salary_range_id', b.getInt('annual_salary_range_id'));
     _put(m, 'employment_status', b.getString('employment_status'));
     _put(m, 'profession_category_id', b.getInt('profession_category_id'));
     _put(m, 'profession_id', b.getInt('profession_id'));
@@ -414,6 +417,9 @@ class RegPayload {
 
   static Map<String, dynamic> career(RegistrationBuffer b) {
     final Map<String, dynamic> m = <String, dynamic>{};
+    _put(m, 'annual_salary_range_id', b.getInt('annual_salary_range_id'));
+    // Kept for the section-save path only: `PUT /profile` still stores the
+    // numeric column, which profile edit populates from its own field.
     _put(m, 'annual_income', b.getInt('annual_income'));
     _put(m, 'employment_status', b.getString('employment_status'));
     _put(m, 'profession_category_id', b.getInt('profession_category_id'));

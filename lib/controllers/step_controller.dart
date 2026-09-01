@@ -122,6 +122,9 @@ abstract class StepController extends GetxController {
       Get.back<void>();
       return;
     }
-    if (reg.isEditingSection || stepNumber > 1) reg.goToPreviousStep();
+    // Step 1 included: `goToPreviousStep` turns "back" on the first screen into
+    // "leave signup and go to login", which is what a user tapping the chevron
+    // there expects. Guarding on `stepNumber > 1` is what made it a dead end.
+    reg.goToPreviousStep();
   }
 }

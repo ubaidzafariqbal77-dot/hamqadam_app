@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 
+import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
 import '../../controllers/interest_controller.dart';
 import '../../controllers/notification_controller.dart';
@@ -11,8 +13,6 @@ import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
-import '../../features/chat/widgets/incoming_call_overlay_bar.dart';
-import 'call_signaling_service.dart';
 import '../../features/interests/views/interests_view.dart';
 
 import '../../features/notifications/views/notifications_view.dart';
@@ -40,8 +40,37 @@ class NotificationService {
     enableVibration: true,
   );
 
+  /// Calls get their own channel: a ringtone instead of a message ping, and
+  /// `Importance.max` so Android is allowed to raise the full-screen intent
+  /// that turns a push into a ringing screen on a locked device.
+  ///
+  /// The sound is set via the AndroidManifest to use the device's default
+  /// ringtone (not a bundled notification sound), so the phone rings exactly
+  /// like an incoming phone call.
+  static final AndroidNotificationChannel _callChannel = AndroidNotificationChannel(
+    'calls',
+    'Incoming Calls',
+    description: 'Ringing notifications for incoming audio and video calls.',
+    importance: Importance.max,
+    playSound: true,
+    enableVibration: true,
+    sound: const RawResourceAndroidNotificationSound('ringtone'),
+  );
+
+  /// Action ids on the incoming-call notification. Matched in the tap handler,
+  /// so they must stay in step with what [showIncomingCall] registers.
+  static const String callAcceptAction = 'call_accept';
+  static const String callRejectAction = 'call_reject';
+
+  /// Notification ids are per-call so a second call cannot replace the first
+  /// one's tray entry, and so [cancelIncomingCall] can dismiss exactly one.
+  static int _callNotificationId(int callId) => 900000 + (callId % 90000);
+
   bool _isInitialized = false;
   String? cachedFcmToken;
+
+  /// Audio player for in-app call ringtone.
+  AudioPlayer? _ringtonePlayer;
 
   void updateFcmToken(String token) {
     if (token.isEmpty) return;
@@ -60,10 +89,9 @@ class NotificationService {
       // 1. Android channel creation
       final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
           _localNotifications.resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-
-      if (androidImplementation != null) {
+              AndroidFlutterLocalNotificationsPlugin>();      if (androidImplementation != null) {
         await androidImplementation.createNotificationChannel(_channel);
+        await androidImplementation.createNotificationChannel(_callChannel);
         await androidImplementation.requestNotificationsPermission();
       }
 
@@ -87,6 +115,9 @@ class NotificationService {
       await _localNotifications.initialize(
         initSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
+          // Accept / Decline on a call notification are actions, not taps —
+          // they must not fall through to the routing logic.
+          if (_handleCallAction(response)) return;
           _handleNotificationPayload(response.payload);
         },
       );
@@ -134,9 +165,163 @@ class NotificationService {
       notificationDetails,
       payload: payload,
     );
-  }  /// Extracts information from an FCM [RemoteMessage] and displays it in the system tray,
+  }  // ---- Incoming calls -------------------------------------------------------
+
+  /// Rings [callId] in the tray with Accept and Decline buttons.
+  ///
+  /// This is what the member sees when a call arrives while the app is not in
+  /// front of them. Both buttons set `showsUserInterface`, so Android brings
+  /// the app forward and the action is handled by [CallController] on the main
+  /// isolate — the same path a tap on the in-app incoming screen takes. Doing
+  /// the decline silently from the notification isolate would need its own HTTP
+  /// client and a second copy of the auth token, for a saving of one frame.
+  Future<void> showIncomingCall({
+    required int callId,
+    required String callerName,
+    required bool isVideo,
+  }) async {
+    await init();
+
+    // Play ringtone in-app
+    playRingtone();
+
+    final String body = isVideo ? 'Incoming video call' : 'Incoming voice call';
+    final AndroidNotificationDetails android = AndroidNotificationDetails(
+      _callChannel.id,
+      _callChannel.name,
+      channelDescription: _callChannel.description,
+      importance: Importance.max,
+      priority: Priority.max,
+      category: AndroidNotificationCategory.call,
+      ongoing: true,
+      autoCancel: false,
+      fullScreenIntent: true,
+      timeoutAfter: 60000,
+      icon: '@mipmap/ic_launcher',
+      sound: const RawResourceAndroidNotificationSound('ringtone'),
+      actions: const <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          callRejectAction,
+          'Decline',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+        AndroidNotificationAction(
+          callAcceptAction,
+          'Accept',
+          showsUserInterface: true,
+          cancelNotification: true,
+        ),
+      ],
+    );
+
+    final DarwinNotificationDetails ios = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+      sound: 'default',
+      interruptionLevel: InterruptionLevel.timeSensitive,
+    );
+
+    try {
+      await _localNotifications.show(
+        _callNotificationId(callId),
+        callerName,
+        body,
+        NotificationDetails(android: android, iOS: ios),
+        payload: jsonEncode(<String, dynamic>{
+          'type': 'call_incoming',
+          'call_id': callId,
+        }),
+      );
+    } catch (e) {
+      AppLogger.w('Could not show the incoming-call notification: $e');
+    }
+  }
+
+  /// Clears the ringing notification once the call is answered, declined or
+  /// gone. Safe to call for a call that was never shown.
+  Future<void> cancelIncomingCall(int callId) async {
+    try {
+      await _localNotifications.cancel(_callNotificationId(callId));
+    } catch (_) {
+      // Nothing to dismiss.
+    }
+    stopRingtone();
+  }
+
+  /// Plays the ringtone in a loop for incoming calls.
+  void playRingtone() {
+    try {
+      stopRingtone();
+      _ringtonePlayer = AudioPlayer();
+      _ringtonePlayer!.setReleaseMode(ReleaseMode.loop);
+      _ringtonePlayer!.play(AssetSource('ringtone.wav'), volume: 1.0);
+    } catch (e) {
+      AppLogger.w('Could not play ringtone: $e');
+    }
+  }
+
+  /// Stops the ringtone playback.
+  void stopRingtone() {
+    try {
+      _ringtonePlayer?.stop();
+      _ringtonePlayer?.dispose();
+    } catch (_) {}
+    _ringtonePlayer = null;
+  }
+
+  /// Routes Accept / Decline taps. Returns true when [response] was a call
+  /// action and has been dealt with.
+  bool _handleCallAction(NotificationResponse response) {
+    final String? action = response.actionId;
+    if (action != callAcceptAction && action != callRejectAction) return false;
+
+    final int? callId = _callIdFrom(response.payload);
+    if (callId == null) return true; // it was ours; nothing usable in it
+
+    if (!Get.isRegistered<CallController>()) {
+      AppLogger.w('Call action $action arrived with no CallController.');
+      return true;
+    }
+    final CallController calls = Get.find<CallController>();
+    if (action == callAcceptAction) {
+      calls.acceptIncoming(callId);
+    } else {
+      calls.rejectIncoming(callId);
+    }
+    return true;
+  }
+
+  int? _callIdFrom(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    try {
+      final dynamic decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return int.tryParse((decoded['call_id'] ?? '').toString());
+      }
+    } catch (_) {
+      // Not JSON — nothing to route on.
+    }
+    return null;
+  }
+
+  /// Extracts information from an FCM [RemoteMessage] and displays it in the system tray,
   /// while triggering appropriate background controller refreshes.
   Future<void> showFromRemoteMessage(RemoteMessage message) async {
+    // ── Incoming call pushed while the socket was down ──────────────────────
+    // CRITICAL: Check for call signals FIRST, before the body-empty check.
+    // FCM call pushes are data-only (no notification.body), so the old code
+    // returned early and silently dropped every call push when the app was
+    // backgrounded or killed.
+    if ((message.data['type'] ?? '').toString().toLowerCase() == 'call_incoming') {
+      final int? callId = int.tryParse((message.data['call_id'] ?? '').toString());
+      if (callId != null) {
+        await _ringFromPush(callId);
+        return;
+      }
+    }
+
     final String title = message.notification?.title ??
         message.data['title']?.toString() ??
         'HamQadam';
@@ -144,25 +329,6 @@ class NotificationService {
     final String? body = message.notification?.body ?? message.data['message']?.toString() ?? message.data['body']?.toString();
 
     if (body == null || body.isEmpty) return;
-
-    // ── Detect call invite in FCM data payload ──────────────────────────────
-    // The backend sends a regular chat message via FCM. If the message text
-    // starts with [CALL_INVITE:], we must show the incoming call overlay
-    // instead of (or in addition to) the normal notification.
-    final String msgText = (message.data['message'] ?? '').toString();
-    if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
-      _handleCallSignalFromFcm(message.data, msgText);
-      // Still show a tray notification as fallback
-      final int id = message.messageId?.hashCode ??
-          DateTime.now().millisecondsSinceEpoch.remainder(100000);
-      await showNotification(
-        id: id,
-        title: title,
-        body: body,
-        payload: jsonEncode(message.data),
-      );
-      return;
-    }
 
     final int id = message.messageId?.hashCode ??
         DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -179,20 +345,16 @@ class NotificationService {
     _refreshCorrespondingController(message.data);
   }
 
-  /// Parses an FCM data payload that contains a call invite or decline signal
-  /// and shows the appropriate incoming call UI.
-  void _handleCallSignalFromFcm(Map<String, dynamic> data, String msgText) {
-    try {
-      CallSignalingService.instance.handleIncomingSignal(
-        message: msgText,
-        senderId: int.tryParse((data['sender_id'] ?? data['notify_by'] ?? '').toString()) ?? 0,
-        threadId: int.tryParse((data['thread_id'] ?? data['info_id'] ?? '').toString()),
-        senderName: (data['sender_name'] ?? data['title'] ?? '').toString(),
-        senderPhoto: (data['sender_photo'] ?? data['sender_avatar'] ?? '').toString(),
-      );
-    } catch (e) {
-      AppLogger.w('Failed to handle call signal from FCM: $e');
-    }
+  /// Rings for a call the app learned about from a push rather than from the
+  /// live socket.
+  ///
+  /// The push carries only the id: pushes can be delayed by Doze for minutes,
+  /// and a notification that rang for a call the caller had already given up on
+  /// would be worse than none. `GET /calls/{id}` settles whether it is still
+  /// worth ringing.
+  Future<void> _ringFromPush(int callId) async {
+    if (!Get.isRegistered<CallController>()) return;
+    await Get.find<CallController>().ringFromPush(callId);
   }
 
   void _refreshCorrespondingController(Map<String, dynamic> data) {
@@ -255,32 +417,12 @@ class NotificationService {
       final int? infoId = int.tryParse(data['info_id']?.toString() ?? '');
       // 0. Incoming Call Invitation
 
-      if (type == 'call_invite') {
-        final String channelName = (data['channelName'] ?? '').toString();
-        final String callerName = (data['callerName'] ?? 'Caller').toString();
-        final String? callerPhoto = data['callerPhoto']?.toString();
-        final bool isVideoCall = data['isVideoCall'] == true;
-        final int? threadId = int.tryParse(data['threadId']?.toString() ?? '');
-
-        if (channelName.isNotEmpty) {
-          // Show the floating overlay bar first (less intrusive)
-          IncomingCallOverlayBar.show(
-            channelName: channelName,
-            callerName: callerName,
-            callerPhoto: callerPhoto,
-            isVideoCall: isVideoCall,
-            threadId: threadId,
-          );
+      if (type == 'call_incoming' || type == 'call_invite') {
+        final int? callId = int.tryParse((data['call_id'] ?? '').toString());
+        if (callId != null) {
+          _ringFromPush(callId);
           return;
         }
-      }
-
-      // Also detect call invites that arrive as regular chat message notifications
-      // (backend sends them as type: 'message' but the message text contains the signal)
-      final String msgText = (data['message'] ?? '').toString();
-      if (msgText.startsWith('[CALL_INVITE:') || msgText.startsWith('[CALL_DECLINED:')) {
-        _handleCallSignalFromFcm(data, msgText);
-        return;
       }
 
       // 1. Chat messages

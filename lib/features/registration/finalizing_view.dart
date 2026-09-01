@@ -209,11 +209,20 @@ class _RejectedRow extends StatelessWidget {
                       ),
                       const SizedBox(height: 1),
                       Text(field.message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
-                      if (field.stepTitle != null)
-                        Text(
-                          'Tap to edit “${field.stepTitle}”',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+                      Text(
+                        // A field the app cannot trace back to a screen used to
+                        // render as a bare message with no tap target and no
+                        // explanation — a dead end, because retrying re-sends
+                        // the same rejected payload. Say so instead of leaving
+                        // the row silent.
+                        canJump
+                            ? 'Tap to edit “${field.stepTitle}”'
+                            : 'This answer is not on any signup screen — '
+                                'please report it to support.',
+                        style: AppTextStyles.caption.copyWith(
+                          color: canJump ? AppColors.primary : AppColors.error,
                         ),
+                      ),
                     ],
                   ),
                 ),

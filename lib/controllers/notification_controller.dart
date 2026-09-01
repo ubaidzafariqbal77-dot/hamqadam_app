@@ -1,12 +1,13 @@
-import 'package:get/get.dart';
-
+import 'dart:async';
 import 'dart:io';
 
+import 'package:get/get.dart';
+
+import '../core/services/notification_service.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
 import '../models/notification_model.dart';
 import '../repositories/notification_repository.dart';
-
 
 class NotificationController extends GetxController {
   final NotificationRepository _repository;
@@ -23,6 +24,15 @@ class NotificationController extends GetxController {
   int _currentPage = 1;
   int _lastPage = 1;
 
+  /// Set of notification IDs already shown in the device tray, so we never
+  /// ring the same notification twice.
+  final Set<int> _shownInTray = <int>{};
+
+  /// Polls the backend every 15 seconds and shows new unread notifications
+  /// in the device notification tray — messages, interests, proposals, profile
+  /// views, coin usage, etc.
+  Timer? _trayPoller;
+
   bool get _hasToken =>
       Get.isRegistered<SecureStorageService>() &&
       Get.find<SecureStorageService>().hasToken;
@@ -31,8 +41,18 @@ class NotificationController extends GetxController {
   void onInit() {
     super.onInit();
     if (_hasToken) {
+      AppLogger.i('NotificationController: starting tray poller (hasToken=true)');
       fetchNotifications();
+      _startTrayPoller();
+    } else {
+      AppLogger.w('NotificationController: NO token — tray poller NOT started');
     }
+  }
+
+  @override
+  void onClose() {
+    _trayPoller?.cancel();
+    super.onClose();
   }
 
   void reset() {
@@ -41,6 +61,8 @@ class NotificationController extends GetxController {
     _currentPage = 1;
     _lastPage = 1;
     _pushTokenRecordId = null;
+    _shownInTray.clear();
+    _trayPoller?.cancel();
   }
 
   /// Sends the FCM push token to the backend API (`POST /notifications/push-tokens`).
@@ -73,8 +95,72 @@ class NotificationController extends GetxController {
     }
   }
 
-  Future<void> fetchNotifications({bool refresh = false}) async {
+  // ── Tray Poller ──────────────────────────────────────────────────────────
 
+  /// Starts a periodic poller that fetches the latest unread notifications
+  /// and displays them in the device notification tray.
+  void _startTrayPoller() {
+    _trayPoller?.cancel();
+    _trayPoller = Timer.periodic(const Duration(seconds: 15), (_) {
+      _pollAndShowInTray();
+    });
+  }
+
+  /// Fetches the latest unread notifications and shows each new one in the
+  /// device tray as a local notification. Covers messages, interests,
+  /// proposals, profile views, coin usage, and all other activity types.
+  Future<void> _pollAndShowInTray() async {
+    if (!_hasToken) return;
+    try {
+      final pageData = await _repository.getNotifications(page: 1);
+      final List<NotificationModel> unread = pageData.notifications
+          .where((NotificationModel n) => !n.isRead)
+          .toList();
+
+      AppLogger.d('Tray poller: ${pageData.notifications.length} total, ${unread.length} unread, ${unreadCount.value} badge');
+
+      for (final NotificationModel notif in unread) {
+        if (_shownInTray.contains(notif.id)) continue;
+        _shownInTray.add(notif.id);
+
+        // Show in device notification tray
+        final String title = notif.title.isNotEmpty ? notif.title : 'HamQadam';
+        final String body = notif.message.isNotEmpty
+            ? notif.message
+            : _defaultBody(notif.type);
+
+        AppLogger.i('Tray: showing notification #${notif.id} [$title] $body');
+
+        await NotificationService.instance.showNotification(
+          id: notif.id,
+          title: title,
+          body: body,
+          payload: notif.deepLink ?? notif.type,
+        );
+      }
+
+      // Update badge count
+      unreadCount.value = pageData.unreadCount;
+    } catch (e) {
+      AppLogger.w('Tray poller error: $e');
+    }
+  }
+
+  /// Human-readable default body for notification types without a message.
+  String _defaultBody(String type) {
+    final String t = type.toLowerCase();
+    if (t.contains('message') || t.contains('chat')) return 'You have a new message';
+    if (t.contains('interest')) return 'You have a new interest';
+    if (t.contains('proposal')) return 'You have a new proposal';
+    if (t.contains('profile_view') || t.contains('view')) return 'Someone viewed your profile';
+    if (t.contains('coin') || t.contains('payment')) return 'Coin activity on your account';
+    if (t.contains('call')) return 'Missed call';
+    return 'You have a new notification';
+  }
+
+  // ── Fetch / Pagination ──────────────────────────────────────────────────
+
+  Future<void> fetchNotifications({bool refresh = false}) async {
     if (!_hasToken) return;
 
     if (refresh) {

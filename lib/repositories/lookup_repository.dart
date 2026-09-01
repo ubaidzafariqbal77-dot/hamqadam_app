@@ -266,6 +266,7 @@ class LookupRepository {
   /// here. Not const, because the rows are generated.
   static List<LookupItem> _generatedFallback(String key) => switch (key) {
     LookupKeys.annualIncome => IncomeBand.options,
+    LookupKeys.annualSalaryRanges => SalaryRangeOptions.options,
     LookupKeys.partnerIncome => IncomeBand.options,
     LookupKeys.siblings => SiblingOptions.options,
     _ => const <LookupItem>[],

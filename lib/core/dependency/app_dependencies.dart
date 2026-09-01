@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
@@ -21,6 +22,7 @@ import '../../core/services/call_state_service.dart';
 import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
+import '../../repositories/call_repository.dart';
 import '../../repositories/chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
@@ -55,6 +57,9 @@ import '../../controllers/ai_helper_controller.dart';
 import '../../controllers/content_controller.dart';
 import '../../controllers/family_controller.dart';
 import '../../controllers/auth_extra_controller.dart';
+import '../../controllers/horoscope_controller.dart';
+import '../../repositories/horoscope_repository.dart';
+import '../../repositories/bridge_repository.dart';
 
 
 
@@ -111,6 +116,7 @@ class AppDependencies {
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
     Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
     Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
+    Get.put<CallRepository>(CallRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
     Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
@@ -127,10 +133,15 @@ class AppDependencies {
     Get.put<ContentRepository>(ContentRepository(apiClient), permanent: true);
     Get.put<FamilyRepository>(FamilyRepository(apiClient), permanent: true);
     Get.put<AuthExtraRepository>(AuthExtraRepository(apiClient), permanent: true);
+    Get.put<HoroscopeRepository>(HoroscopeRepository(apiClient), permanent: true);
+    Get.put<BridgeRepository>(BridgeRepository(apiClient), permanent: true);
 
 
 
-    final PusherChatService pusherService = PusherChatService(storage: secureStorage);
+    final PusherChatService pusherService = PusherChatService(
+      storage: secureStorage,
+      bridgeRepository: Get.find<BridgeRepository>(),
+    );
     Get.put<PusherChatService>(pusherService, permanent: true);
 
     // Call state service (tracks active calls, prevents duplicates)
@@ -187,13 +198,28 @@ class AppDependencies {
 
 
     // Chat Controller
-    Get.lazyPut<ChatController>(
-      () => ChatController(
+    // Permanent, not lazy: a call can arrive over Pusher at any moment, and the
+    // controller that answers it must already exist — there is nobody to build
+    // it on demand when the event lands.
+    Get.put<CallController>(
+      CallController(
+        repository: Get.find<CallRepository>(),
+        currentUser: Get.find<CurrentUserService>(),
+      ),
+      permanent: true,
+    );
+
+    // IMPORTANT: ChatController MUST be permanent (not lazy) because:
+    // 1. Pusher user channel subscription happens in onInit() — needs to be alive
+    //    from app start so calls/messages arrive on ANY screen.
+    // 2. Pusher must NOT be disconnected when switching tabs.
+    Get.put<ChatController>(
+      ChatController(
         repository: Get.find<ChatRepository>(),
         pusher: Get.find<PusherChatService>(),
         currentUser: Get.find<CurrentUserService>(),
       ),
-      fenix: true,
+      permanent: true,
     );
 
     // Lazy: only fetches `/profile` when the Profile tab is first opened.
@@ -252,6 +278,7 @@ class AppDependencies {
     Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
     Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
     Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);
+    Get.lazyPut<HoroscopeController>(() => HoroscopeController(Get.find<HoroscopeRepository>()), fenix: true);
 
     // Restore any persisted session for the splash bootstrap.
     await authController.loadSession();

@@ -1033,7 +1033,23 @@ class LookupKeys {
   // without any change here.
 
   /// The member's own annual income (`members.annual_income`, decimal).
+  ///
+  /// Superseded by [annualSalaryRanges] for registration: `/auth/register/steps`
+  /// now lists `annual_salary_range_id` — not `annual_income` — as step 10's
+  /// income field, and `POST /auth/register/complete` rejects a payload without
+  /// it. The band list is kept because the profile still reports
+  /// `career.annual_income`.
   static const String annualIncome = 'annual_income';
+
+  /// Salary bands backing `annual_salary_range_id` (step 10 and the Career &
+  /// Income section of profile edit).
+  ///
+  /// The backend owns these ids — `annual_salary_ranges` currently holds 16
+  /// rows (1–16 validate, 17 and up are rejected). They are served under this
+  /// key by `GET /profile/dropdown-reference-data`; the local list in
+  /// [SalaryRangeOptions] is only a fallback for when that call has not
+  /// happened yet.
+  static const String annualSalaryRanges = 'annual_salary_ranges';
 
   /// Income bands offered for partner preferences (`income_min` / `income_max`).
   static const String partnerIncome = 'partner_annual_income';

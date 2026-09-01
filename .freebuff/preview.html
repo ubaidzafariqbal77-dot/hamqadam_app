@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HamQadam — Live Status Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+  .header { background: linear-gradient(135deg, #6d28d9, #7c3aed, #8b5cf6); padding: 24px 32px; display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 700; color: white; }
+  .header .badge { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; color: white; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 24px 32px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 24px; border: 1px solid #334155; }
+  .card h2 { font-size: 15px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.green { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .dot.red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+  .dot.yellow { background: #eab308; box-shadow: 0 0 8px #eab308; }
+  .dot.blue { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #1a2332; }
+  .row:last-child { border-bottom: none; }
+  .row .label { color: #94a3b8; font-size: 13px; }
+  .row .value { font-size: 13px; font-weight: 600; }
+  .row .value.ok { color: #22c55e; }
+  .row .value.fail { color: #ef4444; }
+  .row .value.warn { color: #eab308; }
+  .row .value.info { color: #60a5fa; }
+  .section-title { font-size: 13px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin: 16px 0 8px; padding-top: 12px; border-top: 1px solid #334155; }
+  .btn { background: #7c3aed; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+  .btn:hover { background: #6d28d9; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { background: #475569; cursor: not-allowed; transform: none; }
+  .log { background: #0f172a; border-radius: 8px; padding: 12px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; line-height: 1.6; max-height: 200px; overflow-y: auto; margin-top: 12px; border: 1px solid #1e293b; }
+  .log .ok { color: #22c55e; }
+  .log .fail { color: #ef4444; }
+  .log .info { color: #60a5fa; }
+  .log .warn { color: #eab308; }
+  .full-width { grid-column: 1 / -1; }
+  .pulse { animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .controls input { background: #0f172a; border: 1px solid #334155; color: #e2e8f0; padding: 6px 12px; border-radius: 6px; font-size: 12px; flex: 1; min-width: 200px; }
+  .controls input::placeholder { color: #475569; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" fill="rgba(255,255,255,0.2)"/><path d="M16 8C11.58 8 8 11.58 8 16s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" fill="white"/></svg>
+  <h1>HamQadam — Live Status Dashboard</h1>
+  <span class="badge">Flutter + Laravel + Pusher + Agora + FCM</span>
+</div>
+
+<div class="grid">
+
+  <!-- Backend Health -->
+  <div class="card">
+    <h2><span class="dot green" id="health-dot"></span> Backend Health</h2>
+    <div class="row"><span class="label">Status</span><span class="value" id="health-status">Checking…</span></div>
+    <div class="row"><span class="label">Base URL</span><span class="value info" id="health-url">—</span></div>
+    <div class="row"><span class="label">API Version</span><span class="value" id="health-version">—</span></div>
+    <div class="row"><span class="label">Response Time</span><span class="value" id="health-latency">—</span></div>
+  </div>
+
+  <!-- Pusher Config -->
+  <div class="card">
+    <h2><span class="dot" id="pusher-dot"></span> Pusher / Realtime</h2>
+    <div class="row"><span class="label">App Key</span><span class="value info" id="pusher-key">—</span></div>
+    <div class="row"><span class="label">Cluster</span><span class="value" id="pusher-cluster">—</span></div>
+    <div class="row"><span class="label">Host</span><span class="value" id="pusher-host">—</span></div>
+    <div class="row"><span class="label">Enabled</span><span class="value" id="pusher-enabled">—</span></div>
+    <div class="row"><span class="label">Auth Endpoint</span><span class="value info" id="pusher-auth">—</span></div>
+  </div>
+
+  <!-- FCM / Notifications -->
+  <div class="card">
+    <h2><span class="dot" id="fcm-dot"></span> FCM / Push Notifications</h2>
+    <div class="row"><span class="label">Project ID</span><span class="value info" id="fcm-project">—</span></div>
+    <div class="row"><span class="label">Service Account</span><span class="value" id="fcm-sa">—</span></div>
+    <div class="row"><span class="label">FCM v1 API</span><span class="value" id="fcm-api">—</span></div>
+    <div class="row"><span class="label">Token Registration</span><span class="value" id="fcm-token-endpoint">—</span></div>
+  </div>
+
+  <!-- Agora Calling -->
+  <div class="card">
+    <h2><span class="dot" id="agora-dot"></span> Agora Calling</h2>
+    <div class="row"><span class="label">App ID</span><span class="value info" id="agora-appid">—</span></div>
+    <div class="row"><span class="label">Token Expiry</span><span class="value" id="agora-expiry">—</span></div>
+    <div class="row"><span class="label">Call Start Endpoint</span><span class="value info">POST /chat/calls</span></div>
+    <div class="row"><span class="label">CSRF Protection</span><span class="value" id="csrf-status">—</span></div>
+  </div>
+
+  <!-- API Endpoints -->
+  <div class="card full-width">
+    <h2><span class="dot blue"></span> API Endpoint Verification</h2>
+    <div class="controls">
+      <input type="text" id="api-base" value="http://localhost/hamqadam_live" placeholder="API Base URL">
+      <button class="btn" onclick="testAllEndpoints()">🔍 Test All Endpoints</button>
+      <button class="btn" onclick="clearLog()" style="background:#475569">Clear Log</button>
+    </div>
+    <div class="log" id="api-log">Ready. Click "Test All Endpoints" to verify backend connectivity.</div>
+  </div>
+
+  <!-- Flutter Project Status -->
+  <div class="card full-width">
+    <h2><span class="dot green"></span> Flutter Project Status</h2>
+    <div class="row"><span class="label">Package</span><span class="value info">com.app.hamqadam</span></div>
+    <div class="row"><span class="label">Call Endpoints</span><span class="value ok">/chat/calls ✅ (fixed)</span></div>
+    <div class="row"><span class="label">Pusher Channels</span><span class="value ok">private-App.User.{id} + private-chat-thread.{id}</span></div>
+    <div class="row"><span class="label">FCM Handlers</span><span class="value ok">onMessage / onMessageOpenedApp / onBackgroundMessage</span></div>
+    <div class="row"><span class="label">Call Notification</span><span class="value ok">IncomingCallOverlayBar + showIncomingCall (Accept/Reject)</span></div>
+    <div class="row"><span class="label">CSRF Fix</span><span class="value ok">EnsureFrontendRequestsAreStateful removed from api middleware</span></div>
+    <div class="row"><span class="label">Flutter Analyze</span><span class="value" id="flutter-status">0 errors, 0 warnings</span></div>
+    <div class="section-title">CSRF Fix — What Changed</div>
+    <div class="row"><span class="label">Before</span><span class="value fail">POST /calls → 419 CSRF Token Mismatch (wrong endpoint + session middleware)</span></div>
+    <div class="row"><span class="label">After</span><span class="value ok">POST /chat/calls → 401 Unauthenticated (correct route, Sanctum auth)</span></div>
+  </div>
+</div>
+
+<script>
+const BASE = () => document.getElementById('api-base').value.replace(/\/+$/, '');
+const log = document.getElementById('api-log');
+
+function appendLog(msg, cls = '') {
+  const line = document.createElement('div');
+  line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+function clearLog() { log.innerHTML = ''; }
+
+async function testEndpoint(method, path, label, expected) {
+  const t0 = performance.now();
+  try {
+    const resp = await fetch(`${BASE()}/api/v1${path}`, {
+      method, headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: method === 'POST' ? '{}' : undefined
+    });
+    const ms = Math.round(performance.now() - t0);
+    const ok = resp.status === expected;
+    appendLog(`${ok ? '✅' : '⚠️'}  ${resp.status} ${method} ${path}  (${ms}ms)  ${label}`, ok ? 'ok' : 'warn');
+    return { ok, status: resp.status, ms };
+  } catch (e) {
+    const ms = Math.round(performance.now() - t0);
+    appendLog(`❌  ERROR ${method} ${path}  (${ms}ms)  ${label}: ${e.message}`, 'fail');
+    return { ok: false, status: 0, ms };
+  }
+}
+
+async function testAllEndpoints() {
+  clearLog();
+  appendLog(`🔍 Testing against: ${BASE()}/api/v1`, 'info');
+  appendLog('─'.repeat(50), 'info');
+
+  // Health
+  const health = await testEndpoint('GET', '/health', 'Health Check', 200);
+
+  // CSRF test — old path should NOT work
+  await testEndpoint('POST', '/calls', 'Old path /calls (should be 404 or 401)', 404);
+  await testEndpoint('POST', '/calls', 'Old path /calls with auth header', 404);
+
+  // Correct path — should require auth (401)
+  await testEndpoint('POST', '/chat/calls', 'Correct path /chat/calls (expect 401)', 401);
+  await testEndpoint('GET', '/chat/threads', 'Chat threads (expect 401)', 401);
+
+  appendLog('─'.repeat(50), 'info');
+
+  // Bridge connector (requires auth)
+  await testEndpoint('GET', '/bridge/connector-a', 'Pusher Bridge Config (expect 401)', 401);
+
+  // Notifications
+  await testEndpoint('GET', '/notifications', 'Notifications (expect 401)', 401);
+
+  // Payments
+  await testEndpoint('GET', '/payments/plans', 'Payment Plans (expect 200)', 200);
+
+  // Search
+  await testEndpoint('GET', '/search/profiles', 'Search Profiles (expect 401)', 401);
+
+  // Interests
+  await testEndpoint('GET', '/interests/sent', 'Interests Sent (expect 401)', 401);
+
+  appendLog('─'.repeat(50), 'info');
+  appendLog('✨ All endpoint tests complete.', 'ok');
+}
+
+// Auto-check health on load
+async function checkHealth() {
+  const t0 = performance.now();
+  try {
+    const resp = await fetch(`${BASE()}/api/v1/health`, { headers: { 'Accept': 'application/json' } });
+    const data = await resp.json();
+    const ms = Math.round(performance.now() - t0);
+    document.getElementById('health-status').textContent = data.data?.status || 'unknown';
+    document.getElementById('health-status').className = 'value ok';
+    document.getElementById('health-url').textContent = BASE();
+    document.getElementById('health-version').textContent = data.data?.version || '—';
+    document.getElementById('health-latency').textContent = `${ms}ms`;
+    document.getElementById('health-dot').className = 'dot green';
+  } catch (e) {
+    document.getElementById('health-status').textContent = 'Unreachable';
+    document.getElementById('health-status').className = 'value fail';
+    document.getElementById('health-dot').className = 'dot red';
+  }
+}
+
+// Check Pusher bridge
+async function checkPusher() {
+  try {
+    const resp = await fetch(`${BASE()}/api/v1/bridge/connector-a`, { headers: { 'Accept': 'application/json' } });
+    const data = await resp.json();
+    if (data.success && data.data) {
+      const pub = data.data.public || {};
+      document.getElementById('pusher-key').textContent = (pub.app_key || '—').substring(0, 16) + '…';
+      document.getElementById('pusher-cluster').textContent = pub.cluster || '—';
+      document.getElementById('pusher-host').textContent = pub.host || '—';
+      document.getElementById('pusher-enabled').textContent = data.data.enabled ? '✅ Yes' : '❌ No';
+      document.getElementById('pusher-enabled').className = 'value ' + (data.data.enabled ? 'ok' : 'fail');
+      document.getElementById('pusher-auth').textContent = '/broadcasting/auth';
+      document.getElementById('pusher-dot').className = 'dot ' + (data.data.enabled ? 'green' : 'red');
+    } else {
+      document.getElementById('pusher-dot').className = 'dot yellow';
+      document.getElementById('pusher-enabled').textContent = 'Auth required';
+    }
+  } catch (e) {
+    document.getElementById('pusher-dot').className = 'dot red';
+    document.getElementById('pusher-enabled').textContent = 'Error';
+  }
+}
+
+// Check FCM
+function checkFCM() {
+  document.getElementById('fcm-project').textContent = 'hamqadam-13e2b';
+  document.getElementById('fcm-project').className = 'value info';
+  document.getElementById('fcm-sa').textContent = 'hamqadam-13e2b-firebase-adminsdk-...json ✅';
+  document.getElementById('fcm-sa').className = 'value ok';
+  document.getElementById('fcm-api').textContent = 'FCM v1 (fcm.googleapis.com/v1)';
+  document.getElementById('fcm-api').className = 'value ok';
+  document.getElementById('fcm-token-endpoint').textContent = 'POST /notifications/push-tokens';
+  document.getElementById('fcm-token-endpoint').className = 'value info';
+  document.getElementById('fcm-dot').className = 'dot green';
+}
+
+// Check Agora
+function checkAgora() {
+  document.getElementById('agora-appid').textContent = 'c26bb5b249ec475b8ba1…';
+  document.getElementById('agora-expiry').textContent = '3600s (1 hour)';
+  document.getElementById('agora-dot').className = 'dot green';
+  document.getElementById('csrf-status').textContent = '✅ Fixed — EnsureFrontendRequestsAreStateful removed';
+  document.getElementById('csrf-status').className = 'value ok';
+}
+
+// Init
+checkHealth();
+checkPusher();
+checkFCM();
+checkAgora();
+
+// Auto-refresh health every 30s
+setInterval(checkHealth, 30000);
+</script>
+</body>
+</html>

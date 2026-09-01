@@ -1,28 +1,26 @@
 import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../controllers/call_controller.dart';
 import '../../../core/services/call_state_service.dart';
+import '../../../core/services/notification_service.dart';
 
 /// Reusable Audio and Video Call Screen powered by official Agora RTC Engine.
 class VideoCallScreen extends StatefulWidget {
-  static const String defaultAppId = 'c26bb5b249ec475b8ba1159c836c1967';
-  static const String defaultToken =
-      '007eJxTYGBxnBf/QvJzs+HsX3OurBdxiP2wpSP8dpnU9ykivnL55pEKDMlGZklJpklGJpapySbmpkkWSYmGhqaWyRbGZsmGlmbmwfsnZjUEMjK4qRSzMDJAIIjPw2BmZmRgZGZgYWRqaMDAAAAhfx8n';
-
   const VideoCallScreen({
     super.key,
     required this.channelName,
     required this.userName,
+    required this.agoraAppId,
+    required this.token,
+    required this.uid,
     this.userPhoto,
     this.isVideoCall = true,
-    this.agoraAppId = defaultAppId,
-    this.token = defaultToken,
   });
 
   /// The unique channel name for this conversation / call.
@@ -37,20 +35,30 @@ class VideoCallScreen extends StatefulWidget {
   /// `true` for 2-way Video Call, `false` for Audio-only Voice Call.
   final bool isVideoCall;
 
-  /// Agora App ID.
+  /// Agora App ID, from the server's `rtc.app_id` for this call.
   final String agoraAppId;
 
-  /// Agora RTC token (uses default temp token or provided token).
-  final String? token;
+  /// Per-call Agora RTC token from `rtc.token`.
+  ///
+  /// This used to default to a temporary token compiled into the app. Agora
+  /// temp tokens live at most 24 hours, so that build was always one day away
+  /// from every call failing at once. The server now mints one per call with
+  /// the app certificate, bound to [uid].
+  final String token;
+
+  /// The uid the token was signed for — `rtc.uid`, i.e. the member's user id.
+  /// Joining with any other uid makes Agora reject the token.
+  final int uid;
 
   /// Helper static launcher
   static Future<void> open({
     required String channelName,
     required String userName,
+    required String agoraAppId,
+    required String token,
+    required int uid,
     String? userPhoto,
     bool isVideoCall = true,
-    String agoraAppId = defaultAppId,
-    String token = defaultToken,
   }) async {
     await Get.to<void>(
       () => VideoCallScreen(
@@ -60,6 +68,7 @@ class VideoCallScreen extends StatefulWidget {
         isVideoCall: isVideoCall,
         agoraAppId: agoraAppId,
         token: token,
+        uid: uid,
       ),
       transition: Transition.fadeIn,
     );
@@ -164,6 +173,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint('📞 Agora: Remote user $remoteUid joined');
           _stopRinging();
+          // Both sides are in the channel — this is the moment the server can
+          // start counting, so `duration_seconds` in the call log matches what
+          // the two members actually experienced.
+          if (Get.isRegistered<CallController>()) {
+            Get.find<CallController>().markConnected();
+          }
           if (mounted) {
             setState(() {
               _remoteUid = remoteUid;
@@ -209,9 +224,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
     // Join channel — speaker & ringing happen in onJoinChannelSuccess
     await engine.joinChannel(
-      token: widget.token ?? '',
+      token: widget.token,
       channelId: widget.channelName,
-      uid: 0,
+      // Must match the uid the server signed the token for; joining as 0 makes
+      // Agora reject a uid-bound token.
+      uid: widget.uid,
       options: ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
         channelProfile: ChannelProfileType.channelProfileCommunication,
@@ -242,20 +259,19 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
   void _startRinging() {
     _ringTimer?.cancel();
-    // Play initial ring
-    SystemSound.play(SystemSoundType.click);
+    NotificationService.instance.playRingtone();
     _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (_remoteUid != null) {
         _stopRinging();
         return;
       }
-      SystemSound.play(SystemSoundType.click);
     });
   }
 
   void _stopRinging() {
     _ringTimer?.cancel();
     _ringTimer = null;
+    NotificationService.instance.stopRingtone();
   }
 
   // ─── Call Timer ──────────────────────────────────────────────────────────

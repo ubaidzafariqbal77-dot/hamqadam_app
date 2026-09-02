@@ -314,6 +314,7 @@ class ApiEndpoints {
   static String callConnect(int callId) => '/chat/calls/$callId/connect';
   static String callEnd(int callId) => '/chat/calls/$callId/end';
   static String callMissed(int callId) => '/chat/calls/$callId/missed';
+  static String callRenewToken(int callId) => '/chat/calls/$callId/renew-token';
 
   /// Call history for one conversation (`GET /chat/threads/{thread}/calls`).
   static String threadCalls(int threadId) => '/chat/threads/$threadId/calls';

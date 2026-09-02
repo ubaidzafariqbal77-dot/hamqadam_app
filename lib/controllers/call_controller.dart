@@ -290,10 +290,26 @@ class CallController extends GetxController {
   Future<void> markConnected() async {
     final int? id = activeCallId;
     if (id == null) return;
+    // Remote user joined — call is live; cancel the ring timer so it doesn't
+    // fire later and incorrectly mark this connected call as missed.
+    _ringTimeout?.cancel();
     try {
       await _repo.connect(id);
     } catch (e) {
       AppLogger.d('Call connect ping failed: $e');
+    }
+  }
+
+  // ---- Token renewal (called by VideoCallScreen) --------------------------
+
+  /// Mints a fresh Agora RTC token for an active call. The call screen calls
+  /// this when `onTokenPrivilegeWillExpire` fires or after a network reconnect.
+  Future<RtcCredentials?> renewRtcToken(int callId) async {
+    try {
+      return await _repo.renewToken(callId);
+    } catch (e) {
+      AppLogger.w('Token renewal failed: $e');
+      return null;
     }
   }
 
@@ -306,6 +322,7 @@ class CallController extends GetxController {
     String? peerPhoto,
   }) async {
     await VideoCallScreen.open(
+      callId: call.id,
       channelName: rtc.channel,
       userName: peerName,
       userPhoto: peerPhoto,
@@ -326,6 +343,15 @@ class CallController extends GetxController {
     if (seconds <= 0) return;
     _ringTimeout = Timer(Duration(seconds: seconds), () async {
       if (activeCallId != call.id) return;
+      // Double-check: if the call has already connected or been accepted,
+      // do NOT mark it missed — the Pusher broadcast may simply have
+      // arrived after the timer was armed.
+      final CallModel? current = activeCall.value;
+      if (current != null && (current.status == CallStatus.connected ||
+          current.status == CallStatus.accepted)) {
+        AppLogger.d('Ring timer fired but call already ${current.status}; skipping missed.');
+        return;
+      }
       try {
         await _repo.missed(call.id);
       } catch (e) {

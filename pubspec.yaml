@@ -104,6 +104,7 @@ flutter:
     # bearer-only and registration has no token until its final submit, so this
     # is what every signup dropdown reads from. Ids are the server's, verbatim.
     - assets/lookups/dropdown_reference.json
+    - assets/ringtone.wav
 
   fonts:
     # Plus Jakarta Sans — PRIMARY family: headings, body, buttons, everything Latin.

@@ -13,11 +13,14 @@ class NotificationRepository {
       query: {'page': page},
     );
     if (response.success) {
-      return NotificationPage.fromJson(
-        response.data is Map<String, dynamic>
-            ? response.data as Map<String, dynamic>
-            : <String, dynamic>{},
-      );
+      // response.raw contains the full envelope {data, meta, links} whereas
+      // response.data has already been unwrapped to just the data payload.
+      final Map<String, dynamic> body = response.raw is Map<String, dynamic>
+          ? response.raw as Map<String, dynamic>
+          : response.data is Map<String, dynamic>
+              ? response.data as Map<String, dynamic>
+              : <String, dynamic>{};
+      return NotificationPage.fromJson(body);
     }
     throw Exception(response.message.isNotEmpty ? response.message : 'Failed to load notifications');
   }

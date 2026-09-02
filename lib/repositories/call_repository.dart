@@ -63,6 +63,22 @@ class CallRepository {
     return _session(res);
   }
 
+  /// `POST /calls/{id}/renew-token` — mints a fresh Agora RTC token for the
+  /// current user. Called by the call screen when the token is about to expire
+  /// or after a network reconnection.
+  Future<RtcCredentials?> renewToken(int callId) async {
+    try {
+      final ApiEnvelope res = await _client.post(ApiEndpoints.callRenewToken(callId));
+      final dynamic rtcRaw = res.dataMap['rtc'];
+      if (rtcRaw is Map<String, dynamic>) {
+        return RtcCredentials.fromJson(rtcRaw);
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// `GET /threads/{thread}/calls` — call history for one conversation.
   Future<List<CallModel>> history(int threadId, {int perPage = 20}) async {
     final ApiEnvelope res = await _client.get(

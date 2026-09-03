@@ -93,15 +93,24 @@ void main() {
 
   group('the call endpoints are the ones the website uses', () {
     test('paths match routes/api_v1.php', () {
-      expect(ApiEndpoints.callStart, '/calls');
-      expect(ApiEndpoints.callAccept(41), '/calls/41/accept');
-      expect(ApiEndpoints.callReject(41), '/calls/41/reject');
-      expect(ApiEndpoints.callCancel(41), '/calls/41/cancel');
-      expect(ApiEndpoints.callConnect(41), '/calls/41/connect');
-      expect(ApiEndpoints.callEnd(41), '/calls/41/end');
-      expect(ApiEndpoints.callMissed(41), '/calls/41/missed');
-      expect(ApiEndpoints.call(41), '/calls/41');
-      expect(ApiEndpoints.threadCalls(12), '/threads/12/calls');
+      // The call routes are a `prefix('/calls')` group nested INSIDE
+      // `prefix('chat')`, so every path carries both:
+      //
+      //   Route::middleware('auth:sanctum')->prefix('chat')->group(function () {
+      //       Route::prefix('/calls')->group(function () {
+      //           Route::post('/', [CallController::class, 'start']);
+      //
+      // This test asserted the bare `/calls` form, which is the group's own
+      // prefix read without its parent — every one of those would 404.
+      expect(ApiEndpoints.callStart, '/chat/calls');
+      expect(ApiEndpoints.callAccept(41), '/chat/calls/41/accept');
+      expect(ApiEndpoints.callReject(41), '/chat/calls/41/reject');
+      expect(ApiEndpoints.callCancel(41), '/chat/calls/41/cancel');
+      expect(ApiEndpoints.callConnect(41), '/chat/calls/41/connect');
+      expect(ApiEndpoints.callEnd(41), '/chat/calls/41/end');
+      expect(ApiEndpoints.callMissed(41), '/chat/calls/41/missed');
+      expect(ApiEndpoints.call(41), '/chat/calls/41');
+      expect(ApiEndpoints.threadCalls(12), '/chat/threads/12/calls');
     });
   });
 

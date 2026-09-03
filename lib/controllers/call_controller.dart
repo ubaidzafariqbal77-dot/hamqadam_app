@@ -9,6 +9,8 @@ import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../features/chat/views/incoming_call_screen.dart';
 import '../features/chat/views/video_call_screen.dart';
+import '../core/storage/call_log_service.dart';
+import '../models/call_log_entry.dart';
 import '../models/call_model.dart';
 import '../repositories/call_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -48,15 +50,124 @@ class CallController extends GetxController {
   /// disabled and a double tap cannot create two calls.
   final RxBool busy = false.obs;
 
+  /// The ring window to use when the server did not give one.
+  static const int _fallbackRingSeconds = 45;
+
+  /// True once the other side is known to have left or hung up.
+  ///
+  /// Without it the receiver re-reported the call: Agora's `onUserOffline`
+  /// closes the call screen about a second after the caller hangs up, the
+  /// screen popping resumes [_openCallScreen], and its trailing [hangUp] then
+  /// POSTed `end` again — so `calls.ended_by_user_id` recorded whoever *received*
+  /// the hang-up rather than whoever performed it, and the call log named the
+  /// wrong person.
+  bool _endedByPeer = false;
+
   /// Fires when the ring window elapses with nobody answering.
   Timer? _ringTimeout;
+
+  /// Re-reads the call from the server while this device is on one.
+  ///
+  /// The call used to end only when the matching `call-*` broadcast arrived, so
+  /// a single dropped event left the caller ringing until they gave up
+  /// themselves — even though the receiver had already declined. The server is
+  /// the authority on whether a call is still live, so this asks it, and the
+  /// broadcast becomes the fast path rather than the only path.
+  Timer? _watchdog;
+  Duration? _watchdogPeriod;
+  bool _checkingStatus = false;
+
+  /// How often the server is asked. Frequent while nobody has answered — that
+  /// is the window in which a decline has to be noticed — and rarely once the
+  /// two are talking, where Agora's own callbacks report a drop.
+  static const Duration _watchWhileRinging = Duration(seconds: 3);
+  // 5s, not 15s: when Agora's own `onUserOffline` does not fire - a flaky
+  // network, or a peer whose process died - this poll is the only thing that
+  // ends the call, and fifteen seconds of dead air is what "the other side
+  // takes ages to hang up" felt like.
+  static const Duration _watchWhileConnected = Duration(seconds: 5);
 
   int? get activeCallId => activeCall.value?.id;
 
   @override
   void onClose() {
     _ringTimeout?.cancel();
+    _watchdog?.cancel();
     super.onClose();
+  }
+
+  // ---- Watchdog -------------------------------------------------------------
+
+  void _retuneWatchdog() {
+    final CallModel? call = activeCall.value;
+    if (call == null) {
+      _watchdog?.cancel();
+      _watchdog = null;
+      _watchdogPeriod = null;
+      return;
+    }
+
+    final Duration wanted = call.status == CallStatus.connected
+        ? _watchWhileConnected
+        : _watchWhileRinging;
+    if (_watchdogPeriod == wanted && (_watchdog?.isActive ?? false)) return;
+
+    _watchdog?.cancel();
+    _watchdogPeriod = wanted;
+    _watchdog = Timer.periodic(wanted, (_) => _checkStillLive());
+  }
+
+  /// Asks the server whether the active call is still going, and ends it here
+  /// if it is not.
+  Future<void> _checkStillLive() async {
+    final int? id = activeCallId;
+    if (id == null) {
+      _retuneWatchdog();
+      return;
+    }
+    if (_checkingStatus) return;
+    _checkingStatus = true;
+    try {
+      final CallSession session = await _repo.show(id);
+      if (activeCallId != id) return; // moved on while the request was in flight
+
+      final CallModel fresh = session.call;
+      if (fresh.status.isLive) {
+        // Keep the local copy in step so the period follows the stage.
+        activeCall.value = fresh;
+        _retuneWatchdog();
+        return;
+      }
+
+      AppLogger.i('Watchdog: call $id is ${fresh.status}; ending locally.');
+      _log(fresh);
+      final String? message = _messageForEndedStatus(fresh.status);
+      if (message != null) AppSnackbar.info(message);
+      _hangUpLocally();
+    } catch (e) {
+      // A transient failure is not evidence the call is over; the next tick
+      // will ask again.
+      AppLogger.d('Watchdog check for call $id failed: $e');
+    } finally {
+      _checkingStatus = false;
+    }
+  }
+
+  String? _messageForEndedStatus(CallStatus status) {
+    switch (status) {
+      case CallStatus.rejected:
+        return 'Call declined.';
+      case CallStatus.cancelled:
+        return 'Call cancelled.';
+      case CallStatus.missed:
+        return 'No answer.';
+      case CallStatus.busy:
+        return 'User is busy.';
+      case CallStatus.ended:
+        return null; // an ordinary hang-up needs no announcement
+      default:
+        return null;
+    }
   }
 
   // ---- Outgoing -------------------------------------------------------------
@@ -90,6 +201,8 @@ class CallController extends GetxController {
         isVideo: call.isVideo,
       );
       _armRingTimeout(call);
+      _retuneWatchdog();
+      _log(call, direction: CallLogDirection.outgoing);
 
       await _openCallScreen(
         call: call,
@@ -151,12 +264,21 @@ class CallController extends GetxController {
     if (CallStateService.instance.isInCall) return;
 
     activeCall.value = call;
+    _log(call, direction: CallLogDirection.incoming);
     final CallParticipant? caller = call.caller;
 
+    // The tray notification is what rings a locked or backgrounded phone and
+    // carries Accept / Decline; the in-app screen below is what a member who is
+    // already looking at the app sees. Both are raised: which one actually
+    // makes a sound is decided inside the service, from whether the app is in
+    // the foreground.
     NotificationService.instance.showIncomingCall(
       callId: call.id,
       callerName: caller?.displayName ?? 'HamQadam Member',
       isVideo: call.isVideo,
+      ringSeconds: call.secondsUntilRingExpiry > 0
+          ? call.secondsUntilRingExpiry
+          : 60,
     );
 
     IncomingCallScreen.show(
@@ -191,12 +313,20 @@ class CallController extends GetxController {
     if (call.id != activeCallId) return;
     _ringTimeout?.cancel();
     activeCall.value = call;
+    _log(call, outcome: CallLogOutcome.answered);
+    // Answered: the watchdog can drop to its slow period.
+    _retuneWatchdog();
     // The caller is already sitting in the Agora channel; the receiver joining
     // is what the call screen reacts to. Nothing else to do here.
   }
 
   void _onRemoteEnded(CallModel call, String? message) {
+    // Logged before the id guard: an end for a call this device is not on any
+    // more is still history worth keeping — a missed call that arrived while
+    // the app was closed reaches us exactly like this.
+    _log(call);
     if (call.id != activeCallId) return;
+    _endedByPeer = true;
     // Our own action echoing back — the local UI already handled it.
     if (call.endedByUserId == myUserId) {
       _clear();
@@ -227,6 +357,12 @@ class CallController extends GetxController {
         isVideo: call.isVideo,
       );
       NotificationService.instance.cancelIncomingCall(call.id);
+      _retuneWatchdog();
+      _log(
+        call,
+        direction: CallLogDirection.incoming,
+        outcome: CallLogOutcome.answered,
+      );
 
       await _openCallScreen(
         call: call,
@@ -251,6 +387,14 @@ class CallController extends GetxController {
   /// Receiver taps Decline.
   Future<void> rejectIncoming(int callId) async {
     NotificationService.instance.cancelIncomingCall(callId);
+    final CallModel? call = activeCall.value;
+    if (call != null && call.id == callId) {
+      _log(
+        call,
+        direction: CallLogDirection.incoming,
+        outcome: CallLogOutcome.declined,
+      );
+    }
     _clear();
     try {
       await _repo.reject(callId);
@@ -265,8 +409,15 @@ class CallController extends GetxController {
   /// server expects for our role and the call's stage.
   Future<void> hangUp() async {
     final CallModel? call = activeCall.value;
+    final bool peerEnded = _endedByPeer;
     _hangUpLocally();
     if (call == null) return;
+    if (peerEnded) {
+      // The other side has already told the server; saying it again would only
+      // overwrite who ended it.
+      AppLogger.d('Call ${call.id} was ended by the peer; not re-reporting.');
+      return;
+    }
 
     // `cancel` is the caller giving up before it was answered; anything else is
     // an `end`. Picking the right one is what keeps the call log honest —
@@ -274,6 +425,14 @@ class CallController extends GetxController {
     // the call is still ringing.
     final bool neverAnswered =
         call.status == CallStatus.calling || call.status == CallStatus.ringing;
+    _log(
+      call,
+      outcome: neverAnswered
+          ? (call.isCaller(myUserId)
+              ? CallLogOutcome.cancelled
+              : CallLogOutcome.declined)
+          : CallLogOutcome.answered,
+    );
     try {
       if (call.isCaller(myUserId) && neverAnswered) {
         await _repo.cancel(call.id);
@@ -313,6 +472,35 @@ class CallController extends GetxController {
     }
   }
 
+  // ---- Local call history ---------------------------------------------------
+
+  /// Writes the call's current state into the device's own history.
+  ///
+  /// Called at every point a call's outcome becomes known, because the Calls
+  /// tab is a local read now — waiting for the server would mean a missed call
+  /// that arrived while the app was closed never showed up at all.
+  void _log(
+    CallModel call, {
+    CallLogDirection? direction,
+    CallLogOutcome? outcome,
+  }) {
+    if (!Get.isRegistered<CallLogService>()) return;
+    Get.find<CallLogService>().recordCall(
+      call,
+      myUserId: myUserId,
+      direction: direction,
+      outcome: outcome,
+    );
+  }
+
+  /// Called by the call screen when Agora reports the other party has left the
+  /// channel deliberately — which lands about a second before the matching
+  /// `call-ended` broadcast, and sometimes instead of it.
+  void noteRemoteLeft() {
+    if (activeCall.value == null) return;
+    _endedByPeer = true;
+  }
+
   // ---- Internals ------------------------------------------------------------
 
   Future<void> _openCallScreen({
@@ -339,8 +527,11 @@ class CallController extends GetxController {
   /// unanswered mobile call is logged exactly like an unanswered web one.
   void _armRingTimeout(CallModel call) {
     _ringTimeout?.cancel();
-    final int seconds = call.secondsUntilRingExpiry;
-    if (seconds <= 0) return;
+    // A missing or already-past `ring_expires_at` used to mean no timer at all,
+    // so an unanswered call rang until the caller gave up. The server's window
+    // is 30s; this is the belt-and-braces version of it.
+    final int fromServer = call.secondsUntilRingExpiry;
+    final int seconds = fromServer > 0 ? fromServer : _fallbackRingSeconds;
     _ringTimeout = Timer(Duration(seconds: seconds), () async {
       if (activeCallId != call.id) return;
       // Double-check: if the call has already connected or been accepted,
@@ -352,6 +543,7 @@ class CallController extends GetxController {
         AppLogger.d('Ring timer fired but call already ${current.status}; skipping missed.');
         return;
       }
+      _log(call, outcome: CallLogOutcome.missed);
       try {
         await _repo.missed(call.id);
       } catch (e) {
@@ -364,17 +556,29 @@ class CallController extends GetxController {
   void _hangUpLocally() {
     final int? id = activeCallId;
     if (id != null) NotificationService.instance.cancelIncomingCall(id);
+    // Clearing the active call is all this has to do: VideoCallScreen watches
+    // it and closes itself. This used to try to pop the route too, guarded by
+    // `Get.currentRoute.contains('VideoCallScreen')` — a name GetX derives from
+    // the builder closure's runtime type, so the guard could not be relied on,
+    // and popping on a bad match would have dismissed whatever else was on top.
     _clear();
-    if (Get.currentRoute.contains('VideoCallScreen')) {
-      Get.back<void>();
-    }
   }
 
   void _clear() {
+    _endedByPeer = false;
     _ringTimeout?.cancel();
     _ringTimeout = null;
+    _watchdog?.cancel();
+    _watchdog = null;
+    _watchdogPeriod = null;
+    // Cancel the tray entry here rather than only in `_hangUpLocally`: a call
+    // we ended ourselves came through `_onRemoteEnded` -> `_clear`, which left
+    // the ringing notification sitting in the shade for a call that was over.
+    final int? id = activeCall.value?.id;
+    if (id != null) NotificationService.instance.cancelIncomingCall(id);
     activeCall.value = null;
     CallStateService.instance.endCall();
     IncomingCallScreen.dismissIfShowing();
+    NotificationService.instance.stopRingtone();
   }
 }

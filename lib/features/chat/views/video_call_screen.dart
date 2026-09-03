@@ -96,9 +96,22 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   bool _isSpeakerOn = true;
   bool _engineReady = false;
   Timer? _callTimer;
-  Timer? _ringTimer;
   int _callDurationSeconds = 0;
   StreamSubscription<int>? _declineSubscription;
+
+  /// Closes this screen when the controller says the call is over.
+  ///
+  /// The controller used to pop the screen itself with
+  /// `if (Get.currentRoute.contains('VideoCallScreen')) Get.back()`. GetX
+  /// derives that name from the *builder closure's* runtime type, so the match
+  /// was never dependable — and when it missed, the call ended everywhere
+  /// except on screen: the state was cleared, the watchdog stopped, and the
+  /// caller was left staring at "Ringing…" until they hung up themselves. That
+  /// is exactly the "call keeps going after the receiver declined" report.
+  ///
+  /// Driving it from the observable instead means the screen closes on its own
+  /// terms, whatever the route happens to be called.
+  Worker? _callEndedWorker;
 
   // ── Reconnection / token renewal state ──────────────────────────────────
   int _reconnectAttempts = 0;
@@ -117,7 +130,20 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _currentToken = widget.token;
     _isVideoDisabled = !widget.isVideoCall;
     _listenForDeclineSignals();
+    _watchForCallEnd();
     _initAgora();
+  }
+
+  void _watchForCallEnd() {
+    if (!Get.isRegistered<CallController>()) return;
+    final CallController calls = Get.find<CallController>();
+    _callEndedWorker = ever<CallModel?>(calls.activeCall, (CallModel? call) {
+      if (call != null) return;
+      if (!mounted || _isEndingCall) return;
+      _isEndingCall = true;
+      debugPrint('📞 Call cleared by the controller; closing the call screen.');
+      Navigator.of(context).maybePop();
+    });
   }
 
   /// Listen for call decline signals from the remote user.
@@ -184,11 +210,16 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
             });
           }
           _safeSpeaker();
-          _startRinging();
+          // Deliberately no ringtone here. `onJoinChannelSuccess` fires for
+          // BOTH sides, so playing it rang the caller with the receiver's
+          // incoming-call tone, and rang the receiver a second time after they
+          // had already answered. The ringtone belongs to the incoming-call
+          // screen alone — see IncomingCallScreen / IncomingCallOverlayBar.
+          _silenceAnyRingtone();
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint('📞 Agora: Remote user $remoteUid joined');
-          _stopRinging();
+          _silenceAnyRingtone();
           if (Get.isRegistered<CallController>()) {
             Get.find<CallController>().markConnected();
           }
@@ -208,7 +239,14 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
           if (_isEndingCall) return;
           // Network drop — NOT a hang-up. Try reconnecting before ending.
           if (reason == UserOfflineReasonType.userOfflineQuit) {
-            // Remote user deliberately left → end the call
+            // Remote user deliberately left → end the call.
+            //
+            // Tell the controller first: this fires about a second before the
+            // `call-ended` broadcast, and without it the trailing hang-up
+            // re-reports the call and overwrites who ended it.
+            if (Get.isRegistered<CallController>()) {
+              Get.find<CallController>().noteRemoteLeft();
+            }
             if (mounted) {
               setState(() { _remoteUid = null; });
               _endCall();
@@ -223,7 +261,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         },
         onLeaveChannel: (RtcConnection connection, RtcStats stats) {
           debugPrint('📞 Agora: Left channel');
-          _stopRinging();
+          _silenceAnyRingtone();
           if (mounted) {
             setState(() {
               _localUserJoined = false;
@@ -400,20 +438,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   // ─── Ringing Feedback ────────────────────────────────────────────────────
   // Play a system click sound every 2s to simulate ringing until remote joins.
 
-  void _startRinging() {
-    _ringTimer?.cancel();
-    NotificationService.instance.playRingtone();
-    _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (_remoteUid != null) {
-        _stopRinging();
-        return;
-      }
-    });
-  }
-
-  void _stopRinging() {
-    _ringTimer?.cancel();
-    _ringTimer = null;
+  /// Stops whatever the incoming-call screen was ringing.
+  ///
+  /// This screen never starts a ringtone; it only makes sure none is left
+  /// playing once the call is under way.
+  void _silenceAnyRingtone() {
     NotificationService.instance.stopRingtone();
   }
 
@@ -496,7 +525,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _isEndingCall = true;
     _reconnectTimer?.cancel();
     _callTimer?.cancel();
-    _stopRinging();
+    _silenceAnyRingtone();
     CallStateService.instance.endCall();
     _declineSubscription?.cancel();
     _declineSubscription = null;
@@ -517,8 +546,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _isEndingCall = true;
     _reconnectTimer?.cancel();
     _callTimer?.cancel();
-    _stopRinging();
+    _silenceAnyRingtone();
     _declineSubscription?.cancel();
+    _callEndedWorker?.dispose();
     CallStateService.instance.endCall();
     try {
       _engine?.leaveChannel();

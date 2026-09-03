@@ -18,7 +18,9 @@ import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/shortlist_controller.dart';
 import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
+import '../../core/services/app_lifecycle_service.dart';
 import '../../core/services/call_state_service.dart';
+import '../../core/services/push_token_service.dart';
 import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
@@ -66,6 +68,7 @@ import '../../repositories/bridge_repository.dart';
 
 import '../api/api_client.dart';
 import '../network/network_info.dart';
+import '../storage/call_log_service.dart';
 import '../storage/current_user_service.dart';
 import '../storage/profile_completion_service.dart';
 import '../storage/registration_buffer.dart';
@@ -146,6 +149,31 @@ class AppDependencies {
 
     // Call state service (tracks active calls, prevents duplicates)
     Get.put<CallStateService>(CallStateService.instance, permanent: true);
+
+    // The device's own call history. Loaded up front so the Calls tab is a
+    // local read rather than one request per conversation.
+    final CallLogService callLog = CallLogService(prefs)..load();
+    Get.put<CallLogService>(callLog, permanent: true);
+
+    // Push token registration. Registered before the controllers below because
+    // `loadSession()` at the end of this method asks it to sync, and a warm
+    // start with an existing session is exactly the case that used to leave the
+    // server with no token for this device.
+    Get.put<PushTokenService>(
+      PushTokenService(prefs: prefs, storage: secureStorage),
+      permanent: true,
+    );
+
+    // Reconnect + catch-up on resume and on network change. Started from
+    // `main()` once the first frame is on its way.
+    Get.put<AppLifecycleService>(
+      AppLifecycleService(
+        realtime: pusherService,
+        pushTokens: Get.find<PushTokenService>(),
+        network: Get.find<NetworkInfo>(),
+      ),
+      permanent: true,
+    );
 
     // ---- Long-lived controllers -------------------------------------------
     final AuthController authController = AuthController(

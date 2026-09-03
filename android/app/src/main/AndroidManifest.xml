@@ -34,6 +34,18 @@
     <!-- ── Wake Lock (keep device awake during calls) ─────────────────── -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <!-- ── Battery optimisation exemption ──────────────────────────────
+         Measured on an Infinix X6853: FCM reaches the app in the foreground,
+         in the background and after its process is killed, but NOT once the
+         app has been force-stopped - and the OEM cleaner
+         (com.transsion.phonemaster) force-stops apps that are still being
+         battery-optimised. A force-stopped app carries FLAG_STOPPED and
+         Android delivers it no broadcasts at all, FCM included, so no client
+         or server change can recover it.
+         Google's policy permits this permission for apps whose core function
+         is calling. See PermissionsService.requestCallReliability. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <uses-feature android:name="android.hardware.microphone" android:required="false"/>
@@ -47,13 +59,29 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+        <!-- Applied to notifications Android draws itself, i.e. every push
+             that lands while the app is not running. Without these the icon is
+             a grey square with no tint. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
 
+        <!-- showWhenLocked / turnScreenOn: an incoming call raises a
+             full-screen intent, and both of these are required for it to
+             actually appear over the lock screen and light the display.
+             Without them Android downgrades the call to a heads-up banner
+             behind the lock, which is a call the member never sees. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">

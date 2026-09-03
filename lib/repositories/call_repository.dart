@@ -17,7 +17,7 @@ class CallRepository {
 
   final ApiClient _client;
 
-  /// `POST /calls` — creates the call, rings the other member over Pusher and
+  /// `POST /chat/calls` — creates the call, rings the other member over Pusher and
   /// returns the CALLER's own Agora credentials.
   ///
   /// Throws [AppException] with code `user_busy` (409) when either side is
@@ -34,38 +34,42 @@ class CallRepository {
     return _session(res);
   }
 
-  /// `POST /calls/{id}/accept` — returns the RECEIVER's own Agora credentials.
+  /// `POST /chat/calls/{id}/accept` — returns the RECEIVER's own Agora credentials.
   Future<CallSession> accept(int callId) async {
     final ApiEnvelope res = await _client.post(ApiEndpoints.callAccept(callId));
     return _session(res);
   }
 
-  /// `POST /calls/{id}/reject` — receiver declines. No credentials come back.
+  /// `POST /chat/calls/{id}/reject` — receiver declines. No credentials come back.
   Future<void> reject(int callId) => _act(ApiEndpoints.callReject(callId));
 
-  /// `POST /calls/{id}/cancel` — caller hangs up before it was answered.
+  /// `POST /chat/calls/{id}/cancel` — caller hangs up before it was answered.
   Future<void> cancel(int callId) => _act(ApiEndpoints.callCancel(callId));
 
-  /// `POST /calls/{id}/connect` — both sides are in the Agora channel. This is
+  /// `POST /chat/calls/{id}/connect` — both sides are in the Agora channel. This is
   /// what makes `duration_seconds` meaningful in the call log.
   Future<void> connect(int callId) => _act(ApiEndpoints.callConnect(callId));
 
-  /// `POST /calls/{id}/end` — normal hang-up.
+  /// `POST /chat/calls/{id}/end` — normal hang-up.
   Future<void> end(int callId) => _act(ApiEndpoints.callEnd(callId));
 
-  /// `POST /calls/{id}/missed` — nobody picked up before `ring_expires_at`.
+  /// `POST /chat/calls/{id}/missed` — nobody picked up before `ring_expires_at`.
   Future<void> missed(int callId) => _act(ApiEndpoints.callMissed(callId));
 
-  /// `GET /calls/{id}` — current state, used to re-check a call the app learned
+  /// `GET /chat/calls/{id}` — current state, used to re-check a call the app learned
   /// about from a push while it was closed.
   Future<CallSession> show(int callId) async {
     final ApiEnvelope res = await _client.get(ApiEndpoints.call(callId));
     return _session(res);
   }
 
-  /// `POST /calls/{id}/renew-token` — mints a fresh Agora RTC token for the
-  /// current user. Called by the call screen when the token is about to expire
-  /// or after a network reconnection.
+  /// `POST /chat/calls/{id}/renew-token` — mints a fresh Agora RTC token for
+  /// the current user. Called by the call screen when the token is about to
+  /// expire or after a network reconnection.
+  ///
+  /// Returns null rather than throwing when the server cannot mint one, so a
+  /// renewal failure degrades to "the call runs on the token it has" instead of
+  /// dropping the call outright.
   Future<RtcCredentials?> renewToken(int callId) async {
     try {
       final ApiEnvelope res = await _client.post(ApiEndpoints.callRenewToken(callId));

@@ -9,6 +9,7 @@ import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/state_widgets.dart';
+import '../../../core/storage/call_log_service.dart';
 import 'call_history_view.dart';
 import 'chat_conversation_view.dart';
 
@@ -61,8 +62,8 @@ class ChatInboxView extends StatelessWidget {
               ),
               dividerColor: Colors.transparent,
               splashBorderRadius: AppRadius.lgAll,
-              tabs: const <Tab>[
-                Tab(
+              tabs: <Tab>[
+                const Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
@@ -76,9 +77,37 @@ class ChatInboxView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Icon(Icons.call_outlined, size: 16),
-                      SizedBox(width: 6),
-                      Text('Calls'),
+                      const Icon(Icons.call_outlined, size: 16),
+                      const SizedBox(width: 6),
+                      const Text('Calls'),
+                      // Missed calls the member has not looked at yet. Reads
+                      // straight off the local log, so it is right even with no
+                      // network, and clears when the tab is opened.
+                      Obx(() {
+                        final int missed = Get.isRegistered<CallLogService>()
+                            ? Get.find<CallLogService>().unseenMissedCount
+                            : 0;
+                        if (missed == 0) return const SizedBox.shrink();
+                        return Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.error,
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                          ),
+                          child: Text(
+                            missed > 99 ? '99+' : '$missed',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      }),
                     ],
                   ),
                 ),

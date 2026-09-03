@@ -104,7 +104,11 @@ flutter:
     # bearer-only and registration has no token until its final submit, so this
     # is what every signup dropdown reads from. Ids are the server's, verbatim.
     - assets/lookups/dropdown_reference.json
-    - assets/ringtone.wav
+    # The incoming-call ringtone, for both audio and video calls. The same file
+    # is also at android/app/src/main/res/raw/ringtone.mp3, which is what
+    # the `calls` notification channel rings with when the app is not open —
+    # Android needs it as a raw resource, not a Flutter asset.
+    - assets/ringtone.mp3
 
   fonts:
     # Plus Jakarta Sans — PRIMARY family: headings, body, buttons, everything Latin.

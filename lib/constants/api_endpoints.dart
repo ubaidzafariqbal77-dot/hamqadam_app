@@ -305,6 +305,9 @@ class ApiEndpoints {
   // mints or hardcodes a token.
 
   /// Starts a call (`POST /chat/calls`, body `{chat_thread_id, call_type}`).
+  ///
+  /// The routes are a `prefix('/calls')` group nested inside `prefix('chat')`,
+  /// so `/chat` is part of every path here — `/calls/…` on its own is a 404.
   static const String callStart = '/chat/calls';
 
   static String call(int callId) => '/chat/calls/$callId';

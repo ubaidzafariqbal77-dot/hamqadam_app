@@ -69,6 +69,23 @@ class ChatAttachment {
 }
 
 /// A single chat message within a thread.
+/// How far one of *our own* messages has got.
+///
+/// A message used to appear only once the server had answered, so on a slow
+/// connection the composer emptied and nothing showed up for a second or two.
+/// The bubble is now drawn the moment Send is tapped and carries its state
+/// until the server confirms it.
+enum MessageDelivery {
+  /// Drawn locally, POST still in flight.
+  sending,
+
+  /// The server has it — the normal state for everything read back from the API.
+  sent,
+
+  /// The POST failed. Kept on screen so the text is not lost and can be retried.
+  failed,
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -83,6 +100,9 @@ class ChatMessage {
     this.deletedForMe = false,
     this.senderName,
     this.senderPhoto,
+    this.delivery = MessageDelivery.sent,
+    this.localId,
+    this.localAttachmentPaths = const <String>[],
   });
 
   final int id;
@@ -97,6 +117,20 @@ class ChatMessage {
   final bool deletedForMe;
   final String? senderName;
   final String? senderPhoto;
+
+  /// Only meaningful for messages this device composed.
+  final MessageDelivery delivery;
+
+  /// Client-side identity for a message that has no server id yet, so the
+  /// optimistic bubble can be found and replaced when the POST returns.
+  final String? localId;
+
+  /// File paths for an optimistic message whose attachments are still
+  /// uploading, so the bubble can preview them before the server has URLs.
+  final List<String> localAttachmentPaths;
+
+  bool get isPending => delivery == MessageDelivery.sending;
+  bool get isFailed => delivery == MessageDelivery.failed;
 
   bool isMine(int myUserId) => senderId == myUserId;
 
@@ -136,10 +170,15 @@ class ChatMessage {
   }
 
 
-  ChatMessage copyWith({bool? deletedForMe}) {
+  ChatMessage copyWith({
+    int? id,
+    int? threadId,
+    bool? deletedForMe,
+    MessageDelivery? delivery,
+  }) {
     return ChatMessage(
-      id: id,
-      threadId: threadId,
+      id: id ?? this.id,
+      threadId: threadId ?? this.threadId,
       senderId: senderId,
       message: message,
       messageType: messageType,
@@ -150,6 +189,9 @@ class ChatMessage {
       deletedForMe: deletedForMe ?? this.deletedForMe,
       senderName: senderName,
       senderPhoto: senderPhoto,
+      delivery: delivery ?? this.delivery,
+      localId: localId,
+      localAttachmentPaths: localAttachmentPaths,
     );
   }
 

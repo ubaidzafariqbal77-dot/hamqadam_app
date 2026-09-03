@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tint applied to the small icon on notifications the system displays
+         itself (an FCM push with a `notification` block, delivered while the
+         app is not running). Without it Android renders a grey blob.
+         Matches AppColors.primary. -->
+    <color name="notification_accent">#FFFF3B6B</color>
+</resources>

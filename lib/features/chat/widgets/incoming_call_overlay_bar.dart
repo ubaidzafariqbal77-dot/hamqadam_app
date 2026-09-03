@@ -1,15 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
-import '../../../controllers/chat_controller.dart';
-import '../../../core/services/call_signaling_service.dart';
-import '../../../core/services/call_state_service.dart';
+import '../../../controllers/call_controller.dart';
+import '../../../core/services/notification_service.dart';
 import '../views/incoming_call_screen.dart';
-import '../views/video_call_screen.dart';
 
 /// WhatsApp-style floating top call banner overlay with quick Accept & Decline.
 class IncomingCallOverlayBar {
@@ -21,11 +18,12 @@ class IncomingCallOverlayBar {
 
   /// Shows the top floating incoming call bar.
   static void show({
-    required String channelName,
+    required int callId,
     required String callerName,
     String? callerPhoto,
     bool isVideoCall = false,
     int? threadId,
+    int ringSeconds = 0,
   }) {
     // Avoid duplicate overlays if already showing or on active call screen
     if (_currentEntry != null ||
@@ -41,11 +39,12 @@ class IncomingCallOverlayBar {
     if (overlayState == null) {
       // Fallback directly to full-screen incoming modal
       IncomingCallScreen.show(
-        channelName: channelName,
+        callId: callId,
         callerName: callerName,
         callerPhoto: callerPhoto,
         isVideoCall: isVideoCall,
         threadId: threadId,
+        ringSeconds: ringSeconds,
       );
       return;
     }
@@ -54,31 +53,27 @@ class IncomingCallOverlayBar {
 
     _currentEntry = OverlayEntry(
       builder: (BuildContext context) => _FloatingCallBannerWidget(
-        channelName: channelName,
         callerName: callerName,
         callerPhoto: callerPhoto,
         isVideoCall: isVideoCall,
-        threadId: threadId,
+        // Accept and Decline both go through the call API, so the banner and
+        // the full-screen dialog produce the same server-side record.
         onAccept: () {
           dismiss();
-          VideoCallScreen.open(
-            channelName: channelName,
-            userName: callerName,
-            userPhoto: callerPhoto,
-            isVideoCall: isVideoCall,
-          );
+          _calls?.acceptIncoming(callId);
         },
         onDecline: () {
           dismiss();
-          _sendDeclineSignal(threadId);
+          _calls?.rejectIncoming(callId);
         },
         onTapBanner: () {
           IncomingCallScreen.expandFromOverlay(
-            channelName: channelName,
+            callId: callId,
             callerName: callerName,
             callerPhoto: callerPhoto,
             isVideoCall: isVideoCall,
             threadId: threadId,
+            ringSeconds: ringSeconds,
           );
         },
       ),
@@ -86,22 +81,19 @@ class IncomingCallOverlayBar {
 
     overlayState.insert(_currentEntry!);
 
-    // Auto-dismiss after 40 seconds
+    // Follows the server's ring window; `CallController` reports the call
+    // missed at the same moment.
     _autoDismissTimer?.cancel();
-    _autoDismissTimer = Timer(const Duration(seconds: 40), () {
-      dismiss();
-    });
+    _autoDismissTimer = Timer(
+      Duration(seconds: ringSeconds > 0 ? ringSeconds : 40),
+      dismiss,
+    );
   }
 
   static void _startRingtoneLoop() {
     _ringTimer?.cancel();
-    SystemSound.play(SystemSoundType.click);
-    HapticFeedback.vibrate();
-
-    _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      SystemSound.play(SystemSoundType.click);
-      HapticFeedback.vibrate();
-    });
+    // Play ringtone through NotificationService
+    NotificationService.instance.playRingtone();
   }
 
   /// Dismisses the floating overlay and stops ringtone.
@@ -110,6 +102,7 @@ class IncomingCallOverlayBar {
     _ringTimer = null;
     _autoDismissTimer?.cancel();
     _autoDismissTimer = null;
+    NotificationService.instance.stopRingtone();
 
     if (_currentEntry != null) {
       try {
@@ -119,45 +112,23 @@ class IncomingCallOverlayBar {
     }
   }
 
-  /// Sends a decline signal back to the caller via chat message.
-  static void _sendDeclineSignal(int? threadId) {
-    if (threadId == null || threadId <= 0) return;
-    CallStateService.instance.endCall();
-    // Find the active ChatController to get the thread's participant info
-    if (Get.isRegistered<ChatController>()) {
-      final ChatController chatCtrl = Get.find<ChatController>();
-      final dynamic activeThread = chatCtrl.activeThread.value;
-      int recipientId = 0;
-      if (activeThread != null && activeThread.id == threadId) {
-        recipientId = activeThread.participant.id;
-      }
-      if (recipientId > 0) {
-        CallSignalingService.instance.sendCallDecline(
-          threadId: threadId,
-          recipientUserId: recipientId,
-        );
-      }
-    }
-  }
+  static CallController? get _calls =>
+      Get.isRegistered<CallController>() ? Get.find<CallController>() : null;
 }
 
 class _FloatingCallBannerWidget extends StatefulWidget {
   const _FloatingCallBannerWidget({
-    required this.channelName,
     required this.callerName,
     this.callerPhoto,
     required this.isVideoCall,
-    this.threadId,
     required this.onAccept,
     required this.onDecline,
     required this.onTapBanner,
   });
 
-  final String channelName;
   final String callerName;
   final String? callerPhoto;
   final bool isVideoCall;
-  final int? threadId;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
   final VoidCallback onTapBanner;

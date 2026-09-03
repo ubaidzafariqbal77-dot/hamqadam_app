@@ -40,11 +40,14 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late bool _photoOnly;
   late bool _nearby;
   late String? _selectedSort;
+  /// Carried through untouched so applying the sheet cannot drop the
+  /// opposite-gender rule. There is no control that edits it.
   late String? _selectedGender;
   late int? _maritalStatusId;
   late int? _religionId;
   late int? _casteId;
   late int? _countryId;
+  late int? _stateId;
   late int? _cityId;
 
   @override
@@ -65,6 +68,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _religionId = f.religionId;
     _casteId = f.casteId;
     _countryId = f.countryId;
+    _stateId = f.stateId;
     _cityId = f.cityId;
   }
 
@@ -76,11 +80,13 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       _photoOnly = false;
       _nearby = false;
       _selectedSort = null;
-      _selectedGender = null;
+      // `_selectedGender` deliberately survives a reset — it is the
+      // opposite-gender rule, not one of the filters being cleared.
       _maritalStatusId = null;
       _religionId = null;
       _casteId = null;
       _countryId = null;
+      _stateId = null;
       _cityId = null;
     });
   }
@@ -99,6 +105,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       religionId: _religionId,
       casteId: _casteId,
       countryId: _countryId,
+      stateId: _stateId,
       cityId: _cityId,
       searchQuery: _controller.filter.value.searchQuery,
     );
@@ -268,11 +275,11 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     spacing: 8,
                     runSpacing: 8,
                     children: <Map<String, String>>[
-                      <String, String>{'id': 'compatibility', 'label': 'Best Match (Compatibility)'},
+                      <String, String>{'id': 'compatibility', 'label': 'Best Match'},
                       <String, String>{'id': 'latest', 'label': 'Recently Active'},
-                      <String, String>{'id': 'newest', 'label': 'Newest Members'},
-                      <String, String>{'id': 'age_asc', 'label': 'Age: Young to Old'},
-                      <String, String>{'id': 'age_desc', 'label': 'Age: Old to Young'},
+                      <String, String>{'id': 'newest', 'label': 'Newest'},
+                      <String, String>{'id': 'age_asc', 'label': 'Young to Old'},
+                      <String, String>{'id': 'age_desc', 'label': 'Old to Young'},
                     ].map((Map<String, String> item) {
                       final bool selected = _selectedSort == item['id'];
                       return ChoiceChip(
@@ -282,6 +289,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                         labelStyle: TextStyle(
                           color: selected ? Colors.white : theme.textTheme.bodyMedium?.color,
                           fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 12,
                         ),
                         onSelected: (bool s) {
                           setState(() => _selectedSort = s ? item['id'] : null);
@@ -291,21 +299,11 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
 
-                  // ---- Gender Selector ----
-                  _sectionTitle('Gender', null),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: <Widget>[
-                      _genderChip('All', null),
-                      const SizedBox(width: 8),
-                      _genderChip('Male', '1'),
-                      const SizedBox(width: 8),
-                      _genderChip('Female', '2'),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
+                  // No gender selector: Discover only ever lists the other
+                  // gender, so offering "All / Male / Female" here let a member
+                  // browse their own gender. SearchProfilesController pins it.
 
-                  // ---- Marital Status ----
+                  // ---- Marital Status (small list — safe as dropdown) ----
                   _dropdownSection(
                     title: 'Marital Status',
                     lookupKey: LookupKeys.maritalStatuses,
@@ -336,24 +334,42 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  // ---- Country ----
-                  _dropdownSection(
+                  // ---- Country (searchable for 241 items) ----
+                  _searchableField(
                     title: 'Country',
                     lookupKey: LookupKeys.countries,
-                    selectedValue: _countryId,
-                    onChanged: (int? v) => setState(() {
+                    selectedId: _countryId,
+                    hintText: 'Search country...',
+                    onSelect: (int? v) => setState(() {
                       _countryId = v;
+                      _stateId = null; // reset state + city when country changes
                       _cityId = null;
                     }),
                   ),
                   const SizedBox(height: AppSpacing.md),
 
-                  // ---- City ----
-                  _dropdownSection(
+                  // ---- State / Region (searchable for 4000+ items) ----
+                  _searchableField(
+                    title: 'State / Region',
+                    lookupKey: LookupKeys.states,
+                    parentId: _countryId,
+                    selectedId: _stateId,
+                    hintText: 'Search state...',
+                    onSelect: (int? v) => setState(() {
+                      _stateId = v;
+                      _cityId = null; // reset city when state changes
+                    }),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ---- City (searchable for 47000+ items) ----
+                  _searchableField(
                     title: 'City',
                     lookupKey: LookupKeys.cities,
-                    selectedValue: _cityId,
-                    onChanged: (int? v) => setState(() => _cityId = v),
+                    parentId: _stateId,
+                    selectedId: _cityId,
+                    hintText: 'Search city...',
+                    onSelect: (int? v) => setState(() => _cityId = v),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                 ],
@@ -448,24 +464,7 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     );
   }
 
-  Widget _genderChip(String label, String? value) {
-    final bool selected = _selectedGender == value;
-    return Expanded(
-      child: ChoiceChip(
-        label: Center(child: Text(label)),
-        selected: selected,
-        selectedColor: AppColors.primary,
-        labelStyle: TextStyle(
-          color: selected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
-          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-        ),
-        onSelected: (bool s) {
-          if (s) setState(() => _selectedGender = value);
-        },
-      ),
-    );
-  }
-
+  /// Small dropdown for lists with < 50 items (marital statuses, religions, castes).
   Widget _dropdownSection({
     required String title,
     required String lookupKey,
@@ -511,6 +510,297 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Searchable field for large lists (countries, states, cities).
+  /// Opens a full-screen searchable dialog instead of a dropdown.
+  Widget _searchableField({
+    required String title,
+    required String lookupKey,
+    int? parentId,
+    required int? selectedId,
+    required String hintText,
+    required ValueChanged<int?> onSelect,
+  }) {
+    final List<LookupItem> allItems = _lookup.itemsOf(lookupKey, parentId: parentId);
+    final String selectedName = selectedId != null
+        ? allItems
+            .where((LookupItem i) => i.id == selectedId)
+            .map((LookupItem i) => i.name)
+            .firstOrNull ?? 'Unknown'
+        : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(title, style: AppTextStyles.bodyStrong),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () => _openSearchDialog(
+            title: title,
+            items: allItems,
+            selectedId: selectedId,
+            hintText: hintText,
+            onSelect: (int? id) {
+              onSelect(id);
+            },
+          ),
+          borderRadius: AppRadius.mdAll,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.darkSurfaceAlt
+                  : AppColors.lightSurface,
+              borderRadius: AppRadius.mdAll,
+              border: Border.all(
+                color: selectedId != null ? AppColors.primary : AppColors.lightDivider,
+              ),
+            ),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: selectedId != null
+                      ? Text(
+                          selectedName,
+                          style: AppTextStyles.body.copyWith(
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : Text(
+                          'Any $title',
+                          style: AppTextStyles.body.copyWith(
+                            color: Theme.of(context).hintColor,
+                          ),
+                        ),
+                ),
+                if (selectedId != null)
+                  GestureDetector(
+                    onTap: () => onSelect(null),
+                    child: const Icon(Icons.close_rounded, size: 18, color: AppColors.error),
+                  ),
+                const SizedBox(width: 4),
+                Icon(Icons.search_rounded, size: 20, color: Theme.of(context).hintColor),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Opens a searchable dialog to pick an item from a large list.
+  Future<void> _openSearchDialog({
+    required String title,
+    required List<LookupItem> items,
+    required int? selectedId,
+    required String hintText,
+    required ValueChanged<int?> onSelect,
+  }) async {
+    final int? result = await showModalBottomSheet<int?>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext ctx) => _SearchablePicker(
+        title: title,
+        items: items,
+        selectedId: selectedId,
+        hintText: hintText,
+      ),
+    );
+    // result is null when user taps "Clear" or back
+    onSelect(result);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Searchable Picker — a bottom sheet with search field + filtered list
+// ---------------------------------------------------------------------------
+
+class _SearchablePicker extends StatefulWidget {
+  const _SearchablePicker({
+    required this.title,
+    required this.items,
+    required this.selectedId,
+    required this.hintText,
+  });
+
+  final String title;
+  final List<LookupItem> items;
+  final int? selectedId;
+  final String hintText;
+
+  @override
+  State<_SearchablePicker> createState() => _SearchablePickerState();
+}
+
+class _SearchablePickerState extends State<_SearchablePicker> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  List<LookupItem> _filtered = <LookupItem>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.items;
+    // Auto-focus the search field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _filter(String query) {
+    final String q = query.toLowerCase().trim();
+    setState(() {
+      if (q.isEmpty) {
+        _filtered = widget.items;
+      } else {
+        _filtered = widget.items
+            .where((LookupItem i) => i.name.toLowerCase().contains(q))
+            .toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.92,
+      builder: (BuildContext ctx, ScrollController scrollCtrl) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+          ),
+          child: Column(
+            children: <Widget>[
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.hintColor.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                ),
+              ),
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(widget.title, style: AppTextStyles.title),
+                    ),
+                    if (widget.selectedId != null)
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop<int?>(null),
+                        child: const Text('Clear', style: TextStyle(color: AppColors.error)),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.of(ctx).pop<int?>(widget.selectedId),
+                    ),
+                  ],
+                ),
+              ),
+              // Search field
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+                    borderRadius: AppRadius.lgAll,
+                    border: Border.all(
+                      color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    focusNode: _focusNode,
+                    onChanged: _filter,
+                    decoration: InputDecoration(
+                      hintText: widget.hintText,
+                      hintStyle: TextStyle(
+                        color: theme.hintColor.withValues(alpha: 0.7),
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Item count
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '${_filtered.length} result${_filtered.length == 1 ? '' : 's'}',
+                    style: AppTextStyles.caption.copyWith(color: theme.hintColor),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // List
+              Expanded(
+                child: _filtered.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          child: Text(
+                            'No results found',
+                            style: TextStyle(color: theme.hintColor, fontSize: 15),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollCtrl,
+                        itemCount: _filtered.length,
+                        itemBuilder: (BuildContext ctx, int i) {
+                          final LookupItem item = _filtered[i];
+                          final bool isSelected = item.id == widget.selectedId;
+                          return ListTile(
+                            dense: true,
+                            leading: isSelected
+                                ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
+                                : const Icon(Icons.circle_outlined, size: 22, color: Colors.grey),
+                            title: Text(
+                              item.name,
+                              style: TextStyle(
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? AppColors.primary : theme.textTheme.bodyMedium?.color,
+                              ),
+                            ),
+                            onTap: () => Navigator.of(ctx).pop<int?>(item.id),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

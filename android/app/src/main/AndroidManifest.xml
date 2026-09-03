@@ -1,17 +1,50 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Uploads, Agora Calling and Realtime Communications -->
+    <!-- ── Network ────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+
+    <!-- ── Camera & Microphone (Agora calling, profile photos, verification) -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
-    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
-    <uses-permission android:name="android.permission.BLUETOOTH"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
+    <!-- ── Storage / Photos ────────────────────────────────────────────── -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
+
+    <!-- ── Notifications (Android 13+) ────────────────────────────────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- ── Call Ringing (full-screen intent over lock screen) ──────────── -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <!-- ── Phone State (caller ID detection) ──────────────────────────── -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
+
+    <!-- ── Bluetooth (Agora audio routing) ────────────────────────────── -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
+
+    <!-- ── Wake Lock (keep device awake during calls) ─────────────────── -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- ── Battery optimisation exemption ──────────────────────────────
+         Measured on an Infinix X6853: FCM reaches the app in the foreground,
+         in the background and after its process is killed, but NOT once the
+         app has been force-stopped - and the OEM cleaner
+         (com.transsion.phonemaster) force-stops apps that are still being
+         battery-optimised. A force-stopped app carries FLAG_STOPPED and
+         Android delivers it no broadcasts at all, FCM included, so no client
+         or server change can recover it.
+         Google's policy permits this permission for apps whose core function
+         is calling. See PermissionsService.requestCallReliability. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
 
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
@@ -26,13 +59,29 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+        <!-- Applied to notifications Android draws itself, i.e. every push
+             that lands while the app is not running. Without these the icon is
+             a grey square with no tint. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
 
+        <!-- showWhenLocked / turnScreenOn: an incoming call raises a
+             full-screen intent, and both of these are required for it to
+             actually appear over the lock screen and light the display.
+             Without them Android downgrades the call to a heads-up banner
+             behind the lock, which is a call the member never sees. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">

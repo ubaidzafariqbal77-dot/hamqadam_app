@@ -1,29 +1,33 @@
 import 'dart:async';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../controllers/call_controller.dart';
 import '../../../core/services/call_state_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../models/call_model.dart';
 
 /// Reusable Audio and Video Call Screen powered by official Agora RTC Engine.
 class VideoCallScreen extends StatefulWidget {
-  static const String defaultAppId = 'c26bb5b249ec475b8ba1159c836c1967';
-  static const String defaultToken =
-      '007eJxTYGBxnBf/QvJzs+HsX3OurBdxiP2wpSP8dpnU9ykivnL55pEKDMlGZklJpklGJpapySbmpkkWSYmGhqaWyRbGZsmGlmbmwfsnZjUEMjK4qRSzMDJAIIjPw2BmZmRgZGZgYWRqaMDAAAAhfx8n';
-
   const VideoCallScreen({
     super.key,
+    this.callId,
     required this.channelName,
     required this.userName,
+    required this.agoraAppId,
+    required this.token,
+    required this.uid,
     this.userPhoto,
     this.isVideoCall = true,
-    this.agoraAppId = defaultAppId,
-    this.token = defaultToken,
   });
+
+  /// Server call ID — needed so the screen can request fresh Agora tokens
+  /// when the current one is about to expire.
+  final int? callId;
 
   /// The unique channel name for this conversation / call.
   final String channelName;
@@ -37,29 +41,42 @@ class VideoCallScreen extends StatefulWidget {
   /// `true` for 2-way Video Call, `false` for Audio-only Voice Call.
   final bool isVideoCall;
 
-  /// Agora App ID.
+  /// Agora App ID, from the server's `rtc.app_id` for this call.
   final String agoraAppId;
 
-  /// Agora RTC token (uses default temp token or provided token).
-  final String? token;
+  /// Per-call Agora RTC token from `rtc.token`.
+  ///
+  /// This used to default to a temporary token compiled into the app. Agora
+  /// temp tokens live at most 24 hours, so that build was always one day away
+  /// from every call failing at once. The server now mints one per call with
+  /// the app certificate, bound to [uid].
+  final String token;
+
+  /// The uid the token was signed for — `rtc.uid`, i.e. the member's user id.
+  /// Joining with any other uid makes Agora reject the token.
+  final int uid;
 
   /// Helper static launcher
   static Future<void> open({
+    int? callId,
     required String channelName,
     required String userName,
+    required String agoraAppId,
+    required String token,
+    required int uid,
     String? userPhoto,
     bool isVideoCall = true,
-    String agoraAppId = defaultAppId,
-    String token = defaultToken,
   }) async {
     await Get.to<void>(
       () => VideoCallScreen(
+        callId: callId,
         channelName: channelName,
         userName: userName,
         userPhoto: userPhoto,
         isVideoCall: isVideoCall,
         agoraAppId: agoraAppId,
         token: token,
+        uid: uid,
       ),
       transition: Transition.fadeIn,
     );
@@ -77,25 +94,62 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   bool _isMuted = false;
   bool _isVideoDisabled = false;
   bool _isSpeakerOn = true;
-  bool _engineReady = false; // tracks if engine is fully ready for API calls
+  bool _engineReady = false;
   Timer? _callTimer;
-  Timer? _ringTimer;
   int _callDurationSeconds = 0;
   StreamSubscription<int>? _declineSubscription;
+
+  /// Closes this screen when the controller says the call is over.
+  ///
+  /// The controller used to pop the screen itself with
+  /// `if (Get.currentRoute.contains('VideoCallScreen')) Get.back()`. GetX
+  /// derives that name from the *builder closure's* runtime type, so the match
+  /// was never dependable — and when it missed, the call ended everywhere
+  /// except on screen: the state was cleared, the watchdog stopped, and the
+  /// caller was left staring at "Ringing…" until they hung up themselves. That
+  /// is exactly the "call keeps going after the receiver declined" report.
+  ///
+  /// Driving it from the observable instead means the screen closes on its own
+  /// terms, whatever the route happens to be called.
+  Worker? _callEndedWorker;
+
+  // ── Reconnection / token renewal state ──────────────────────────────────
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 10;
+  bool _isReconnecting = false;
+  bool _isEndingCall = false;
+  bool _tokenExpired = false;
+  Timer? _reconnectTimer;
+  String _currentToken;
+
+  _VideoCallScreenState() : _currentToken = '';
 
   @override
   void initState() {
     super.initState();
+    _currentToken = widget.token;
     _isVideoDisabled = !widget.isVideoCall;
     _listenForDeclineSignals();
+    _watchForCallEnd();
     _initAgora();
+  }
+
+  void _watchForCallEnd() {
+    if (!Get.isRegistered<CallController>()) return;
+    final CallController calls = Get.find<CallController>();
+    _callEndedWorker = ever<CallModel?>(calls.activeCall, (CallModel? call) {
+      if (call != null) return;
+      if (!mounted || _isEndingCall) return;
+      _isEndingCall = true;
+      debugPrint('📞 Call cleared by the controller; closing the call screen.');
+      Navigator.of(context).maybePop();
+    });
   }
 
   /// Listen for call decline signals from the remote user.
   void _listenForDeclineSignals() {
     _declineSubscription = CallStateService.instance.onCallDeclined.listen((int threadId) {
       if (!mounted) return;
-      // Show a snackbar and end the call
       _showDeclinedMessage();
       _endCall();
     });
@@ -120,22 +174,19 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   // ─── Agora Setup ─────────────────────────────────────────────────────────
 
   Future<void> _initAgora() async {
-    // Register this as an outgoing call if not already in a call
     if (!CallStateService.instance.isInCall) {
       CallStateService.instance.startOutgoing(
         channelName: widget.channelName,
-        threadId: 0, // threadId resolved from context, not needed for state
+        threadId: 0,
         isVideo: widget.isVideoCall,
       );
     }
 
-    // Request permissions
     await <Permission>[
       Permission.microphone,
       if (widget.isVideoCall) Permission.camera,
     ].request();
 
-    // Create and initialize RtcEngine
     final RtcEngine engine = createAgoraRtcEngine();
     _engine = engine;
 
@@ -150,20 +201,28 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
           debugPrint('📞 Agora: Joined channel successfully');
+          _reconnectAttempts = 0;
+          _isReconnecting = false;
           if (mounted) {
             setState(() {
               _localUserJoined = true;
               _engineReady = true;
             });
           }
-          // Enable speaker AFTER join — avoids ERR_NOT_READY (-3)
           _safeSpeaker();
-          // Start ringing feedback
-          _startRinging();
+          // Deliberately no ringtone here. `onJoinChannelSuccess` fires for
+          // BOTH sides, so playing it rang the caller with the receiver's
+          // incoming-call tone, and rang the receiver a second time after they
+          // had already answered. The ringtone belongs to the incoming-call
+          // screen alone — see IncomingCallScreen / IncomingCallOverlayBar.
+          _silenceAnyRingtone();
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint('📞 Agora: Remote user $remoteUid joined');
-          _stopRinging();
+          _silenceAnyRingtone();
+          if (Get.isRegistered<CallController>()) {
+            Get.find<CallController>().markConnected();
+          }
           if (mounted) {
             setState(() {
               _remoteUid = remoteUid;
@@ -171,20 +230,38 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
             _startCallTimer();
           }
         },
-        onUserOffline:
-            (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
-          debugPrint('📞 Agora: Remote user $remoteUid left');
-          if (mounted) {
-            setState(() {
-              _remoteUid = null;
-            });
-            // Auto-end call when remote user disconnects
-            _endCall();
+        onUserOffline: (
+          RtcConnection connection,
+          int remoteUid,
+          UserOfflineReasonType reason,
+        ) {
+          debugPrint('📞 Agora: Remote user $remoteUid left (reason: $reason)');
+          if (_isEndingCall) return;
+          // Network drop — NOT a hang-up. Try reconnecting before ending.
+          if (reason == UserOfflineReasonType.userOfflineQuit) {
+            // Remote user deliberately left → end the call.
+            //
+            // Tell the controller first: this fires about a second before the
+            // `call-ended` broadcast, and without it the trailing hang-up
+            // re-reports the call and overwrites who ended it.
+            if (Get.isRegistered<CallController>()) {
+              Get.find<CallController>().noteRemoteLeft();
+            }
+            if (mounted) {
+              setState(() { _remoteUid = null; });
+              _endCall();
+            }
+          } else {
+            // Network issue — remote user may reconnect. Wait and try rejoining.
+            if (mounted) {
+              setState(() { _remoteUid = null; });
+            }
+            _scheduleReconnect();
           }
         },
         onLeaveChannel: (RtcConnection connection, RtcStats stats) {
           debugPrint('📞 Agora: Left channel');
-          _stopRinging();
+          _silenceAnyRingtone();
           if (mounted) {
             setState(() {
               _localUserJoined = false;
@@ -193,8 +270,52 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
             });
           }
         },
+        onConnectionStateChanged: (
+          RtcConnection connection,
+          ConnectionStateType state,
+          ConnectionChangedReasonType reason,
+        ) {
+          debugPrint('📞 Agora: Connection state: $state (reason: $reason)');
+          switch (state) {
+            case ConnectionStateType.connectionStateConnecting:
+            case ConnectionStateType.connectionStateReconnecting:
+              if (mounted && !_isReconnecting) {
+                setState(() { _isReconnecting = true; });
+              }
+              break;
+            case ConnectionStateType.connectionStateConnected:
+              _reconnectAttempts = 0;
+              _isReconnecting = false;
+              if (mounted) setState(() {});
+              break;
+            case ConnectionStateType.connectionStateDisconnected:
+              if (reason == ConnectionChangedReasonType.connectionChangedTokenExpired ||
+                  reason == ConnectionChangedReasonType.connectionChangedInvalidToken) {
+                // Token expired or invalid — request a new one and rejoin
+                debugPrint('📞 Agora: Disconnected due to token/auth issue');
+                _handleTokenExpired();
+              } else if (reason == ConnectionChangedReasonType.connectionChangedLost ||
+                  reason == ConnectionChangedReasonType.connectionChangedInterrupted) {
+                // Network lost — try reconnecting
+                debugPrint('📞 Agora: Disconnected due to network change');
+                _scheduleReconnect();
+              }
+              break;
+            default:
+              break;
+          }
+        },
+        onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
+          debugPrint('📞 Agora: Token will expire soon — requesting renewal');
+          _renewToken();
+        },
         onError: (ErrorCodeType err, String msg) {
           debugPrint('📞 Agora ERROR: $err — $msg');
+          // ERR_TOKEN_EXPIRED = 109, ERR_INVALID_TOKEN = 110
+          if (err == ErrorCodeType.errTokenExpired ||
+              err == ErrorCodeType.errInvalidToken) {
+            _handleTokenExpired();
+          }
         },
       ),
     );
@@ -207,11 +328,16 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       await engine.disableVideo();
     }
 
-    // Join channel — speaker & ringing happen in onJoinChannelSuccess
-    await engine.joinChannel(
-      token: widget.token ?? '',
+    await _joinChannel();
+  }
+
+  /// Joins the Agora channel with the current token.
+  Future<void> _joinChannel() async {
+    if (_engine == null) return;
+    await _engine!.joinChannel(
+      token: _currentToken,
       channelId: widget.channelName,
-      uid: 0,
+      uid: widget.uid,
       options: ChannelMediaOptions(
         clientRoleType: ClientRoleType.clientRoleBroadcaster,
         channelProfile: ChannelProfileType.channelProfileCommunication,
@@ -221,6 +347,78 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
         autoSubscribeVideo: widget.isVideoCall,
       ),
     );
+  }
+
+  // ─── Token Renewal ──────────────────────────────────────────────────────
+
+  /// Request a fresh Agora token from the server when the current one expires.
+  Future<void> _renewToken() async {
+    final int? callId = widget.callId;
+    if (callId == null) {
+      debugPrint('📞 Token renewal skipped: no callId');
+      return;
+    }
+    try {
+      final CallController? calls =
+          Get.isRegistered<CallController>() ? Get.find<CallController>() : null;
+      if (calls == null) return;
+      final RtcCredentials? fresh = await calls.renewRtcToken(callId);
+      if (fresh != null && mounted) {
+        _currentToken = fresh.token;
+        debugPrint('📞 Token renewed successfully');
+        // Update token on the live engine
+        await _engine?.renewToken(_currentToken);
+      } else {
+        debugPrint('📞 Token renewal returned null');
+        _handleTokenExpired();
+      }
+    } catch (e) {
+      debugPrint('📞 Token renewal failed: $e');
+      _handleTokenExpired();
+    }
+  }
+
+  void _handleTokenExpired() {
+    if (_isEndingCall) return;
+    _tokenExpired = true;
+    // Try to get a fresh token and rejoin
+    _renewToken();
+  }
+
+  // ─── Reconnection ───────────────────────────────────────────────────────
+
+  void _scheduleReconnect() {
+    if (_isEndingCall || _tokenExpired) return;
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint('📞 Max reconnect attempts reached — ending call');
+      if (mounted) _endCall();
+      return;
+    }
+    _isReconnecting = true;
+    if (mounted) setState(() {});
+
+    // Exponential backoff: 1s, 2s, 4s, 8s, … capped at 16s
+    final int delayMs = (Duration(seconds: 1 << _reconnectAttempts).inMilliseconds).clamp(1000, 16000);
+    _reconnectAttempts++;
+
+    debugPrint('📞 Reconnecting in ${delayMs}ms (attempt $_reconnectAttempts)');
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(milliseconds: delayMs), _attemptReconnect);
+  }
+
+  Future<void> _attemptReconnect() async {
+    if (_isEndingCall || !mounted) return;
+    try {
+      // Leave current channel cleanly first
+      await _engine?.leaveChannel();
+      // Small pause to let the connection reset
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      if (_isEndingCall || !mounted) return;
+      await _joinChannel();
+    } catch (e) {
+      debugPrint('📞 Reconnect attempt failed: $e');
+      _scheduleReconnect();
+    }
   }
 
   // ─── Speaker (safe wrapper) ──────────────────────────────────────────────
@@ -240,22 +438,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   // ─── Ringing Feedback ────────────────────────────────────────────────────
   // Play a system click sound every 2s to simulate ringing until remote joins.
 
-  void _startRinging() {
-    _ringTimer?.cancel();
-    // Play initial ring
-    SystemSound.play(SystemSoundType.click);
-    _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (_remoteUid != null) {
-        _stopRinging();
-        return;
-      }
-      SystemSound.play(SystemSoundType.click);
-    });
-  }
-
-  void _stopRinging() {
-    _ringTimer?.cancel();
-    _ringTimer = null;
+  /// Stops whatever the incoming-call screen was ringing.
+  ///
+  /// This screen never starts a ringtone; it only makes sure none is left
+  /// playing once the call is under way.
+  void _silenceAnyRingtone() {
+    NotificationService.instance.stopRingtone();
   }
 
   // ─── Call Timer ──────────────────────────────────────────────────────────
@@ -333,8 +521,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   }
 
   Future<void> _endCall() async {
+    if (_isEndingCall) return;
+    _isEndingCall = true;
+    _reconnectTimer?.cancel();
     _callTimer?.cancel();
-    _stopRinging();
+    _silenceAnyRingtone();
     CallStateService.instance.endCall();
     _declineSubscription?.cancel();
     _declineSubscription = null;
@@ -352,9 +543,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
   @override
   void dispose() {
+    _isEndingCall = true;
+    _reconnectTimer?.cancel();
     _callTimer?.cancel();
-    _stopRinging();
+    _silenceAnyRingtone();
     _declineSubscription?.cancel();
+    _callEndedWorker?.dispose();
     CallStateService.instance.endCall();
     try {
       _engine?.leaveChannel();
@@ -366,6 +560,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   // ─── Call Status Helper ──────────────────────────────────────────────────
 
   String get _callStatus {
+    if (_isReconnecting) {
+      return 'Reconnecting… ($_reconnectAttempts/$_maxReconnectAttempts)';
+    }
     if (_remoteUid != null) {
       return 'Connected • ${_formatDuration(_callDurationSeconds)}';
     }

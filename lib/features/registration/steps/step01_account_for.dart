@@ -185,6 +185,9 @@ class _Step01ViewState extends State<Step01View> {
       error: c.error,
       primaryLabel: 'Continue',
       onPrimary: c.submit,
+      // Step 1 is the only screen that had no back action, which trapped the
+      // user in signup with no way back to login. `back()` leaves the flow.
+      onBack: c.back,
       children: <Widget>[
         Obx(() {
           final String q = c.currentQuestion;

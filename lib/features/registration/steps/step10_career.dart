@@ -23,9 +23,15 @@ class Step10Controller extends StepController {
 
   LookupController get lookup => Get.find<LookupController>();
 
-  /// Annual income, chosen from a band. The band's lower bound is what gets
-  /// posted, because `members.annual_income` is a decimal column.
-  final Rxn<LookupItem> annualIncome = Rxn<LookupItem>();
+  /// Annual income band. The chosen row's id is `annual_salary_range_id`, a
+  /// foreign key into the server's `annual_salary_ranges` table —
+  /// `/auth/register/steps` lists that field (not `annual_income`) for step 10,
+  /// and `register/complete` rejects a payload without it.
+  ///
+  /// The old numeric `annual_income` is no longer collected here: the server
+  /// dropped it from step 10, and a band id cannot be turned back into an
+  /// amount without knowing each row's bounds, which only the server has.
+  final Rxn<LookupItem> salaryRange = Rxn<LookupItem>();
   final TextEditingController jobTitle = TextEditingController();
   final TextEditingController organization = TextEditingController();
   final TextEditingController yearsOfExperience = TextEditingController();
@@ -46,10 +52,13 @@ class Step10Controller extends StepController {
   @override
   void restore() {
     lookup.ensure(LookupKeys.professionCategories);
-    lookup.ensure(LookupKeys.annualIncome);
-    final int? income = buffer.getInt('annual_income');
-    final IncomeBand? band = IncomeBand.forValue(income);
-    if (band != null) annualIncome.value = band.item;
+    lookup.ensure(LookupKeys.annualSalaryRanges);
+    // An id stored before the server list was known could point at a row that
+    // no longer exists; restoring it would post a value `exists` rejects.
+    final int? rangeId = buffer.getInt('annual_salary_range_id');
+    if (SalaryRangeOptions.isValid(rangeId)) {
+      salaryRange.value = LookupItem(id: rangeId!, name: '');
+    }
     jobTitle.text = buffer.getString('job_title') ?? '';
     organization.text = buffer.getString('organization') ?? '';
     yearsOfExperience.text = buffer.getInt('years_of_experience')?.toString() ?? '';
@@ -65,6 +74,13 @@ class Step10Controller extends StepController {
 
   @override
   bool extraValidate() {
+    // Required by `POST /auth/register/complete`. Catching it here means the
+    // user is told on the step that collects it, instead of at the very end of
+    // the flow by a rejected submission.
+    if (salaryRange.value == null) {
+      error.value = 'Please select your annual salary range.';
+      return false;
+    }
     if (employmentStatus.value == null) {
       error.value = 'Please select your employment status.';
       return false;
@@ -78,7 +94,7 @@ class Step10Controller extends StepController {
 
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
-    'annual_income': annualIncome.value?.id,
+    'annual_salary_range_id': salaryRange.value?.id,
     'employment_status': employmentStatus.value,
     'profession_category_id': category.value?.id,
     'profession_id': profession.value?.id,
@@ -135,11 +151,10 @@ class _Step10ViewState extends State<Step10View> {
         Obx(
           () => AppLookupDropdown(
             label: 'Annual income (PKR)',
-            lookupKey: LookupKeys.annualIncome,
+            lookupKey: LookupKeys.annualSalaryRanges,
             controller: c.lookup,
-            selected: c.annualIncome.value,
-            requirement: FieldRequirement.optional,
-            onChanged: (LookupItem? v) => c.annualIncome.value = v,
+            selected: c.salaryRange.value,
+            onChanged: (LookupItem? v) => c.salaryRange.value = v,
           ),
         ),
         const SizedBox(height: 20),

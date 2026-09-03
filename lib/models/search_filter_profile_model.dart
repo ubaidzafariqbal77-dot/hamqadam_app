@@ -213,6 +213,7 @@ class SearchFilterModel {
     this.stateId,
     this.cityId,
     this.searchQuery,
+    this.partnerPreferenceFilter = false,
   });
 
   final int? ageMin;
@@ -230,6 +231,7 @@ class SearchFilterModel {
   final int? stateId;
   final int? cityId;
   final String? searchQuery;
+  final bool partnerPreferenceFilter;
 
   /// Counts the active filter criteria (excluding search text and page).
   int get activeFilterCount {
@@ -241,7 +243,9 @@ class SearchFilterModel {
     if (compatibilityMin != null && compatibilityMin! > 0) count++;
     if (nearby) count++;
     if (sort != null && sort!.isNotEmpty && sort != 'default') count++;
-    if (gender != null && gender!.isNotEmpty) count++;
+    // `gender` is not counted: Discover pins it to the opposite gender on
+    // every search, so counting it would light the "filters active" badge
+    // permanently and make "Reset" look broken — it can never go back to zero.
     if (maritalStatusId != null) count++;
     if (religionId != null) count++;
     if (casteId != null) count++;
@@ -277,6 +281,7 @@ class SearchFilterModel {
     if (searchQuery != null && searchQuery!.trim().isNotEmpty) {
       params['search'] = searchQuery!.trim();
     }
+    if (partnerPreferenceFilter) params['partner_preference'] = 'false';
 
     return params;
   }
@@ -297,6 +302,7 @@ class SearchFilterModel {
     int? stateId,
     int? cityId,
     String? searchQuery,
+    bool? partnerPreferenceFilter,
     bool clearAgeMin = false,
     bool clearAgeMax = false,
     bool clearCompatibilityMin = false,
@@ -326,6 +332,7 @@ class SearchFilterModel {
       stateId: clearState ? null : (stateId ?? this.stateId),
       cityId: clearCity ? null : (cityId ?? this.cityId),
       searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
+      partnerPreferenceFilter: partnerPreferenceFilter ?? this.partnerPreferenceFilter,
     );
   }
 

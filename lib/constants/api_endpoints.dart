@@ -297,6 +297,40 @@ class ApiEndpoints {
   static const String contentMarriageTips = '/content/marriage-tips';
   static const String contentRegionalUpdates = '/content/regional-updates';
 
+  // ---- Calls (audio / video) ------------------------------------------------
+  //
+  // The same endpoints the website drives, so a mobile call is recorded in the
+  // `calls` table exactly like a web one and shows up in the same logs.
+  // Agora credentials come back per call in the `rtc` node — the app never
+  // mints or hardcodes a token.
+
+  /// Starts a call (`POST /chat/calls`, body `{chat_thread_id, call_type}`).
+  ///
+  /// The routes are a `prefix('/calls')` group nested inside `prefix('chat')`,
+  /// so `/chat` is part of every path here — `/calls/…` on its own is a 404.
+  static const String callStart = '/chat/calls';
+
+  static String call(int callId) => '/chat/calls/$callId';
+  static String callAccept(int callId) => '/chat/calls/$callId/accept';
+  static String callReject(int callId) => '/chat/calls/$callId/reject';
+  static String callCancel(int callId) => '/chat/calls/$callId/cancel';
+  static String callConnect(int callId) => '/chat/calls/$callId/connect';
+  static String callEnd(int callId) => '/chat/calls/$callId/end';
+  static String callMissed(int callId) => '/chat/calls/$callId/missed';
+  static String callRenewToken(int callId) => '/chat/calls/$callId/renew-token';
+
+  /// Call history for one conversation (`GET /chat/threads/{thread}/calls`).
+  static String threadCalls(int threadId) => '/chat/threads/$threadId/calls';
+
+  // ---- Bridge (Pusher / Realtime Config) ----------------------------------
+  static const String bridgeConnectorA = '/bridge/connector-a';
+  static const String bridgeConnectorB = '/bridge/connector-b';
+
+  // ---- Horoscope / Astronomic ---------------------------------------------
+  static const String horoscopeDropdowns = '/member/astronomic/dropdowns';
+  static const String horoscopeUpdate = '/member/astronomic/update';
+  static const String horoscopeMatchedProfiles = '/member/horoscope-matched-profile';
+
   // ---- Family ---------------------------------------------------------------
   static const String familyDashboard = '/family/dashboard';
   static const String familyGuardians = '/family/guardians';

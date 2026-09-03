@@ -12,12 +12,10 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
-import '../../../core/services/call_signaling_service.dart';
-import '../../../core/services/call_state_service.dart';
+import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../widgets/chat_report_dialog.dart';
-import 'video_call_screen.dart';
 
 
 
@@ -176,6 +174,40 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         appBar: _buildAppBar(context, isDark),
         body: Column(
           children: <Widget>[
+            // Realtime state. Shown only while events are NOT arriving, so the
+            // member can tell "nobody has replied" from "we are not listening".
+            Obx(() {
+              if (_controller.realtimeLive.value) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+                color: AppColors.warning.withValues(alpha: 0.12),
+                child: const Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.6,
+                        color: AppColors.warning,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Connecting… messages may be delayed',
+                        style: TextStyle(
+                          color: AppColors.warning,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
             // Blocked notice
             Obx(() {
               final ChatThread? t = _controller.activeThread.value;
@@ -269,6 +301,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       participantPhoto: widget.thread.participant.photo,
                       onReply: () => _controller.setReplyTo(msg),
                       onDelete: () => _controller.deleteMessageForMe(msg.id),
+                      onRetry: () => _controller.retryMessage(msg),
                     );
 
                   },
@@ -635,31 +668,18 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
   /// Unified call initiation — checks if already in a call, uses consistent
   /// channel naming, and passes the real caller name.
+  /// Starts a call through the backend (`POST /calls`), the same way the
+  /// website does. The server creates the call row, mints this member's Agora
+  /// token and rings the other side over `call-incoming`; the controller opens
+  /// the call screen once it has the credentials.
   void _startCall({required bool isVideo}) {
-    // Prevent starting a call if already in one
-    if (CallStateService.instance.isInCall) {
-      AppSnackbar.info('You are already in a call.');
+    if (!Get.isRegistered<CallController>()) {
+      AppSnackbar.error('Calling is unavailable right now.');
       return;
     }
-
-    final String channelName = CallSignalingService.getChannelName(widget.thread.id);
-
-    // Send call invite signal to recipient
-    CallSignalingService.instance.sendCallInvite(
+    Get.find<CallController>().startCall(
       threadId: widget.thread.id,
-      recipientUserId: widget.thread.participant.id,
-      channelName: channelName,
-      isVideoCall: isVideo,
-      callerName: CallStateService.instance.currentUserDisplayName,
-      callerPhoto: CallStateService.instance.currentUserPhoto,
-    );
-
-    // Open outgoing calling screen
-    VideoCallScreen.open(
-      channelName: channelName,
-      userName: widget.thread.participant.name,
-      userPhoto: widget.thread.participant.photo,
-      isVideoCall: isVideo,
+      isVideo: isVideo,
     );
   }
 }
@@ -674,6 +694,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isMine,
     required this.onReply,
     required this.onDelete,
+    required this.onRetry,
     this.participantName,
     this.participantPhoto,
   });
@@ -682,6 +703,9 @@ class _MessageBubble extends StatelessWidget {
   final bool isMine;
   final VoidCallback onReply;
   final VoidCallback onDelete;
+
+  /// Re-sends a message whose POST failed. Only reachable from a failed bubble.
+  final VoidCallback onRetry;
   final String? participantName;
   final String? participantPhoto;
 
@@ -738,6 +762,14 @@ class _MessageBubble extends StatelessWidget {
     final List<ChatAttachment> docs =
         message.attachments.where((ChatAttachment a) => !a.isImage).toList();
 
+    // An optimistic bubble has no server attachments yet — only the local file
+    // paths that are still uploading. Previewing those is the whole point of
+    // drawing the bubble early: an image upload is the slowest thing in the
+    // composer, so an empty bubble would sit there for seconds.
+    final List<String> localFiles = message.isPending || message.isFailed
+        ? message.localAttachmentPaths
+        : const <String>[];
+
     // Bubble bg
     final Color bubbleBg = isMine
         ? AppColors.primary
@@ -750,6 +782,7 @@ class _MessageBubble extends StatelessWidget {
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: () => _showContextMenu(context),
+        onTap: message.isFailed ? onRetry : null,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 3),
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
@@ -810,9 +843,8 @@ class _MessageBubble extends StatelessWidget {
                                 ),
                                 if (isMine) ...<Widget>[
                                   const SizedBox(width: 4),
-                                  Icon(
-                                    Icons.done_all_rounded,
-                                    size: 13,
+                                  _DeliveryTick(
+                                    message: message,
                                     color: Colors.white.withValues(alpha: 0.9),
                                   ),
                                 ],
@@ -864,22 +896,28 @@ class _MessageBubble extends StatelessWidget {
                         ...docs.map((ChatAttachment a) =>
                             _DocCard(attachment: a, isMine: isMine, theme: theme)),
 
+                        // Attachments still on their way up
+                        if (localFiles.isNotEmpty)
+                          _PendingAttachments(
+                            paths: localFiles,
+                            isMine: isMine,
+                            failed: message.isFailed,
+                          ),
+
                         // Message text / Call event tile
                         if (message.isCallEvent)
                           InkWell(
+                            // A call tile is a record of a past call, so tapping
+                            // it calls back rather than rejoining: the channel it
+                            // names belonged to that call and the server has long
+                            // since closed it.
                             onTap: () {
-                              if (message.isCallInvite && message.callChannelName != null) {
-                                VideoCallScreen.open(
-                                  channelName: message.callChannelName!,
-                                  userName: isMine
-                                      ? (participantName ?? 'Member')
-                                      : (message.senderName ?? participantName ?? 'Member'),
-                                  userPhoto: isMine
-                                      ? participantPhoto
-                                      : (message.senderPhoto ?? participantPhoto),
-                                  isVideoCall: message.isCallVideo,
-                                );
-                              }
+                              if (!message.isCallInvite) return;
+                              if (!Get.isRegistered<CallController>()) return;
+                              Get.find<CallController>().startCall(
+                                threadId: message.threadId,
+                                isVideo: message.isCallVideo,
+                              );
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -941,10 +979,20 @@ class _MessageBubble extends StatelessWidget {
                             ),
                             if (isMine) ...<Widget>[
                               const SizedBox(width: 4),
-                              Icon(
-                                Icons.done_all_rounded,
-                                size: 13,
+                              _DeliveryTick(
+                                message: message,
                                 color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                            ],
+                            if (isMine && message.isFailed) ...<Widget>[
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Tap to retry',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ],
@@ -962,6 +1010,144 @@ class _MessageBubble extends StatelessWidget {
 }
 
 
+
+// ---------------------------------------------------------------------------
+// Attachments of a message that has not reached the server yet
+// ---------------------------------------------------------------------------
+
+/// Thumbnails read straight off disk, so a photo appears in the conversation
+/// the instant Send is tapped rather than when the upload finishes.
+class _PendingAttachments extends StatelessWidget {
+  const _PendingAttachments({
+    required this.paths,
+    required this.isMine,
+    required this.failed,
+  });
+
+  final List<String> paths;
+  final bool isMine;
+  final bool failed;
+
+  static const Set<String> _imageExt = <String>{
+    'jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'bmp',
+  };
+
+  static bool _isImage(String path) {
+    final String ext = path.toLowerCase().split('?').first.split('.').last;
+    return _imageExt.contains(ext);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color tint = isMine ? Colors.white : AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: paths.map((String path) {
+          if (_isImage(path)) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Stack(
+                alignment: Alignment.center,
+                children: <Widget>[
+                  Image.file(
+                    File(path),
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                    // A path the picker handed us can still be unreadable by
+                    // the time it is drawn (a cache the OS cleared).
+                    errorBuilder: (BuildContext _, Object __, StackTrace? ___) =>
+                        Container(
+                      width: 120,
+                      height: 120,
+                      color: Colors.black.withValues(alpha: 0.12),
+                      child: Icon(Icons.image_outlined, color: tint),
+                    ),
+                  ),
+                  Container(
+                    width: 120,
+                    height: 120,
+                    color: Colors.black.withValues(alpha: failed ? 0.35 : 0.18),
+                  ),
+                  if (failed)
+                    const Icon(Icons.refresh_rounded, color: Colors.white, size: 28)
+                  else
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  failed ? Icons.refresh_rounded : Icons.upload_file_rounded,
+                  size: 18,
+                  color: tint,
+                ),
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: Text(
+                    path.split(Platform.pathSeparator).last,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: tint),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Delivery state on an outgoing bubble
+// ---------------------------------------------------------------------------
+
+/// Clock while the POST is in flight, exclamation if it failed, tick once the
+/// server has it.
+///
+/// The bubble is drawn before the request completes now, so without this the
+/// member could not tell a sent message from one still going out — or from one
+/// that never went at all.
+class _DeliveryTick extends StatelessWidget {
+  const _DeliveryTick({required this.message, required this.color});
+
+  final ChatMessage message;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (message.delivery) {
+      case MessageDelivery.sending:
+        return Icon(Icons.schedule_rounded, size: 12, color: color);
+      case MessageDelivery.failed:
+        return Icon(Icons.error_outline_rounded, size: 13, color: color);
+      case MessageDelivery.sent:
+        return Icon(Icons.done_all_rounded, size: 13, color: color);
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Image Grid (WhatsApp-style): 1 image = full width, 2+ = grid

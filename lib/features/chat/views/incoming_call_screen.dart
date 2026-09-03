@@ -1,49 +1,54 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
-import '../../../controllers/chat_controller.dart';
-import '../../../core/services/call_signaling_service.dart';
-import '../../../core/services/call_state_service.dart';
+import '../../../controllers/call_controller.dart';
+import '../../../core/services/notification_service.dart';
 import '../widgets/incoming_call_overlay_bar.dart';
-import 'video_call_screen.dart';
 
 /// Full-screen incoming call dialog with Accept and Decline actions.
 class IncomingCallScreen extends StatefulWidget {
   const IncomingCallScreen({
     super.key,
-    required this.channelName,
+    required this.callId,
     required this.callerName,
     this.callerPhoto,
     this.isVideoCall = false,
-    this.agoraToken,
     this.threadId,
+    this.ringSeconds = 0,
   });
 
-  final String channelName;
+  /// The server's `calls.id`. Accept and Decline are `POST /calls/{id}/accept`
+  /// and `/reject`, so the Agora channel and token are the server's to hand
+  /// out — the screen never needs to know them.
+  final int callId;
+
   final String callerName;
   final String? callerPhoto;
   final bool isVideoCall;
-  final String? agoraToken;
   final int? threadId;
+
+  /// Seconds left on the server's `ring_expires_at`. The dialog closes itself
+  /// when they run out, so the local timeout can never outlive the call the
+  /// backend has already written off as missed.
+  final int ringSeconds;
 
   /// Helper launcher to show the incoming call screen if not already visible.
   static bool isShowing = false;
 
   /// Helper launcher to show the incoming call screen as a full app overlay dialog.
   static Future<void> show({
-    required String channelName,
+    required int callId,
     required String callerName,
     String? callerPhoto,
     bool isVideoCall = false,
-    String? agoraToken,
     int? threadId,
+    int ringSeconds = 0,
   }) async {
     // Avoid opening duplicate incoming call screens or interrupting active calls
-    if (isShowing || Get.currentRoute == '/VideoCallScreen') {
+    if (isShowing || Get.currentRoute.contains('VideoCallScreen')) {
       return;
     }
 
@@ -51,12 +56,12 @@ class IncomingCallScreen extends StatefulWidget {
 
     await Get.dialog<void>(
       IncomingCallScreen(
-        channelName: channelName,
+        callId: callId,
         callerName: callerName,
         callerPhoto: callerPhoto,
         isVideoCall: isVideoCall,
-        agoraToken: agoraToken,
         threadId: threadId,
+        ringSeconds: ringSeconds,
       ),
       barrierDismissible: false,
       useSafeArea: false,
@@ -66,24 +71,33 @@ class IncomingCallScreen extends StatefulWidget {
     isShowing = false;
   }
 
+  /// Closes the dialog if it is up — used when the caller hangs up before the
+  /// member got to either button.
+  static void dismissIfShowing() {
+    IncomingCallOverlayBar.dismiss();
+    if (!isShowing) return;
+    isShowing = false;
+    if (Get.isDialogOpen ?? false) Get.back<void>();
+  }
+
   /// Tapping the floating overlay bar should expand to full-screen incoming
   /// call dialog. Dismisses the overlay bar first.
   static Future<void> expandFromOverlay({
-    required String channelName,
+    required int callId,
     required String callerName,
     String? callerPhoto,
     bool isVideoCall = false,
-    String? agoraToken,
     int? threadId,
+    int ringSeconds = 0,
   }) async {
     IncomingCallOverlayBar.dismiss();
     await show(
-      channelName: channelName,
+      callId: callId,
       callerName: callerName,
       callerPhoto: callerPhoto,
       isVideoCall: isVideoCall,
-      agoraToken: agoraToken,
       threadId: threadId,
+      ringSeconds: ringSeconds,
     );
   }
 
@@ -107,22 +121,16 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
 
     _startRinging();
 
-    // Auto timeout after 45 seconds if unhandled
-    _autoTimeoutTimer = Timer(const Duration(seconds: 45), () {
-      _declineCall();
-    });
+    // Close when the server's ring window closes. `CallController` reports the
+    // call missed at the same moment, so a local guess here would only put the
+    // two out of step; 45s is the fallback for a payload without an expiry.
+    final int seconds = widget.ringSeconds > 0 ? widget.ringSeconds : 45;
+    _autoTimeoutTimer = Timer(Duration(seconds: seconds), _dismissOnTimeout);
   }
 
   void _startRinging() {
     _ringTimer?.cancel();
-    SystemSound.play(SystemSoundType.click);
-    HapticFeedback.vibrate();
-
-    _ringTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted) return;
-      SystemSound.play(SystemSoundType.click);
-      HapticFeedback.vibrate();
-    });
+    NotificationService.instance.playRingtone();
   }
 
   void _stopRinging() {
@@ -130,56 +138,38 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     _ringTimer = null;
     _autoTimeoutTimer?.cancel();
     _autoTimeoutTimer = null;
+    NotificationService.instance.stopRingtone();
   }
 
+  /// Accept: the server hands back this member's own Agora credentials and
+  /// tells the caller over `call-accepted`. The controller opens the call
+  /// screen, so this only has to get out of the way.
   void _acceptCall() {
-    _stopRinging();
-    IncomingCallScreen.isShowing = false;
-    IncomingCallOverlayBar.dismiss();
-
-    // Dismiss the incoming dialog first
-    Get.back<void>();
-
-    // Open the active call screen
-    VideoCallScreen.open(
-      channelName: widget.channelName,
-      userName: widget.callerName,
-      userPhoto: widget.callerPhoto,
-      isVideoCall: widget.isVideoCall,
-      token: widget.agoraToken ?? VideoCallScreen.defaultToken,
-    );
+    _close();
+    _calls?.acceptIncoming(widget.callId);
   }
 
+  /// Decline: `POST /calls/{id}/reject`, which is what puts a declined call in
+  /// the same log the website writes.
   void _declineCall() {
+    _close();
+    _calls?.rejectIncoming(widget.callId);
+  }
+
+  /// The ring window closed with no answer. The controller reports the call
+  /// missed; declining here as well would log the wrong outcome.
+  void _dismissOnTimeout() {
+    _close();
+  }
+
+  CallController? get _calls =>
+      Get.isRegistered<CallController>() ? Get.find<CallController>() : null;
+
+  void _close() {
     _stopRinging();
     IncomingCallScreen.isShowing = false;
     IncomingCallOverlayBar.dismiss();
-    CallStateService.instance.endCall();
-
-    // Send decline signal back to the caller
-    _sendDeclineSignal();
-
-    if (Get.isDialogOpen ?? false) {
-      Get.back<void>();
-    }
-  }
-
-  void _sendDeclineSignal() {
-    if (widget.threadId == null || widget.threadId! <= 0) return;
-    if (Get.isRegistered<ChatController>()) {
-      final ChatController chatCtrl = Get.find<ChatController>();
-      final dynamic activeThread = chatCtrl.activeThread.value;
-      int recipientId = 0;
-      if (activeThread != null && activeThread.id == widget.threadId) {
-        recipientId = activeThread.participant.id;
-      }
-      if (recipientId > 0) {
-        CallSignalingService.instance.sendCallDecline(
-          threadId: widget.threadId!,
-          recipientUserId: recipientId,
-        );
-      }
-    }
+    if (Get.isDialogOpen ?? false) Get.back<void>();
   }
 
   @override

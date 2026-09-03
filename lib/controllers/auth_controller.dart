@@ -1,8 +1,12 @@
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_strings.dart';
 import '../core/routes/app_routes.dart';
-import '../core/services/notification_service.dart';
+import '../core/services/permissions_service.dart';
+import '../core/services/push_token_service.dart';
+import '../core/storage/call_log_service.dart';
+import '../core/services/pusher_chat_service.dart';
 import '../core/storage/current_user_service.dart';
 import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
@@ -11,6 +15,7 @@ import '../models/auth_response_model.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
+import 'chat_controller.dart';
 import 'lookup_controller.dart';
 import 'notification_controller.dart';
 import 'payment_controller.dart';
@@ -71,6 +76,30 @@ class AuthController extends GetxController {
   }
 
   void _refreshAuthenticatedServices() {
+    // Realtime first. Private channels are signed with the bearer token, so a
+    // socket that came up before this point could not authorize anything — it
+    // has to be told there is a session now.
+    if (Get.isRegistered<PusherChatService>()) {
+      final PusherChatService realtime = Get.find<PusherChatService>();
+      realtime.ensureConnected();
+      final int userId = user.value?.id ?? currentUser.user?.id ?? 0;
+      if (userId > 0) realtime.subscribeToUserChannel(userId);
+    }
+    if (Get.isRegistered<ChatController>()) {
+      Get.find<ChatController>().catchUp();
+    }
+    // A session is the only thing a device token can be attached to, so this is
+    // the moment to register it — forced, because the previous member's
+    // registration is not this member's.
+    if (Get.isRegistered<PushTokenService>()) {
+      Get.find<PushTokenService>().ensureSynced(force: true);
+    }
+    // Being battery-optimised is what lets the OEM cleaner force-stop the app,
+    // and a force-stopped app receives no FCM at all - so a member who never
+    // grants this will miss calls however correct everything else is. Asked
+    // once, here rather than at first launch, so it is not the first thing a
+    // new member sees.
+    _requestCallReliabilityOnce();
     if (Get.isRegistered<PaymentController>()) {
       Get.find<PaymentController>().loadCurrentPackage(silent: true);
       Get.find<PaymentController>().loadPlans(silent: true);
@@ -82,15 +111,41 @@ class AuthController extends GetxController {
       Get.find<ProposalController>().loadProposals(silent: true);
     }
     if (Get.isRegistered<NotificationController>()) {
+      // The token itself is [PushTokenService]'s job now — it owns the retry
+      // and the "already registered" bookkeeping, which this call site had no
+      // way of knowing about.
       Get.find<NotificationController>().fetchNotifications(refresh: true);
-      final String? token = NotificationService.instance.cachedFcmToken;
-      if (token != null && token.isNotEmpty) {
-        Get.find<NotificationController>().syncPushToken(token);
-      }
+      Get.find<NotificationController>().onSessionStarted();
     }
   }
 
+  static const String _batteryPromptKey = 'asked_battery_exemption_v1';
+
+  Future<void> _requestCallReliabilityOnce() async {
+    if (!Get.isRegistered<SharedPreferences>()) return;
+    final SharedPreferences prefs = Get.find<SharedPreferences>();
+    final bool asked = prefs.getBool(_batteryPromptKey) ?? false;
+    await PermissionsService.instance
+        .requestCallReliability(alreadyAsked: asked);
+    if (!asked) await prefs.setBool(_batteryPromptKey, true);
+  }
+
   void _resetAuthenticatedServices() {
+    // Drop the socket and its channels: the next member must not inherit this
+    // one's `App.User.{id}` subscription and start receiving their calls.
+    if (Get.isRegistered<PusherChatService>()) {
+      Get.find<PusherChatService>().disconnect();
+    }
+    if (Get.isRegistered<ChatController>()) {
+      Get.find<ChatController>().reset();
+    }
+    if (Get.isRegistered<PushTokenService>()) {
+      Get.find<PushTokenService>().forgetSync();
+    }
+    // The call history is this member's, not the device's.
+    if (Get.isRegistered<CallLogService>()) {
+      Get.find<CallLogService>().clear();
+    }
     if (Get.isRegistered<PaymentController>()) {
       Get.find<PaymentController>().reset();
     }

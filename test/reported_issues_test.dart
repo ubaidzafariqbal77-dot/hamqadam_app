@@ -20,7 +20,10 @@ import 'package:hamqadam/constants/api_options.dart';
 import 'package:hamqadam/constants/feature_access.dart';
 import 'package:hamqadam/constants/income_options.dart';
 import 'package:hamqadam/controllers/finalizing_controller.dart';
+import 'package:hamqadam/controllers/registration_payload.dart';
+import 'package:hamqadam/core/storage/registration_buffer.dart';
 import 'package:hamqadam/core/storage/profile_completion_service.dart';
+import 'package:hamqadam/models/lookup_item_model.dart';
 import 'package:hamqadam/models/profile_model.dart';
 import 'package:hamqadam/models/verification_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +40,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   _finalizeFixTests();
+  _salaryRangeTests();
 
   final ProfileModel complete =
       ProfileModel.fromJson(_data('profile_complete_in_review'));
@@ -289,6 +293,77 @@ void _finalizeFixTests() {
       );
       expect(unknown.uiStep, isNull);
       expect(RegSteps.uiStepForField(unknown.field), isNull);
+    });
+  });
+}
+
+/// The two issues the client hit on the finalizing screen and on step 1.
+///
+/// `GET /auth/register/steps` lists step 10 as
+/// `["annual_salary_range_id", "employment_status", "profession_category_id",
+///   "profession_id", "job_title", "organization", "years_of_experience"]` —
+/// the numeric `annual_income` is gone. The app was still sending only
+/// `annual_income`, so every submission came back with
+/// "The annual salary range id field is required.", and because
+/// `annual_salary_range_id` was not in the field→screen map the error rendered
+/// as an untappable row: retry re-sent the same payload, forever.
+void _salaryRangeTests() {
+  group('Finalize — annual_salary_range_id (client report)', () {
+    late RegistrationBuffer buffer;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      buffer = RegistrationBuffer(await SharedPreferences.getInstance());
+    });
+
+    test('the id the step collects reaches the submitted payload', () async {
+      buffer.put(<String, dynamic>{
+        'annual_salary_range_id': 8,
+        'employment_status': 'private',
+        'profession_category_id': 1,
+      });
+
+      final Map<String, dynamic> p = await RegPayload.complete(buffer);
+
+      expect(p['annual_salary_range_id'], 8);
+    });
+
+    test('a career section save carries it too', () {
+      buffer.put(<String, dynamic>{'annual_salary_range_id': 3});
+      expect(RegPayload.career(buffer)['annual_salary_range_id'], 3);
+    });
+
+    test('the rejected field is tappable and names its screen', () {
+      // Was null, which is what made the row a dead end on the finalizing
+      // screen — the client could only "Try again" into the same rejection.
+      expect(RegSteps.uiStepForField('annual_salary_range_id'), 10);
+
+      const RejectedField f = RejectedField(
+        field: 'annual_salary_range_id',
+        message: 'The annual salary range id field is required.',
+        uiStep: 10,
+      );
+      expect(f.label, 'Annual salary range');
+    });
+
+    test('the offered ids are the ones the server accepts', () {
+      // Verified against POST /auth/register/complete: 1..16 pass `exists`,
+      // 17 and above come back "The selected annual salary range id is
+      // invalid." The labels are provisional; the ids are not.
+      expect(SalaryRangeOptions.options.length, 16);
+      expect(
+        SalaryRangeOptions.options.map((LookupItem i) => i.id).toList(),
+        List<int>.generate(16, (int i) => i + 1),
+      );
+      expect(SalaryRangeOptions.options.every((LookupItem i) => i.name.isNotEmpty), isTrue);
+    });
+
+    test('an id outside the server range is not treated as a selection', () {
+      expect(SalaryRangeOptions.isValid(1), isTrue);
+      expect(SalaryRangeOptions.isValid(16), isTrue);
+      expect(SalaryRangeOptions.isValid(17), isFalse);
+      expect(SalaryRangeOptions.isValid(0), isFalse);
+      expect(SalaryRangeOptions.isValid(null), isFalse);
     });
   });
 }

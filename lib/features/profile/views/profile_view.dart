@@ -1774,13 +1774,19 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: AppColors.primary),
-      title: Text(title, style: AppTextStyles.body),
-      subtitle: Text(subtitle, style: AppTextStyles.caption),
-      trailing: Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
-      onTap: () => Get.toNamed(route),
+    // _Surface paints its background on a DecoratedBox, which would hide the
+    // tile's own Material — wrap the tile in a transparent Material so ink
+    // splashes render (the debug assertion flagged exactly this).
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(icon, color: AppColors.primary),
+        title: Text(title, style: AppTextStyles.body),
+        subtitle: Text(subtitle, style: AppTextStyles.caption),
+        trailing: Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
+        onTap: () => Get.toNamed(route),
+      ),
     );
   }
 }

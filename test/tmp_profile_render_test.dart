@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hamqadam/controllers/lookup_controller.dart';
 import 'package:hamqadam/controllers/profile_controller.dart';
+import 'package:hamqadam/controllers/verification_controller.dart';
 import 'package:hamqadam/core/api/api_client.dart';
 import 'package:hamqadam/core/api/api_response.dart';
 import 'package:hamqadam/core/network/network_info.dart';
@@ -18,6 +19,7 @@ import 'package:hamqadam/features/profile/views/profile_view.dart';
 import 'package:hamqadam/models/profile_model.dart';
 import 'package:hamqadam/repositories/lookup_repository.dart';
 import 'package:hamqadam/repositories/profile_repository.dart';
+import 'package:hamqadam/repositories/verification_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const Map<String, dynamic> _payload = <String, dynamic>{
@@ -174,8 +176,13 @@ void main() {
         await lookup.ensure(key);
       }
 
-      completion = ProfileCompletionService(prefs);
-      pc = ProfileController(ProfileRepository(client), lookup, completion);
+    completion = ProfileCompletionService(prefs);
+    pc = ProfileController(ProfileRepository(client), lookup, completion);
+
+    // _VerificationCard reads VerificationController from GetX.
+    Get.put<VerificationController>(
+      VerificationController(VerificationRepository(client)),
+    );
     });
 
     Get.put<ProfileCompletionService>(completion);
@@ -208,7 +215,7 @@ void main() {
       matchesGoldenFile('goldens/profile_dark_1.png'),
     );
     for (int i = 2; i <= 5; i++) {
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1150));
+      await tester.drag(find.byType(ListView).first, const Offset(0, -1150));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(

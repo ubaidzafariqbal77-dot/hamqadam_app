@@ -12,6 +12,8 @@ import '../../../constants/storage_keys.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/registration_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/utils/app_logger.dart';
 
 /// Branded splash that bootstraps the session and routes to the correct entry
 /// point: resume registration, home, or login.
@@ -91,9 +93,23 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
 
   Future<void> _bootstrap() async {
     final AuthController auth = Get.find<AuthController>();
+
+    // Before the cosmetic delay, not after: a call that is already ringing must
+    // not be made to wait behind a 1.4 s animation. `main()` checks too, but the
+    // record is written by the FCM background isolate and can land a beat after
+    // the main isolate has looked for it, so this is the catch-all.
+    //
+    // Routing on to Discover without this check is what used to strand the
+    // member: `Get.offAllNamed` wipes the stack, so a ringing screen raised
+    // during startup went with it and the tray rang on alone.
+    if (await _routedToPendingCall()) return;
+
     // Small delay so the splash is perceivable and layout settles.
     await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
+
+    // Once more, for a push that landed during the delay itself.
+    if (await _routedToPendingCall()) return;
 
     final RegistrationController reg = Get.find<RegistrationController>();
     // Registration is now filled in locally and submitted in one go, so a
@@ -106,6 +122,29 @@ class _SplashViewState extends State<SplashView> with TickerProviderStateMixin {
       final bool seenOnboarding = prefs.getBool(StorageKeys.onboardingSeen) ?? false;
       Get.offAllNamed(seenOnboarding ? AppRoutes.login : AppRoutes.onboarding);
     }
+  }
+
+  /// Sends the app to the ringing screen if a call is waiting. Returns true
+  /// when it did, so the caller stops its own routing.
+  Future<bool> _routedToPendingCall() async {
+    final PendingCall? pending =
+        await NotificationService.instance.peekPendingIncomingCall();
+    if (pending == null || !mounted) return false;
+
+    AppLogger.push(
+      'splash handing over to the ringing screen for call ${pending.callId}',
+    );
+    Get.offAllNamed<dynamic>(
+      AppRoutes.incomingCall,
+      arguments: <String, dynamic>{
+        'callId': pending.callId,
+        'callerName': pending.callerName,
+        'isVideoCall': pending.isVideo,
+        // It replaced the splash, so there is nothing underneath it either.
+        'launchedTheApp': true,
+      },
+    );
+    return true;
   }
 
   @override

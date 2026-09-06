@@ -20,6 +20,7 @@ import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
 import '../../core/services/app_lifecycle_service.dart';
 import '../../core/services/call_state_service.dart';
+import '../../core/services/push_readiness_service.dart';
 import '../../core/services/push_token_service.dart';
 import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
@@ -161,6 +162,15 @@ class AppDependencies {
     // server with no token for this device.
     Get.put<PushTokenService>(
       PushTokenService(prefs: prefs, storage: secureStorage),
+      permanent: true,
+    );
+
+    // Reads the three device grants that decide whether a closed app can be
+    // reached at all. Registered permanently because the home screen checks it
+    // on the way in, and every one of them can change while the app is running
+    // (the member can revoke notifications from the tray at any time).
+    Get.put<PushReadinessService>(
+      PushReadinessService(prefs: prefs),
       permanent: true,
     );
 

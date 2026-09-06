@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Keeps the incoming-call ringtone in release builds.
+
+  `isShrinkResources = true` removes any resource it cannot see a reference to,
+  and nothing in Java, Kotlin or XML ever mentions `@raw/ringtone`: it is named
+  as a *string* from Dart — `RawResourceAndroidNotificationSound('ringtone')`,
+  and via the `calls` channel's sound URI
+  `android.resource://com.app.hamqadam/raw/ringtone`. The shrinker therefore
+  classed it as unused and stripped it.
+
+  What that cost: `res/raw/ringtone.mp3` was present in the debug APK and
+  absent from the release APK, so on release builds the incoming-call
+  notification referenced a resource id that no longer resolved, `show()` threw,
+  and the tray stayed empty. Chat notifications were unaffected (they use the
+  system default sound), so the symptom was the oddly specific "messages arrive
+  in the background but calls never ring" - and only ever on the builds testers
+  were given, never in development.
+
+  Verify after any release build:
+      unzip -l build/app/outputs/flutter-apk/app-release.apk | grep res/raw
+-->
+<resources
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/ringtone" />

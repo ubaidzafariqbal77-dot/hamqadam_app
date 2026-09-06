@@ -31,6 +31,7 @@ import '../../features/registration/steps/step15_interests.dart';
 import '../../features/registration/steps/step16_family_info.dart';
 import '../../features/registration/steps/step17_family_details.dart';
 import '../../features/registration/steps/step18_partner.dart';
+import '../../features/chat/views/incoming_call_screen.dart';
 import 'app_routes.dart';
 
 /// GetX page table. Controllers are created/disposed by their own views
@@ -62,6 +63,13 @@ class AppPages {
     _page(AppRoutes.onboarding, () => const OnboardingView()),
     _page(AppRoutes.login, () => const LoginView()),
     _page(AppRoutes.forgotPassword, () => const ForgotPasswordView()),
+    // No bounce transition: a ringing screen should be *there*, not slide in.
+    GetPage<dynamic>(
+      name: AppRoutes.incomingCall,
+      page: IncomingCallScreen.fromRouteArguments,
+      transition: Transition.noTransition,
+      transitionDuration: Duration.zero,
+    ),
 
     // Registration steps 1..18.
     _page(AppRoutes.accountFor, () => const Step01View()),

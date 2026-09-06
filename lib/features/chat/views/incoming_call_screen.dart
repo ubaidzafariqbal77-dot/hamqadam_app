@@ -4,7 +4,10 @@ import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../controllers/auth_controller.dart';
 import '../../../controllers/call_controller.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../models/call_model.dart';
 import '../../../core/services/notification_service.dart';
 import '../widgets/incoming_call_overlay_bar.dart';
 
@@ -18,6 +21,7 @@ class IncomingCallScreen extends StatefulWidget {
     this.isVideoCall = false,
     this.threadId,
     this.ringSeconds = 0,
+    this.launchedTheApp = false,
   });
 
   /// The server's `calls.id`. Accept and Decline are `POST /calls/{id}/accept`
@@ -35,10 +39,46 @@ class IncomingCallScreen extends StatefulWidget {
   /// backend has already written off as missed.
   final int ringSeconds;
 
-  /// Helper launcher to show the incoming call screen if not already visible.
+  /// True when this screen *is* the app's first route, i.e. the process was
+  /// started by this call. Decides where to go when the screen closes: there is
+  /// no route underneath to pop back to.
+  final bool launchedTheApp;
+
+  /// Whether a ringing screen is currently on the navigator.
   static bool isShowing = false;
 
-  /// Helper launcher to show the incoming call screen as a full app overlay dialog.
+  /// Arguments for the case where this screen is the app's `initialRoute`.
+  ///
+  /// `Get.arguments` is only populated by a navigation call, and an initial
+  /// route is not one — so `main()` leaves the launch details here instead.
+  static Map<String, dynamic>? launchArguments;
+
+  /// Builds the screen from `Get.arguments` — the entry point used when this is
+  /// the app's **initial** route, which is how a call that arrived at a killed
+  /// app gets straight to Accept/Decline with no splash in the way.
+  static Widget fromRouteArguments() {
+    final Object? raw = Get.arguments ?? launchArguments;
+    final Map<String, dynamic> args =
+        raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+    return IncomingCallScreen(
+      callId: int.tryParse('${args['callId']}') ?? 0,
+      callerName: (args['callerName'] ?? 'HamQadam Member').toString(),
+      callerPhoto: args['callerPhoto'] as String?,
+      isVideoCall: args['isVideoCall'] == true,
+      threadId: args['threadId'] as int?,
+      ringSeconds: int.tryParse('${args['ringSeconds']}') ?? 0,
+      launchedTheApp: args['launchedTheApp'] == true,
+    );
+  }
+
+  /// Puts the ringing screen up.
+  ///
+  /// A pushed **route**, not a `Get.dialog`. As a dialog this was destroyed by
+  /// any `Get.offAllNamed` — which is exactly what the splash does 1.4 s into a
+  /// cold start, so a call that woke the app from dead showed its screen for one
+  /// frame and then vanished, leaving the tray ringing next to the Discover
+  /// page. A route also lets the same screen be `initialRoute`, so the app can
+  /// open *on* the call instead of navigating to it after booting.
   static Future<void> show({
     required int callId,
     required String callerName,
@@ -54,30 +94,43 @@ class IncomingCallScreen extends StatefulWidget {
 
     isShowing = true;
 
-    await Get.dialog<void>(
-      IncomingCallScreen(
-        callId: callId,
-        callerName: callerName,
-        callerPhoto: callerPhoto,
-        isVideoCall: isVideoCall,
-        threadId: threadId,
-        ringSeconds: ringSeconds,
-      ),
-      barrierDismissible: false,
-      useSafeArea: false,
-      barrierColor: Colors.black.withValues(alpha: 0.9),
+    await Get.toNamed<dynamic>(
+      AppRoutes.incomingCall,
+      arguments: <String, dynamic>{
+        'callId': callId,
+        'callerName': callerName,
+        'callerPhoto': callerPhoto,
+        'isVideoCall': isVideoCall,
+        'threadId': threadId,
+        'ringSeconds': ringSeconds,
+        'launchedTheApp': false,
+      },
     );
 
     isShowing = false;
   }
 
-  /// Closes the dialog if it is up — used when the caller hangs up before the
-  /// member got to either button.
+  /// Closes the ringing screen if it is up — used when the caller hangs up
+  /// before the member got to either button.
   static void dismissIfShowing() {
     IncomingCallOverlayBar.dismiss();
     if (!isShowing) return;
     isShowing = false;
-    if (Get.isDialogOpen ?? false) Get.back<void>();
+    if (Get.currentRoute == AppRoutes.incomingCall) _leave();
+  }
+
+  /// Leaves the ringing screen.
+  ///
+  /// When the call *was* the app's first screen there is nothing underneath to
+  /// pop back to, so the normal startup flow is started instead — otherwise
+  /// declining a call from a cold start would drop the member on a blank
+  /// navigator.
+  static void _leave() {
+    if (Get.previousRoute.isEmpty) {
+      Get.offAllNamed<dynamic>(AppRoutes.splash);
+    } else {
+      Get.back<void>();
+    }
   }
 
   /// Tapping the floating overlay bar should expand to full-screen incoming
@@ -110,10 +163,39 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   late AnimationController _animController;
   Timer? _ringTimer;
   Timer? _autoTimeoutTimer;
+  Worker? _callerWatch;
+
+  /// True once Accept has been pressed. The screen then renders a plain dark
+  /// surface and stops navigating, so the call screen can open on top of it
+  /// without the member seeing anything in between.
+  bool _accepted = false;
+
+  /// The caller's photo, which the *push* cannot supply.
+  ///
+  /// A call that arrives at a killed app is drawn from the record the FCM
+  /// isolate wrote down, and the payload carries only a name — so a cold start
+  /// would show the initial letter for the whole ring, where the same call
+  /// answered with the app open shows a photo. `CallController.ringFromPush`
+  /// fetches the real call a moment later; this picks the photo up from it.
+  String? _photo;
 
   @override
   void initState() {
     super.initState();
+    // Claimed here, not only in `show()`, because a cold start builds this
+    // screen as the initial route without going through `show()`. Without the
+    // flag the recovery pass in `AppLifecycleService` would call `show()` a
+    // moment later and stack a second ringing screen on top of this one.
+    IncomingCallScreen.isShowing = true;
+    _photo = widget.callerPhoto;
+    _watchForCallerDetails();
+
+    // Re-assert the lock-screen flags on the activity. The manifest sets them,
+    // but they are only read when the activity is created — and a backgrounded
+    // app is brought forward by the full-screen intent without a create, which
+    // is precisely the case where the ring must appear over the keyguard.
+    NotificationService.instance.beginCallScreen();
+
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -145,7 +227,27 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
   /// tells the caller over `call-accepted`. The controller opens the call
   /// screen, so this only has to get out of the way.
   void _acceptCall() {
-    _close();
+    _stopRinging();
+    IncomingCallScreen.isShowing = false;
+    IncomingCallOverlayBar.dismiss();
+    // Answering over the keyguard is the whole point of the lock-screen ring,
+    // so take the lock screen away rather than making the member dismiss it
+    // before they can talk.
+    NotificationService.instance.dismissKeyguard();
+
+    // No navigation here at all — this screen simply goes dark and the call
+    // screen opens on top of it.
+    //
+    // Popping first is wrong in both directions. `_close()` routes to the
+    // splash when this was the launch route, and the splash's own
+    // `Get.offAllNamed` lands 1.4 s later, right on top of the call screen and
+    // tears it down. Routing to Home instead fixed that but made Home flash up
+    // for the moment between Accept and the call connecting — the reported
+    // "accept karte to kuch time k lye app a jata phir connection screen".
+    //
+    // Staying put avoids both: nothing moves, and when the call screen is
+    // dismissed the worker below takes this route away.
+    setState(() => _accepted = true);
     _calls?.acceptIncoming(widget.callId);
   }
 
@@ -169,12 +271,43 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
     _stopRinging();
     IncomingCallScreen.isShowing = false;
     IncomingCallOverlayBar.dismiss();
-    if (Get.isDialogOpen ?? false) Get.back<void>();
+    // A cold start opens straight onto this screen, so there may be nothing
+    // beneath it — popping would leave an empty navigator.
+    if (widget.launchedTheApp || Get.previousRoute.isEmpty) {
+      // Home, not the splash: the splash re-runs the whole bootstrap and shows
+      // its animation for 1.4 s, which is a long time to look at after hanging
+      // up. The splash is only right when there is no session to go home to.
+      final bool signedIn = Get.isRegistered<AuthController>() &&
+          Get.find<AuthController>().hasToken;
+      Get.offAllNamed<dynamic>(signedIn ? AppRoutes.home : AppRoutes.splash);
+    } else if (Get.currentRoute == AppRoutes.incomingCall) {
+      Get.back<void>();
+    }
+  }
+
+  /// Picks up the caller's photo as soon as the controller has loaded the call.
+  void _watchForCallerDetails() {
+    final CallController? calls = _calls;
+    if (calls == null) return;
+    _callerWatch = ever<CallModel?>(calls.activeCall, (CallModel? call) {
+      if (!mounted) return;
+      // The call finished while this route was sitting dark underneath the
+      // call screen — take it away, or the member is left on a black page.
+      if (call == null) {
+        if (_accepted) _close();
+        return;
+      }
+      if (call.id != widget.callId) return;
+      final String? photo = call.caller?.photoUrl;
+      if (photo == null || photo.isEmpty) return;
+      setState(() => _photo = photo);
+    });
   }
 
   @override
   void dispose() {
     _stopRinging();
+    _callerWatch?.dispose();
     IncomingCallScreen.isShowing = false;
     _animController.dispose();
     super.dispose();
@@ -187,6 +320,13 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
         widget.isVideoCall ? 'Incoming Video Call' : 'Incoming Voice Call';
     final IconData callTypeIcon =
         widget.isVideoCall ? Icons.videocam_rounded : Icons.call_rounded;
+
+    // Accepted: render nothing but the call screen's own background colour.
+    // The call screen is opening on top of this route, and the member must not
+    // see the ringing UI, Home, or a white flash in between.
+    if (_accepted) {
+      return const Scaffold(backgroundColor: Color(0xFF0D1117));
+    }
 
     return PopScope(
       canPop: false,
@@ -285,12 +425,11 @@ class _IncomingCallScreenState extends State<IncomingCallScreen>
                           child: CircleAvatar(
                             radius: 65,
                             backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                            backgroundImage: widget.callerPhoto != null &&
-                                    widget.callerPhoto!.isNotEmpty
-                                ? NetworkImage(widget.callerPhoto!)
+                            backgroundImage: _photo != null &&
+                                    _photo!.isNotEmpty
+                                ? NetworkImage(_photo!)
                                 : null,
-                            child: widget.callerPhoto == null ||
-                                    widget.callerPhoto!.isEmpty
+                            child: _photo == null || _photo!.isEmpty
                                 ? Text(
                                     widget.callerName.isNotEmpty
                                         ? widget.callerName[0].toUpperCase()

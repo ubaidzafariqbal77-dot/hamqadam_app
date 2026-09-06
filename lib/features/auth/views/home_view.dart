@@ -8,6 +8,8 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/theme_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/push_readiness_service.dart';
+import '../../../core/widgets/push_readiness_dialog.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/premium_bottom_nav.dart';
 import '../../chat/views/chat_inbox_view.dart';
@@ -58,7 +60,24 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _auth.refreshUser());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _auth.refreshUser();
+      _checkPushReadiness();
+    });
+  }
+
+  /// Tells the member if this device cannot be reached while the app is closed.
+  ///
+  /// Here rather than at launch: by this point they are signed in and looking
+  /// at the app, so the explanation has somewhere to land — and the grants it
+  /// asks about are the ones that make a *closed* app ring, which only matters
+  /// once there is an account to be called on.
+  Future<void> _checkPushReadiness() async {
+    if (!Get.isRegistered<PushReadinessService>()) return;
+    final PushReadinessService service = Get.find<PushReadinessService>();
+    final PushReadiness state = await service.check();
+    if (!mounted || !service.shouldPrompt(state)) return;
+    await PushReadinessDialog.show(state);
   }
 
   @override

@@ -69,11 +69,25 @@
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_accent" />
 
-        <!-- showWhenLocked / turnScreenOn: an incoming call raises a
-             full-screen intent, and both of these are required for it to
-             actually appear over the lock screen and light the display.
-             Without them Android downgrades the call to a heads-up banner
-             behind the lock, which is a call the member never sees. -->
+        <!-- showWhenLocked / turnScreenOn must be declared, and MainActivity
+             switches them straight back OFF unless a call is ringing.
+
+             Both halves are necessary. Android decides whether an activity may
+             appear over the keyguard when it launches it - before a line of our
+             code runs - so without the manifest attribute a full-screen intent
+             on a locked phone is simply refused and the member gets a silent
+             "New notification" line instead of a ringing screen. Verified: with
+             these removed, a locked phone never rang.
+
+             But leaving them on permanently makes the launcher activity a
+             lock-screen surface for every ordinary launch, and a window shown
+             over the keyguard is given the short keyguard display timeout
+             rather than the member's own sleep setting - the reported "jab bhi
+             app chalta hai screen 5 second me off ho jati hai".
+
+             So the manifest grants the *capability* and MainActivity.onCreate
+             revokes it at runtime (`setShowWhenLocked(false)`) whenever there is
+             no ringing call. See MainActivity.kt. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

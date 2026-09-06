@@ -7,6 +7,15 @@ class AppRoutes {
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
 
+  /// The ringing screen, as a real route rather than a dialog.
+  ///
+  /// It has to be routable because it is sometimes the app's **first** screen:
+  /// a call arriving at a killed app launches the process, and the member must
+  /// land on Accept/Decline, not on the splash. A `Get.dialog` could never do
+  /// that - it needs a navigator that already exists, and the splash's
+  /// `Get.offAllNamed` tore it down a frame after it appeared.
+  static const String incomingCall = '/incoming-call';
+
   // ---- Registration steps 1..18 (see product document) ----------------------
   static const String accountFor = '/register/account-for'; // 1
   static const String basicInfo = '/register/basic-info'; // 2

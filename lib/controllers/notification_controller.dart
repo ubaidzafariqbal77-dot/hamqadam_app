@@ -107,9 +107,13 @@ class NotificationController extends GetxController {
       if (res is Map && res['id'] != null) {
         _pushTokenRecordId = res['id'];
       }
-      AppLogger.i('FCM Push Token synced to backend successfully (device: $deviceType)');
+      AppLogger.push('token ACCEPTED by backend (platform: $deviceType, '
+          'record: ${_pushTokenRecordId ?? '?'})');
     } catch (e) {
-      AppLogger.w('Failed to sync push token with backend: $e');
+      // Release-visible on purpose: a rejected registration is the difference
+      // between a phone that rings when it is closed and one that never does,
+      // and it is otherwise completely silent from the member's side.
+      AppLogger.push('token REJECTED by backend: $e');
     }
   }
 

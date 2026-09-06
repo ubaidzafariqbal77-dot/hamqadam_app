@@ -129,6 +129,10 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     super.initState();
     _currentToken = widget.token;
     _isVideoDisabled = !widget.isVideoCall;
+    // Hold the screen on for the duration of the call, and keep the window
+    // able to sit over the lock screen — a call answered from the lock screen
+    // must not black out mid-sentence. Released in `CallController._clear`.
+    NotificationService.instance.beginCallScreen();
     _listenForDeclineSignals();
     _watchForCallEnd();
     _initAgora();

@@ -182,6 +182,10 @@ class PusherChatService {
   void Function(Map<String, dynamic> data)? onThreadTyping;
   void Function(Map<String, dynamic> data)? onThreadUpdated;
 
+  /// Help Center messages, delivered on `private-help-chat.{threadId}` while
+  /// the Help conversation is open (and on the user channel otherwise).
+  void Function(Map<String, dynamic> data)? onHelpChatMessage;
+
   /// Every `call-*` event, with the bare event name (`call-incoming`, …) and
   /// the `{call, rtc}` payload. Kept separate from [onUserEvent] because those
   /// arrive on the same channel and are indistinguishable without the name.
@@ -200,6 +204,9 @@ class PusherChatService {
 
   /// Laravel's `PrivateChannel('chat-thread.{id}')`.
   static String threadChannel(int threadId) => 'private-chat-thread.$threadId';
+
+  /// Laravel's `PrivateChannel('help-chat.{id}')` — the Help Center thread.
+  static String helpChannel(int threadId) => 'private-help-chat.$threadId';
 
   // ---- State ---------------------------------------------------------------
 
@@ -454,7 +461,16 @@ class PusherChatService {
   ///
   /// The token is read here, not captured at init: it may not have existed when
   /// the socket was built, and it changes on every re-login.
-  Future<Map<String, dynamic>> _authorize(
+  ///
+  /// Returns `null` when the channel cannot be signed - never a map. The iOS
+  /// plugin does `authDataCast["auth"]!` on whatever comes back
+  /// (SwiftPusherChannelsFlutterPlugin.swift:110) and only checks the result
+  /// for nil, so handing it an `{'error': ...}` map force-unwraps nil and
+  /// takes the whole app down with EXC_BREAKPOINT on the main thread.
+  ///
+  /// Every value in a returned map must also be a `String`: the same code does
+  /// `authData as! [String: String]`, which traps on a non-string value.
+  Future<Map<String, String>?> _authorize(
     String channelName,
     String socketId,
     dynamic options,
@@ -462,7 +478,7 @@ class PusherChatService {
     final String? token = _storage.cachedToken;
     if (token == null || token.isEmpty) {
       AppLogger.w('Realtime auth for $channelName skipped: no bearer token.');
-      return <String, dynamic>{'error': 'No session'};
+      return null;
     }
 
     // Try the remembered endpoint first, then the alternatives — once. A 403
@@ -490,13 +506,25 @@ class PusherChatService {
 
         if (response.statusCode == 200) {
           final dynamic decoded = jsonDecode(response.body);
-          if (decoded is Map<String, dynamic> && decoded['auth'] != null) {
+          if (decoded is Map && decoded['auth'] != null) {
             if (_authEndpointIndex != index) {
               AppLogger.i('Realtime auth endpoint settled on $endpoint');
               _authEndpointIndex = index;
             }
             _authFailures = 0;
-            return decoded;
+
+            // Only the three keys the native side reads, each forced to a
+            // String so the iOS `as! [String: String]` cast cannot trap.
+            final Map<String, String> auth = <String, String>{
+              'auth': decoded['auth'].toString(),
+            };
+            for (final String key in const <String>['channel_data', 'shared_secret']) {
+              final Object? value = decoded[key];
+              if (value != null) {
+                auth[key] = value is String ? value : jsonEncode(value);
+              }
+            }
+            return auth;
           }
           AppLogger.w('Realtime auth 200 without an `auth` key from $endpoint.');
           continue;
@@ -527,7 +555,7 @@ class PusherChatService {
       _setStatus(RealtimeStatus.unavailable);
       _scheduleRevival();
     }
-    return <String, dynamic>{'error': 'Auth failed'};
+    return null;
   }
 
   // ---- Config --------------------------------------------------------------
@@ -654,6 +682,34 @@ class PusherChatService {
     }
   }
 
+  /// Subscribe to the Help Center conversation channel: `help-chat.{threadId}`.
+  Future<void> subscribeToHelpChannel(int threadId) async {
+    if (threadId <= 0) return;
+    final String channelName = helpChannel(threadId);
+    if (_desired.contains(channelName) && _live.contains(channelName)) return;
+
+    final List<String> stale = _desired
+        .where((String c) => c.startsWith('private-help-chat.') && c != channelName)
+        .toList();
+    for (final String c in stale) {
+      await _unsubscribe(c);
+    }
+
+    _desired.add(channelName);
+    await init();
+    await _flushDesired();
+  }
+
+  /// Unsubscribe from the Help Center conversation channel.
+  Future<void> unsubscribeHelpChannel() async {
+    final List<String> channels = _desired
+        .where((String c) => c.startsWith('private-help-chat.'))
+        .toList();
+    for (final String c in channels) {
+      await _unsubscribe(c);
+    }
+  }
+
   /// Sends a subscription for every wanted channel that is not confirmed yet.
   /// Called on connect, on reconnect, and whenever the wanted set changes.
   Future<void> _flushDesired() async {
@@ -768,7 +824,16 @@ class PusherChatService {
     }
 
     if (channel.contains('App.User')) {
+      // The Help Center also rides the user channel when the member is not
+      // looking at the conversation; route it before the activity handler
+      // mistakes it for an unknown notification.
+      if (evName.contains('help-message')) {
+        _safely(() => onHelpChatMessage?.call(data), evName);
+        return;
+      }
       _safely(() => onUserEvent?.call(data), evName);
+    } else if (channel.contains('help-chat')) {
+      _safely(() => onHelpChatMessage?.call(data), evName);
     } else if (channel.contains('chat-thread')) {
       if (evName.contains('typing')) {
         _safely(() => onThreadTyping?.call(data), evName);

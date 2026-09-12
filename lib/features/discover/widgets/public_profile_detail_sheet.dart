@@ -24,6 +24,8 @@ import 'send_interest_dialog.dart';
 
 /// Bottom modal sheet displaying complete details of a selected member profile
 /// loaded dynamically from `GET /api/v1/profiles/{id}`.
+import 'compatibility_section.dart';
+
 class PublicProfileDetailSheet extends StatefulWidget {
   const PublicProfileDetailSheet({
     super.key,
@@ -64,6 +66,10 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
   final LookupController _lookup = Get.find<LookupController>();
   late Future<PublicProfileModel> _future;
 
+  /// The matchmaking model's verdict on this pair. Loaded alongside the
+  /// profile so the card can render without a second round of spinners.
+  late Future<CompatibilityModel?> _compatFuture;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +78,11 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
 
   void _fetch() {
     _future = _repo.fetchPublicProfile(widget.profileId);
+    // A failed score must never take the profile down with it.
+    _compatFuture = _repo
+        .fetchCompatibility(widget.profileId)
+        .then<CompatibilityModel?>((CompatibilityModel c) => c)
+        .catchError((Object _) => null);
   }
 
   void _startChat(PublicProfileModel profile) async {
@@ -330,6 +341,10 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
                             ),
                         ],
                       ),
+                      const SizedBox(height: AppSpacing.lg),
+
+                      // Why this score — the model's reasoning, not just a chip.
+                      CompatibilitySection(future: _compatFuture),
                       const SizedBox(height: AppSpacing.lg),
 
                       // Package viewer meta info (if available)

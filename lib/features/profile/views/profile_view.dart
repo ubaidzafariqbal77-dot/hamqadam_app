@@ -1515,7 +1515,7 @@ class _PrivacyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<_Priv> rows = <_Priv>[
+    final List<_Priv> all = <_Priv>[
       _Priv('Profile photo', Icons.account_circle_rounded, privacy.showPhoto),
       _Priv('Photo gallery', Icons.photo_library_rounded, privacy.showGallery),
       _Priv('Contact details', Icons.contact_page_rounded, privacy.showContact),
@@ -1529,42 +1529,164 @@ class _PrivacyCard extends StatelessWidget {
       ),
     ];
 
-    final int visible = rows.where((_Priv p) => p.on).length;
+    // Grouped by state rather than listed flat. A single column with the
+    // answer repeated on every row made the reader compare seven pills to work
+    // out what a stranger actually sees; two headed groups answer that before
+    // the first row is read, and the per-row tag becomes redundant - so it
+    // goes, and the icon carries the state instead.
+    final List<_Priv> shown = all.where((_Priv p) => p.on).toList();
+    final List<_Priv> hidden = all.where((_Priv p) => !p.on).toList();
 
     return _Surface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _CardHeader(
-            icon: Icons.lock_outline_rounded,
-            title: 'Privacy & visibility',
-            trailing: '$visible of ${rows.length}',
+          Row(
+            children: <Widget>[
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  size: AppDimensions.iconSm,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Privacy & visibility',
+                  style: AppTextStyles.subtitle.copyWith(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: _Ink.strong(context),
+                  ),
+                ),
+              ),
+              _ManageLink(onTap: () => Get.to<void>(() => const EditProfileView())),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          // Seven coloured pills wrapped into a ragged cloud where a hidden
-          // field looked exactly as urgent as a visible one, and the labels all
-          // began with the same word. These are settings with two states, so
-          // they read as rows: what it is on the left, whether people can see
-          // it on the right, in a column that can be checked at a glance.
-          Container(
-            decoration: BoxDecoration(
-              color: _Ink.wash(context),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                for (int i = 0; i < rows.length; i++) ...<Widget>[
-                  if (i > 0)
-                    Divider(height: 1, thickness: 1, color: _Ink.line(context)),
-                  _PrivRow(priv: rows[i]),
-                ],
-              ],
+
+          // What a stranger sees, stated once, in a sentence.
+          Text(
+            shown.isEmpty
+                ? 'Nothing on your profile is visible to other members.'
+                : '${shown.length} of ${all.length} details are visible to other members.',
+            style: AppTextStyles.caption.copyWith(
+              color: _Ink.muted(context),
+              height: 1.4,
             ),
           ),
+          const SizedBox(height: 10),
+          _VisibilityMeter(shown: shown.length, total: all.length),
+          const SizedBox(height: AppSpacing.md),
+
+          if (shown.isNotEmpty)
+            _PrivGroup(title: 'Visible to members', items: shown, on: true),
+          if (shown.isNotEmpty && hidden.isNotEmpty)
+            const SizedBox(height: AppSpacing.sm),
+          if (hidden.isNotEmpty)
+            _PrivGroup(title: 'Kept private', items: hidden, on: false),
         ],
       ),
+    );
+  }
+}
+
+/// Seven segments, lit for each detail a stranger can see.
+///
+/// A count alone ("3 of 7") is a number to be parsed; the meter is the same
+/// fact as a shape, which is read without counting.
+class _VisibilityMeter extends StatelessWidget {
+  const _VisibilityMeter({required this.shown, required this.total});
+
+  final int shown;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: <Widget>[
+      for (int i = 0; i < total; i++) ...<Widget>[
+        if (i > 0) const SizedBox(width: 4),
+        Expanded(
+          child: Container(
+            height: 5,
+            decoration: BoxDecoration(
+              color: i < shown
+                  ? AppColors.success.withValues(alpha: 0.85)
+                  : _Ink.line(context),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+class _PrivGroup extends StatelessWidget {
+  const _PrivGroup({required this.title, required this.items, required this.on});
+
+  final String title;
+  final List<_Priv> items;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = on ? AppColors.success : _Ink.muted(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(
+              on ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+              size: 14,
+              color: accent,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              title.toUpperCase(),
+              style: AppTextStyles.badge.copyWith(
+                color: accent,
+                letterSpacing: 0.7,
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: _Ink.wash(context),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: on
+                  ? AppColors.success.withValues(alpha: 0.18)
+                  : _Ink.border(context),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              for (int i = 0; i < items.length; i++) ...<Widget>[
+                if (i > 0)
+                  Divider(height: 1, thickness: 1, color: _Ink.line(context)),
+                _PrivRow(priv: items[i], accent: accent),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1577,72 +1699,73 @@ class _Priv {
 }
 
 class _PrivRow extends StatelessWidget {
-  const _PrivRow({required this.priv});
+  const _PrivRow({required this.priv, required this.accent});
+
   final _Priv priv;
+  final Color accent;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 11),
-      child: Row(
-        children: <Widget>[
-          Icon(priv.icon, size: 18, color: _Ink.muted(context)),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              priv.label,
-              style: AppTextStyles.bodyStrong.copyWith(
-                fontSize: 14.5,
-                fontWeight: FontWeight.w600,
-                color: _Ink.strong(context),
-              ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Row(
+      children: <Widget>[
+        // The icon tile carries the state now, which is why the row needs no
+        // tag: a lit tile reads as "on" faster than a word does.
+        Container(
+          height: 30,
+          width: 30,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: priv.on ? 0.12 : 0.08),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(priv.icon, size: 16, color: accent),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            priv.label,
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: _Ink.strong(context),
             ),
           ),
-          _VisibilityTag(on: priv.on),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
-/// Says what the setting does, not merely that it is on.
-///
-/// "Show phone" with a tick meant the reader had to hold the sentence and the
-/// tick in their head at once. "Visible" / "Hidden" is the answer itself.
-class _VisibilityTag extends StatelessWidget {
-  const _VisibilityTag({required this.on});
-  final bool on;
+/// The way out of a read-only card: these settings live on the edit screen.
+class _ManageLink extends StatelessWidget {
+  const _ManageLink({required this.onTap});
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final Color color = on ? AppColors.success : _Ink.muted(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(
-            on ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-            size: 13,
-            color: color,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            on ? 'Visible' : 'Hidden',
-            style: AppTextStyles.caption.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Manage',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 2),
+            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.primary),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------

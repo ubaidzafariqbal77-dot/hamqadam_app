@@ -77,5 +77,13 @@ class PusherConfig {
   /// Laravel Echo / Pusher auth endpoint for private/presence channels.
   /// Points to the web domain (not /api/v1) since broadcasting routes
   /// live outside the v1 API prefix.
-  static const String authEndpoint = '${ApiConfig.assetBaseUrl}/broadcasting/auth';
+  /// Channel authorisation endpoint, tried first.
+  ///
+  /// This points at the API path, not the site root. `/broadcasting/auth` sits
+  /// behind the website's CSRF guard, and the app carries a bearer token and no
+  /// session, so it answered 419 "CSRF token mismatch" on every subscription —
+  /// Pusher connected, no private channel ever authorised, and the app fell
+  /// back to polling. PusherChatService still tries the other candidates if
+  /// this one ever stops answering.
+  static const String authEndpoint = '${ApiConfig.baseUrl}/broadcasting/auth';
 }

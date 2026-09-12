@@ -34,6 +34,18 @@
     <!-- ── Wake Lock (keep device awake during calls) ─────────────────── -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
+    <!-- ── Ongoing-call foreground service ─────────────────────────────
+         Not cosmetic. Since Android 9 a process with no foreground activity
+         and no foreground service is handed *silence* from the microphone
+         rather than an error, so a minimised call keeps every "connected"
+         indicator lit while the other side hears nothing. CallForegroundService
+         is what keeps the capture real once the call screen is off screen —
+         and what puts the call in the notification tray so it can be tapped
+         back open. The typed permissions are required from Android 14. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+
     <!-- ── Battery optimisation exemption ──────────────────────────────
          Measured on an Infinix X6853: FCM reaches the app in the foreground,
          in the background and after its process is killed, but NOT once the
@@ -88,6 +100,11 @@
              So the manifest grants the *capability* and MainActivity.onCreate
              revokes it at runtime (`setShowWhenLocked(false)`) whenever there is
              no ringing call. See MainActivity.kt. -->
+        <!-- supportsPictureInPicture / resizeableActivity: a video call shrinks
+             into a floating window when the member leaves it (back, home or
+             recents) instead of ending. Both are needed — Android refuses PiP
+             outright without the first, and cannot draw a non-resizeable
+             activity at PiP size. See MainActivity.enterPip. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -96,6 +113,8 @@
             android:theme="@style/LaunchTheme"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
@@ -112,6 +131,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Holds the microphone (and the camera, on a video call) open while
+             the call is minimised, and owns the ongoing-call tray entry. -->
+        <service
+            android:name=".CallForegroundService"
+            android:exported="false"
+            android:stopWithTask="true"
+            android:foregroundServiceType="microphone|camera"/>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

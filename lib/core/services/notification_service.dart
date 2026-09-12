@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/help_chat_controller.dart';
 import '../../controllers/interest_controller.dart';
 import '../../controllers/notification_controller.dart';
 import '../../controllers/payment_controller.dart';
@@ -16,6 +17,7 @@ import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
+import '../../features/help_center/views/help_chat_view.dart';
 import '../../features/interests/views/interests_view.dart';
 
 import '../../features/notifications/views/notifications_view.dart';
@@ -137,6 +139,11 @@ class NotificationService {
   static const String callAcceptAction = 'call_accept';
   static const String callRejectAction = 'call_reject';
 
+  /// "End call" on the *ongoing*-call notification — the one that stands for a
+  /// call already in progress, not an offer. Android's copy of that entry is
+  /// owned by `CallForegroundService`; this id is for the iOS one.
+  static const String callEndAction = 'call_end';
+
   /// Where a ringing call is left for the app to pick up.
   ///
   /// The FCM background isolate is the only thing running when a call arrives
@@ -164,6 +171,9 @@ class NotificationService {
   static int _activityNotificationId(int notificationId) =>
       800000 + (notificationId.abs() % 90000);
   static int _callNotificationId(int callId) => 900000 + (callId.abs() % 90000);
+
+  /// One at a time, so a second call cannot leave a stale "on a call" entry.
+  static const int _ongoingCallNotificationId = 918274;
 
   static String _threadGroupKey(int threadId) => 'com.app.hamqadam.THREAD_$threadId';
 
@@ -332,6 +342,23 @@ class NotificationService {
               DarwinNotificationAction.plain(
                 callRejectAction,
                 'Decline',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.destructive,
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+            ],
+            options: <DarwinNotificationCategoryOption>{
+              DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+            },
+          ),
+          // The call already in progress: one button, and it hangs up.
+          DarwinNotificationCategory(
+            'hamqadam_ongoing_call',
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                callEndAction,
+                'End call',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.destructive,
                   DarwinNotificationActionOption.foreground,
@@ -917,6 +944,58 @@ class NotificationService {
     await _forgetPendingCall();
   }
 
+  // ---- The call already in progress ---------------------------------------
+
+  /// Shows the "you are on a call" entry, so a minimised call can be tapped
+  /// back open instead of being lost behind whatever the member opened next.
+  ///
+  /// **iOS only.** On Android the same entry is the foreground notification of
+  /// `CallForegroundService` — see [CallWindowService.startOngoingCall] —
+  /// because there it has a second job that a plain notification cannot do:
+  /// a backgrounded process without a foreground service records silence
+  /// rather than audio from Android 9 onwards.
+  Future<void> showOngoingCall({
+    required int callId,
+    required String peerName,
+    required bool isVideo,
+    required String status,
+  }) async {
+    if (!GetPlatform.isIOS) return;
+    await init();
+    try {
+      await _localNotifications.show(
+        _ongoingCallNotificationId,
+        peerName,
+        status,
+        const NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: false,
+            categoryIdentifier: 'hamqadam_ongoing_call',
+            interruptionLevel: InterruptionLevel.passive,
+          ),
+        ),
+        payload: jsonEncode(<String, dynamic>{
+          'type': 'call_ongoing',
+          'call_id': callId,
+          'is_video': isVideo,
+        }),
+      );
+    } catch (e) {
+      AppLogger.d('Could not show the ongoing-call notification: $e');
+    }
+  }
+
+  /// Takes the ongoing-call entry down when the call is over.
+  Future<void> cancelOngoingCall() async {
+    try {
+      await _localNotifications.cancel(_ongoingCallNotificationId);
+    } catch (_) {
+      // Nothing showing.
+    }
+  }
+
   /// Plays the ringtone in a loop for incoming calls.
   ///
   /// Single point of control for in-app ringing, and it deliberately does
@@ -949,7 +1028,21 @@ class NotificationService {
   /// action and has been dealt with.
   bool _handleCallAction(NotificationResponse response) {
     final String? action = response.actionId;
-    if (action != callAcceptAction && action != callRejectAction) return false;
+    if (action != callAcceptAction &&
+        action != callRejectAction &&
+        action != callEndAction) {
+      return false;
+    }
+
+    // Ending a call in progress needs no id: there is only ever one, and the
+    // controller already knows which.
+    if (action == callEndAction) {
+      cancelOngoingCall();
+      if (Get.isRegistered<CallController>()) {
+        Get.find<CallController>().hangUp();
+      }
+      return true;
+    }
 
     final int? callId = _callIdFrom(response.payload);
     if (callId == null) return true; // it was ours; nothing usable in it
@@ -1038,6 +1131,39 @@ class NotificationService {
 
     if (body == null || body.isEmpty) {
       _refreshCorrespondingController(data);
+      return;
+    }
+
+    // ── Help Center ──────────────────────────────────────────────────────
+    // Checked before the chat matcher below: `help_chat` contains "chat" and
+    // would otherwise be treated as a member-to-member message. A support
+    // reply while the conversation is open is silent; otherwise it is a tray
+    // entry that opens the Help Center on tap.
+    if (type == 'help_chat') {
+      final int? helpMessageId = int.tryParse((data['message_id'] ?? '').toString());
+      final bool viewingHelp = Get.isRegistered<HelpChatController>() &&
+          appInForeground &&
+          Get.currentRoute == '/help-chat';
+
+      if (!viewingHelp) {
+        final String key = 'help:$helpMessageId';
+        if (claim(key)) {
+          await showNotification(
+            id: _activityNotificationId(helpMessageId ?? key.hashCode),
+            title: title,
+            body: body,
+            payload: jsonEncode(<String, dynamic>{
+              'type': 'help_chat',
+              'thread_id': data['thread_id'] ?? '',
+              'message_id': data['message_id'] ?? '',
+            }),
+          );
+        }
+      }
+
+      if (Get.isRegistered<HelpChatController>()) {
+        Get.find<HelpChatController>().syncFromPush();
+      }
       return;
     }
 
@@ -1235,6 +1361,19 @@ class NotificationService {
           );
           return;
         }
+      }
+
+      // 0b. The call already in progress. Tapping it only has to bring the app
+      // forward — the call screen is still the top route, and routing anywhere
+      // would push a screen over the call the member asked to go back to.
+      if (type == 'call_ongoing') return;
+
+      // 1. Help Center — checked before the chat matcher below, because
+      // `help_chat` also contains "chat" and would otherwise open the
+      // member-to-member inbox instead of the support conversation.
+      if (type == 'help_chat') {
+        Get.to<void>(() => const HelpChatView());
+        return;
       }
 
       // 1. Chat messages

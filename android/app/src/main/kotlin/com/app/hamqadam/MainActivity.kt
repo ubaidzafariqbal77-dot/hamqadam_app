@@ -2,10 +2,14 @@ package com.app.hamqadam
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.app.PictureInPictureParams
 import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.util.Rational
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -23,6 +27,13 @@ class MainActivity : FlutterActivity() {
         const val CHANNEL = "com.app.hamqadam/call_reliability"
 
         /**
+         * Everything that decides *where* a live call is drawn: the
+         * picture-in-picture window, the "minimise but keep talking" path, and
+         * the ongoing-call service that owns the tray entry.
+         */
+        const val WINDOW_CHANNEL = "com.app.hamqadam/call_window"
+
+        /**
          * Where `NotificationService._rememberPendingCall` leaves a ringing
          * call. `shared_preferences` namespaces every key with `flutter.`, so
          * the Dart key `pending_incoming_call_v1` is stored under this name.
@@ -36,6 +47,19 @@ class MainActivity : FlutterActivity() {
 
     /** True while a call is ringing or connected on this activity. */
     private var callMode = false
+
+    /**
+     * True while a *video* call is up, i.e. while leaving the app should shrink
+     * it into a picture-in-picture window instead of hiding it.
+     *
+     * Audio calls deliberately leave this false: a PiP window showing an avatar
+     * is nothing but a thumbnail in the way, and the tray notification the
+     * foreground service posts is the right surface for them.
+     */
+    private var pipWanted = false
+
+    /** Reaches Dart with PiP transitions and the notification's End action. */
+    private var windowChannel: MethodChannel? = null
 
     /**
      * Turn the lock-screen behaviour **off** unless a call is ringing.
@@ -201,6 +225,163 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // Not named `window`: that would shadow the Activity's own `window`.
+        val windowMethods = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WINDOW_CHANNEL)
+        windowChannel = windowMethods
+        windowMethods.setMethodCallHandler { call, result ->
+            when (call.method) {
+                // Whether this device will actually give us a PiP window. A
+                // member can turn it off per app in Settings, and Android TV /
+                // Go devices may not have the feature at all — Dart falls back
+                // to minimising the task when this is false.
+                "isPipSupported" -> result.success(isPipSupported())
+
+                // Called when a video call starts and again when it ends. It is
+                // what makes the *home* button shrink the call rather than hide
+                // it: `onUserLeaveHint` below, plus auto-enter on Android 12+.
+                "setPipEnabled" -> {
+                    pipWanted = (call.argument<Boolean>("enabled") ?: false) && isPipSupported()
+                    applyAutoEnterPip()
+                    result.success(pipWanted)
+                }
+
+                // Back on a video call. Returns false when the system refused,
+                // so Dart can fall back instead of leaving the member stuck on
+                // a screen whose back button does nothing.
+                "enterPip" -> result.success(
+                    enterPip(
+                        call.argument<Int>("width") ?: 9,
+                        call.argument<Int>("height") ?: 16,
+                    ),
+                )
+
+                // Back on an audio call: send the task to the background, the
+                // way the home button would. The call keeps running because the
+                // foreground service below holds the microphone open.
+                "moveToBackground" -> {
+                    moveTaskToBack(true)
+                    result.success(true)
+                }
+
+                "startCallService" -> {
+                    CallForegroundService.start(
+                        this,
+                        call.argument<String>("name") ?: "HamQadam call",
+                        call.argument<Boolean>("isVideo") ?: false,
+                        call.argument<String>("status") ?: "Ongoing call",
+                    )
+                    result.success(true)
+                }
+
+                "stopCallService" -> {
+                    CallForegroundService.stop(this)
+                    result.success(true)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+
+        // "End call" on the ongoing-call notification. Routed into Dart so the
+        // server is told the call is over — stopping the service on its own
+        // would only hide the evidence.
+        CallForegroundService.onEndCallRequested = {
+            runOnUiThread { windowChannel?.invokeMethod("endCall", null) }
+        }
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        CallForegroundService.onEndCallRequested = null
+        windowChannel?.setMethodCallHandler(null)
+        windowChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    // ── Picture-in-picture ──────────────────────────────────────────────────
+
+    private fun isPipSupported(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        return packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+    }
+
+    /**
+     * Ask for the little floating window, sized to the video's aspect ratio.
+     *
+     * Android clamps the ratio to roughly 1:2.39 … 2.39:1 and throws outside
+     * that, so the values are clamped here rather than trusted from Dart.
+     */
+    private fun enterPip(width: Int, height: Int): Boolean {
+        // The SDK_INT check is repeated rather than left to `isPipSupported`
+        // so lint can see that nothing below API 26 reaches these calls.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        if (!isPipSupported()) return false
+        return try {
+            val ratio = Rational(width.coerceIn(1, 239), height.coerceIn(1, 239))
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(ratio)
+                .build()
+            enterPictureInPictureMode(params)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "PiP refused: $e")
+            false
+        }
+    }
+
+    /**
+     * Android 12+ can shrink the app into PiP by itself when the member leaves,
+     * which is smoother than reacting to [onUserLeaveHint] — the window
+     * animates out of the app instead of appearing after it.
+     */
+    private fun applyAutoEnterPip() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        try {
+            setPictureInPictureParams(
+                PictureInPictureParams.Builder()
+                    .setAutoEnterEnabled(pipWanted)
+                    .build(),
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "auto-PiP not applied: $e")
+        }
+    }
+
+    /**
+     * Home / recents during a video call. On Android 12+ auto-enter has already
+     * done it; calling twice is harmless, and this is the only path that works
+     * on 8 … 11.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (pipWanted && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            enterPip(9, 16)
+        }
+    }
+
+    /**
+     * Tells Dart to swap between the full call screen and the stripped-down
+     * layout that reads at PiP size — the whole Flutter UI is what gets scaled
+     * into that window, so the controls have to get out of the way themselves.
+     */
+    @Suppress("NewApi")
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        windowChannel?.invokeMethod("pipModeChanged", isInPictureInPictureMode)
+    }
+
+    /**
+     * Closing the PiP window (its X) finishes the activity outright, so the
+     * ongoing-call notification would otherwise outlive the app that owns it.
+     */
+    override fun onDestroy() {
+        if (isFinishing) {
+            pipWanted = false
+            CallForegroundService.stop(this)
+        }
+        super.onDestroy()
     }
 
     private fun canUseFullScreenIntent(): Boolean {

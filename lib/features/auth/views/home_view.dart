@@ -6,6 +6,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/auth_controller.dart';
+import '../../../controllers/help_chat_controller.dart';
 import '../../../controllers/theme_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/services/push_readiness_service.dart';
@@ -15,6 +16,7 @@ import '../../../widgets/premium_bottom_nav.dart';
 import '../../chat/views/chat_inbox_view.dart';
 import '../../discover/views/discover_view.dart';
 import '../../discover/widgets/search_filter_bottom_sheet.dart';
+import '../../help_center/views/help_chat_view.dart';
 import '../../interests/views/interests_view.dart';
 import '../../profile/views/edit_profile_view.dart';
 import '../../profile/views/profile_view.dart';
@@ -238,6 +240,7 @@ class _AppDrawer extends StatelessWidget {
                     () => _soon(context)),
                 _tile(context, Icons.privacy_tip_outlined, 'Privacy & Settings',
                     () => _soon(context)),
+                _helpTile(context),
                 _tile(context, Icons.notifications_none_rounded, 'Notifications', () => _soon(context)),
                 _tile(context, Icons.brightness_6_rounded, 'Theme', () => _themePicker(context)),
                 const SizedBox(height: AppSpacing.sm),
@@ -385,6 +388,69 @@ class _AppDrawer extends StatelessWidget {
 
   void _soon(BuildContext context) =>
       Get.snackbar('Coming soon', 'This section is on the way.', snackPosition: SnackPosition.BOTTOM);
+
+  /// The Help Center entry. The unread badge counts support replies that
+  /// arrived while the conversation was closed — the same number the member
+  /// sees in the tray, so neither drawer nor tray can say something stale.
+  Widget _helpTile(BuildContext context) {
+    final bool registered = Get.isRegistered<HelpChatController>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: AppRadius.mdAll,
+          onTap: () {
+            Navigator.of(context).pop();
+            HelpChatView.open();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 11),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.smAll,
+                  ),
+                  child: const Icon(Icons.support_agent_rounded,
+                      color: AppColors.primary, size: AppDimensions.iconSm + 2),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text('HamQadam Help Center', style: AppTextStyles.bodyStrong),
+                ),
+                if (registered)
+                  Obx(() {
+                    final int unread = Get.find<HelpChatController>().unreadCount.value;
+                    if (unread <= 0) {
+                      return Icon(Icons.chevron_right_rounded,
+                          color: Theme.of(context).hintColor, size: 20);
+                    }
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                      ),
+                      child: Text(
+                        '$unread',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    );
+                  }),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _themePicker(BuildContext context) {
     final ThemeController theme = Get.find<ThemeController>();

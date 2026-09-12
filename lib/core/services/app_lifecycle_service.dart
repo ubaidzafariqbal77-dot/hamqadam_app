@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/help_chat_controller.dart';
 import '../../controllers/notification_controller.dart';
 import '../routes/app_routes.dart';
 import '../network/network_info.dart';
@@ -102,6 +103,9 @@ class AppLifecycleService with WidgetsBindingObserver {
         if (Get.isRegistered<ChatController>()) {
           Get.find<ChatController>().onAppBackgrounded();
         }
+        if (Get.isRegistered<HelpChatController>()) {
+          Get.find<HelpChatController>().onAppBackgrounded();
+        }
     }
   }
 
@@ -125,6 +129,9 @@ class AppLifecycleService with WidgetsBindingObserver {
 
     if (Get.isRegistered<ChatController>()) {
       Get.find<ChatController>().onAppResumed();
+    }
+    if (Get.isRegistered<HelpChatController>()) {
+      Get.find<HelpChatController>().onAppResumed();
     }
     if (Get.isRegistered<NotificationController>()) {
       Get.find<NotificationController>().fetchNotifications(refresh: true);

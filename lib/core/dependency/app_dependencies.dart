@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/help_chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
 import '../../controllers/interest_controller.dart';
@@ -27,6 +28,7 @@ import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/call_repository.dart';
 import '../../repositories/chat_repository.dart';
+import '../../repositories/help_chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
 import '../../repositories/interest_repository.dart';
@@ -120,6 +122,7 @@ class AppDependencies {
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
     Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
     Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
+    Get.put<HelpChatRepository>(HelpChatRepository(apiClient), permanent: true);
     Get.put<CallRepository>(CallRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
@@ -254,6 +257,18 @@ class AppDependencies {
     Get.put<ChatController>(
       ChatController(
         repository: Get.find<ChatRepository>(),
+        pusher: Get.find<PusherChatService>(),
+        currentUser: Get.find<CurrentUserService>(),
+      ),
+      permanent: true,
+    );
+
+    // Help Center controller. Permanent for the same reason as ChatController:
+    // a support reply can arrive over Pusher on any screen, and the
+    // controller that receives it must already exist.
+    Get.put<HelpChatController>(
+      HelpChatController(
+        repository: Get.find<HelpChatRepository>(),
         pusher: Get.find<PusherChatService>(),
         currentUser: Get.find<CurrentUserService>(),
       ),

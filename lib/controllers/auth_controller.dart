@@ -16,6 +16,7 @@ import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
 import 'chat_controller.dart';
+import 'help_chat_controller.dart';
 import 'lookup_controller.dart';
 import 'notification_controller.dart';
 import 'payment_controller.dart';
@@ -138,6 +139,9 @@ class AuthController extends GetxController {
     }
     if (Get.isRegistered<ChatController>()) {
       Get.find<ChatController>().reset();
+    }
+    if (Get.isRegistered<HelpChatController>()) {
+      Get.find<HelpChatController>().reset();
     }
     if (Get.isRegistered<PushTokenService>()) {
       Get.find<PushTokenService>().forgetSync();

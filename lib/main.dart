@@ -10,6 +10,7 @@ import 'core/dependency/app_dependencies.dart';
 import 'core/routes/app_pages.dart';
 import 'core/routes/app_routes.dart';
 import 'core/services/app_lifecycle_service.dart';
+import 'core/services/call_window_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/permissions_service.dart';
 import 'core/services/push_token_service.dart';
@@ -112,6 +113,13 @@ Future<void> main() async {
   // before this line — which is exactly the race that used to leave the
   // backend without this device's push token on a warm start.
   await AppDependencies.init();
+
+  // ── Where a live call goes when the member looks away ───────────────────
+  // Listens for the two things the platform reports back: Android putting the
+  // app into its picture-in-picture window, and "End call" tapped on the
+  // ongoing-call notification. Registered after the container so the handler
+  // can reach CallController.
+  CallWindowService.instance.init();
 
   // ── Did a call wake this process up? ────────────────────────────────────
   // FIRST, before any service starts. `AppLifecycleService.start()` below runs

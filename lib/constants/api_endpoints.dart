@@ -322,6 +322,13 @@ class ApiEndpoints {
   /// Call history for one conversation (`GET /chat/threads/{thread}/calls`).
   static String threadCalls(int threadId) => '/chat/threads/$threadId/calls';
 
+  // ---- Help Center (support chat) ------------------------------------------
+  /// The member's Help Center conversation (created on first use).
+  static const String helpChatThread = '/help-chat/thread';
+
+  /// Messages of that conversation (`GET` list / `POST` send).
+  static const String helpChatMessages = '/help-chat/messages';
+
   // ---- Bridge (Pusher / Realtime Config) ----------------------------------
   static const String bridgeConnectorA = '/bridge/connector-a';
   static const String bridgeConnectorB = '/bridge/connector-b';

@@ -8,6 +8,7 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../core/services/call_state_service.dart';
+import '../../../core/services/call_window_service.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../models/call_model.dart';
 
@@ -99,6 +100,19 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   int _callDurationSeconds = 0;
   StreamSubscription<int>? _declineSubscription;
 
+  /// True while Android is drawing the app in its floating window.
+  ///
+  /// PiP scales the *whole* Flutter UI down, so nothing hides itself: at that
+  /// size the controls, the top bar and the avatar are unreadable smudges over
+  /// the video. The screen strips itself back to the remote feed instead —
+  /// see [build].
+  bool _isPipMode = false;
+  StreamSubscription<bool>? _pipSubscription;
+
+  /// The line currently on the ongoing-call notification, so it is only
+  /// rewritten when it actually changed.
+  String _trayStatusShown = '';
+
   /// Closes this screen when the controller says the call is over.
   ///
   /// The controller used to pop the screen itself with
@@ -133,9 +147,98 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     // able to sit over the lock screen — a call answered from the lock screen
     // must not black out mid-sentence. Released in `CallController._clear`.
     NotificationService.instance.beginCallScreen();
+    // The call is now a thing the member can leave and come back to, so it
+    // needs somewhere to live while they are not looking at it: a
+    // picture-in-picture window for video, and the tray entry raised from
+    // [_initAgora] — after the microphone has been granted, because Android 14
+    // refuses to start a microphone foreground service before that.
+    CallWindowService.instance.setPipEnabled(widget.isVideoCall);
+    _pipSubscription =
+        CallWindowService.instance.onPipModeChanged.listen((bool inPip) {
+      if (!mounted) return;
+      setState(() => _isPipMode = inPip);
+    });
     _listenForDeclineSignals();
     _watchForCallEnd();
     _initAgora();
+  }
+
+  // ─── Minimising ──────────────────────────────────────────────────────────
+
+  /// What "back" means on a call now.
+  ///
+  /// It used to mean hang up — back popped the route, `dispose` released the
+  /// Agora engine and `CallController._openCallScreen` reported the call ended
+  /// to the server. So there was no way to check a message mid-call without
+  /// dropping it.
+  ///
+  /// The route is never popped here. A video call shrinks into the system's
+  /// floating window; an audio call sends the task to the background, where
+  /// the foreground service keeps the microphone alive and the tray entry
+  /// brings it back. If PiP is refused — the member turned it off for this app,
+  /// or the device has no such feature — the video call minimises the same way
+  /// the audio one does rather than leaving back doing nothing.
+  Future<void> _minimize() async {
+    if (_isEndingCall) return;
+    final bool videoIsLive = widget.isVideoCall && !_isVideoDisabled;
+    if (videoIsLive && await CallWindowService.instance.enterPictureInPicture()) {
+      return;
+    }
+    if (await CallWindowService.instance.minimizeApp()) return;
+
+    // iOS: an app there cannot send itself to the background, so the only
+    // honest thing left is to say that leaving will not drop the call.
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text(
+          'The call keeps running if you leave the app.',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.black87,
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  /// The one-line description on the ongoing-call notification.
+  String get _trayStatus {
+    if (_remoteUid != null) {
+      return widget.isVideoCall ? 'Ongoing video call' : 'Ongoing voice call';
+    }
+    if (_isReconnecting) return 'Reconnecting…';
+    if (_localUserJoined) return 'Ringing…';
+    return 'Connecting…';
+  }
+
+  /// Posts (or rewrites) the tray entry, but only when the line has changed —
+  /// on Android every rewrite goes through the foreground service.
+  void _publishTrayEntry() {
+    final String status = _trayStatus;
+    if (status == _trayStatusShown) return;
+    _trayStatusShown = status;
+    CallWindowService.instance.startOngoingCall(
+      callId: widget.callId ?? 0,
+      peerName: widget.userName,
+      isVideo: widget.isVideoCall,
+      status: status,
+    );
+  }
+
+  /// Hands back everything the minimised call was holding: the PiP preference,
+  /// the tray entry, and with it the microphone the service was keeping open.
+  void _releaseCallWindow() {
+    CallWindowService.instance.setPipEnabled(false);
+    CallWindowService.instance.stopOngoingCall();
+    // A call that ends while the app is in its floating window must not leave
+    // that window sitting over whatever the member moved on to — with the call
+    // screen popped it would be showing the chat behind it. Sending the task
+    // to the back closes the window and leaves them where they were.
+    if (CallWindowService.instance.isInPictureInPicture) {
+      CallWindowService.instance.minimizeApp();
+    }
   }
 
   void _watchForCallEnd() {
@@ -146,7 +249,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       if (!mounted || _isEndingCall) return;
       _isEndingCall = true;
       debugPrint('📞 Call cleared by the controller; closing the call screen.');
-      Navigator.of(context).maybePop();
+      _releaseCallWindow();
+      // `pop`, not `maybePop`: back is now intercepted by the [PopScope] in
+      // [build] and turned into a minimise, and `maybePop` would ask it — so
+      // the call ending would have shrunk the screen instead of closing it.
+      Navigator.of(context).pop();
     });
   }
 
@@ -191,6 +298,14 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       if (widget.isVideoCall) Permission.camera,
     ].request();
 
+    // Deliberately here and not in `initState`: the tray entry is the
+    // foreground service that holds the microphone open once the call is
+    // minimised, and from Android 14 the system refuses to start a
+    // microphone-typed service for an app that has not been granted
+    // RECORD_AUDIO yet — which, on the very first call, is the state
+    // `initState` runs in.
+    _publishTrayEntry();
+
     final RtcEngine engine = createAgoraRtcEngine();
     _engine = engine;
 
@@ -213,6 +328,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               _engineReady = true;
             });
           }
+          _publishTrayEntry();
           _safeSpeaker();
           // Deliberately no ringtone here. `onJoinChannelSuccess` fires for
           // BOTH sides, so playing it rang the caller with the receiver's
@@ -232,6 +348,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               _remoteUid = remoteUid;
             });
             _startCallTimer();
+            _publishTrayEntry();
           }
         },
         onUserOffline: (
@@ -400,6 +517,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     }
     _isReconnecting = true;
     if (mounted) setState(() {});
+    _publishTrayEntry();
 
     // Exponential backoff: 1s, 2s, 4s, 8s, … capped at 16s
     final int delayMs = (Duration(seconds: 1 << _reconnectAttempts).inMilliseconds).clamp(1000, 16000);
@@ -489,6 +607,9 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     setState(() {
       _isVideoDisabled = !_isVideoDisabled;
     });
+    // With the camera off there is nothing worth a floating window, so leaving
+    // the app should minimise it the way an audio call does.
+    CallWindowService.instance.setPipEnabled(!_isVideoDisabled);
     try {
       if (_isVideoDisabled) {
         await _engine!.disableVideo();
@@ -530,6 +651,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _reconnectTimer?.cancel();
     _callTimer?.cancel();
     _silenceAnyRingtone();
+    _releaseCallWindow();
     CallStateService.instance.endCall();
     _declineSubscription?.cancel();
     _declineSubscription = null;
@@ -551,7 +673,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     _reconnectTimer?.cancel();
     _callTimer?.cancel();
     _silenceAnyRingtone();
+    // The screen really is going now — nothing is left to minimise into, so
+    // the tray entry and the microphone the service held both go with it.
+    _releaseCallWindow();
     _declineSubscription?.cancel();
+    _pipSubscription?.cancel();
     _callEndedWorker?.dispose();
     CallStateService.instance.endCall();
     try {
@@ -594,35 +720,109 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   Widget build(BuildContext context) {
     final bool showVideoLayout = widget.isVideoCall && !_isVideoDisabled;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      body: SafeArea(
-        child: Stack(
-          children: <Widget>[
-            // ── Main Video / Audio View ──────────────────────────────────
-            if (showVideoLayout)
-              _buildVideoLayout()
-            else
-              _buildAudioLayout(),
+    if (_isPipMode) return _buildPipLayout(showVideoLayout);
 
-            // ── Top Bar Overlay ──────────────────────────────────────────
-            Positioned(
-              top: 12,
-              left: 16,
-              right: 16,
-              child: _buildTopBar(),
-            ),
+    // `canPop: false` is what stops back from ending the call. The gesture is
+    // handed to [_minimize] instead, which shrinks a video call into the
+    // floating window and sends an audio call to the background — the route
+    // itself, and with it the Agora engine, stays exactly where it is.
+    //
+    // It does not trap anyone: End is still on the controls, the peer hanging
+    // up closes the screen through [_watchForCallEnd], and so does "End call"
+    // on the notification.
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, void _) {
+        if (didPop) return;
+        _minimize();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF121212),
+        body: SafeArea(
+          child: Stack(
+            children: <Widget>[
+              // ── Main Video / Audio View ──────────────────────────────────
+              if (showVideoLayout)
+                _buildVideoLayout()
+              else
+                _buildAudioLayout(),
 
-            // ── Bottom Call Controls ─────────────────────────────────────
-            Positioned(
-              bottom: 28,
-              left: 16,
-              right: 16,
-              child: _buildBottomControls(showVideoLayout),
-            ),
-          ],
+              // ── Top Bar Overlay ──────────────────────────────────────────
+              Positioned(
+                top: 12,
+                left: 16,
+                right: 16,
+                child: _buildTopBar(),
+              ),
+
+              // ── Bottom Call Controls ─────────────────────────────────────
+              Positioned(
+                bottom: 28,
+                left: 16,
+                right: 16,
+                child: _buildBottomControls(showVideoLayout),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// The call as it has to read inside Android's floating window.
+  ///
+  /// A PiP window is a few centimetres across and the system scales the whole
+  /// Flutter UI into it, so the ordinary layout arrives as a pile of unreadable
+  /// smudges over the video. Everything but the picture is dropped: the window
+  /// is tapped to come back to the full screen, so it needs no controls of its
+  /// own.
+  Widget _buildPipLayout(bool showVideoLayout) {
+    final bool hasRemoteVideo =
+        showVideoLayout && _remoteUid != null && _engine != null;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: hasRemoteVideo
+          ? AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: _engine!,
+                canvas: VideoCanvas(uid: _remoteUid),
+                connection: RtcConnection(channelId: widget.channelName),
+              ),
+            )
+          : Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                    backgroundImage:
+                        widget.userPhoto != null && widget.userPhoto!.isNotEmpty
+                            ? NetworkImage(widget.userPhoto!)
+                            : null,
+                    child: widget.userPhoto == null || widget.userPhoto!.isEmpty
+                        ? Text(
+                            widget.userName.isNotEmpty
+                                ? widget.userName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _remoteUid != null
+                        ? _formatDuration(_callDurationSeconds)
+                        : _callStatus,
+                    style: const TextStyle(fontSize: 12, color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -795,8 +995,11 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       child: Row(
         children: <Widget>[
           IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-            onPressed: _endCall,
+            // Minimise, not hang up. The red End button below is the only
+            // control that ends a call now.
+            icon: const Icon(Icons.expand_more_rounded, color: Colors.white, size: 22),
+            tooltip: 'Minimise',
+            onPressed: _minimize,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),

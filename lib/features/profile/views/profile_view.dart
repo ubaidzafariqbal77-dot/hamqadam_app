@@ -219,12 +219,21 @@ class _HeroCard extends StatelessWidget {
       // the gender / on-behalf lists land.
       controller.lookupRevision;
 
-      final List<String> chips = <String?>[
-        controller.genderLabel(m.gender),
-        m.age != null ? '${m.age} years' : null,
-        controller.maritalLabel(m.maritalStatusId),
-        _city(controller, profile),
-      ].whereType<String>().toList();
+      final String? genderLabel = controller.genderLabel(m.gender);
+      final String? maritalLabel = controller.maritalLabel(m.maritalStatusId);
+      final String? cityLabel = _city(controller, profile);
+
+      // Four equal pills wrapped 3 + 1, which left the city stranded on a line
+      // of its own looking like an afterthought. The three facts that describe
+      // the person stay together on one meta line; where they live is a
+      // different kind of fact and gets its own line under it, with a pin.
+      final List<_HeroFact> facts = <_HeroFact>[
+        if (genderLabel != null)
+          _HeroFact(_genderIcon(genderLabel), genderLabel),
+        if (m.age != null) _HeroFact(Icons.cake_rounded, '${m.age} years'),
+        if (maritalLabel != null)
+          _HeroFact(Icons.favorite_rounded, maritalLabel),
+      ];
 
       return Container(
         decoration: BoxDecoration(
@@ -305,13 +314,34 @@ class _HeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     _StatusPill(gate: VerificationGate.of(profile.verification)),
-                    if (chips.isNotEmpty) ...<Widget>[
+                    if (facts.isNotEmpty) ...<Widget>[
                       const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: chips.map((String t) => _GlassChip(text: t)).toList(),
+                      _HeroMetaLine(facts: facts),
+                    ],
+                    if (cityLabel != null) ...<Widget>[
+                      const SizedBox(height: 7),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.place_rounded,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              cityLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                color: Colors.white.withValues(alpha: 0.82),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(height: AppSpacing.md),
@@ -331,6 +361,77 @@ class _HeroCard extends StatelessWidget {
   static String? _city(ProfileController c, ProfileModel p) {
     final dynamic city = p.location['city_id'];
     return c.displayValue('city_id', city);
+  }
+}
+
+/// One fact in the hero's meta line.
+class _HeroFact {
+  const _HeroFact(this.icon, this.text);
+  final IconData icon;
+  final String text;
+}
+
+IconData _genderIcon(String label) {
+  final String l = label.toLowerCase();
+  if (l.startsWith('f')) return Icons.female_rounded;
+  if (l.startsWith('m')) return Icons.male_rounded;
+  return Icons.person_rounded;
+}
+
+/// The three defining facts, on one line, separated by dots.
+///
+/// Pills gave four unrelated facts the same visual weight as each other and as
+/// the name above them. A single quiet meta line — the pattern every profile
+/// people actually admire uses — lets the name lead and the facts support it.
+class _HeroMetaLine extends StatelessWidget {
+  const _HeroMetaLine({required this.facts});
+
+  final List<_HeroFact> facts;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> run = <Widget>[];
+    for (int i = 0; i < facts.length; i++) {
+      if (i > 0) {
+        run.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            child: Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+      }
+      run.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(facts[i].icon, size: 15, color: Colors.white.withValues(alpha: 0.80)),
+            const SizedBox(width: 5),
+            Text(
+              facts[i].text,
+              style: AppTextStyles.caption.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 6,
+      children: run,
+    );
   }
 }
 
@@ -690,13 +791,17 @@ class _ProfileViewsBanner extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         'Profile Views & Visitors',
-                        style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: _Ink.strong(context),
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'See who viewed your profile & view allowance',
                         style: AppTextStyles.caption.copyWith(
-                          color: isDark ? Colors.white60 : AppColors.lightTextSecondary,
+                          color: _Ink.muted(context),
                         ),
                       ),
                     ],
@@ -1411,24 +1516,52 @@ class _PrivacyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<_Priv> rows = <_Priv>[
-      _Priv('Show photo', privacy.showPhoto),
-      _Priv('Show gallery', privacy.showGallery),
-      _Priv('Show contact', privacy.showContact),
-      _Priv('Show email', privacy.showEmail),
-      _Priv('Show phone', privacy.showPhone),
-      _Priv('Show location', privacy.showLocation),
-      _Priv('Profile-view notifications', privacy.allowProfileViewNotifications),
+      _Priv('Profile photo', Icons.account_circle_rounded, privacy.showPhoto),
+      _Priv('Photo gallery', Icons.photo_library_rounded, privacy.showGallery),
+      _Priv('Contact details', Icons.contact_page_rounded, privacy.showContact),
+      _Priv('Email address', Icons.alternate_email_rounded, privacy.showEmail),
+      _Priv('Phone number', Icons.phone_rounded, privacy.showPhone),
+      _Priv('Location', Icons.place_rounded, privacy.showLocation),
+      _Priv(
+        'Profile-view alerts',
+        Icons.notifications_active_rounded,
+        privacy.allowProfileViewNotifications,
+      ),
     ];
+
+    final int visible = rows.where((_Priv p) => p.on).length;
+
     return _Surface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const _CardHeader(icon: Icons.lock_outline_rounded, title: 'Privacy & visibility'),
+          _CardHeader(
+            icon: Icons.lock_outline_rounded,
+            title: 'Privacy & visibility',
+            trailing: '$visible of ${rows.length}',
+          ),
           const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: rows.map((_Priv p) => _PrivChip(priv: p)).toList(),
+          // Seven coloured pills wrapped into a ragged cloud where a hidden
+          // field looked exactly as urgent as a visible one, and the labels all
+          // began with the same word. These are settings with two states, so
+          // they read as rows: what it is on the left, whether people can see
+          // it on the right, in a column that can be checked at a glance.
+          Container(
+            decoration: BoxDecoration(
+              color: _Ink.wash(context),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                for (int i = 0; i < rows.length; i++) ...<Widget>[
+                  if (i > 0)
+                    Divider(height: 1, thickness: 1, color: _Ink.line(context)),
+                  _PrivRow(priv: rows[i]),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1437,32 +1570,74 @@ class _PrivacyCard extends StatelessWidget {
 }
 
 class _Priv {
-  const _Priv(this.label, this.on);
+  const _Priv(this.label, this.icon, this.on);
   final String label;
+  final IconData icon;
   final bool on;
 }
 
-class _PrivChip extends StatelessWidget {
-  const _PrivChip({required this.priv});
+class _PrivRow extends StatelessWidget {
+  const _PrivRow({required this.priv});
   final _Priv priv;
+
   @override
   Widget build(BuildContext context) {
-    final Color color = priv.on ? AppColors.success : Theme.of(context).hintColor;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      child: Row(
+        children: <Widget>[
+          Icon(priv.icon, size: 18, color: _Ink.muted(context)),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              priv.label,
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: _Ink.strong(context),
+              ),
+            ),
+          ),
+          _VisibilityTag(on: priv.on),
+        ],
+      ),
+    );
+  }
+}
+
+/// Says what the setting does, not merely that it is on.
+///
+/// "Show phone" with a tick meant the reader had to hold the sentence and the
+/// tick in their head at once. "Visible" / "Hidden" is the answer itself.
+class _VisibilityTag extends StatelessWidget {
+  const _VisibilityTag({required this.on});
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = on ? AppColors.success : _Ink.muted(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(priv.on ? Icons.check_rounded : Icons.lock_rounded, size: 13, color: color),
-          const SizedBox(width: 5),
+          Icon(
+            on ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+            size: 13,
+            color: color,
+          ),
+          const SizedBox(width: 4),
           Text(
-            priv.label,
-            style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600),
+            on ? 'Visible' : 'Hidden',
+            style: AppTextStyles.caption.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -1883,10 +2058,34 @@ class _ActionTile extends StatelessWidget {
       type: MaterialType.transparency,
       child: ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: Icon(icon, color: AppColors.primary),
-        title: Text(title, style: AppTextStyles.body),
-        subtitle: Text(subtitle, style: AppTextStyles.caption),
-        trailing: Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
+        // Same rule as the rest of the screen: the icon and the chevron carry
+        // the accent, the words are ink. A pink title over a pink subtitle gave
+        // a navigation row the same urgency as a call to action.
+        leading: Container(
+          height: 34,
+          width: 34,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+        ),
+        title: Text(
+          title,
+          style: AppTextStyles.body.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: _Ink.strong(context),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Text(
+            subtitle,
+            style: AppTextStyles.caption.copyWith(color: _Ink.muted(context)),
+          ),
+        ),
+        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: _Ink.muted(context)),
         onTap: () => Get.toNamed(route),
       ),
     );

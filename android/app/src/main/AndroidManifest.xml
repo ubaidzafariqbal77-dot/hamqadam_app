@@ -64,7 +64,7 @@
 
 
     <application
-        android:label="hamqadam"
+        android:label="Hamqadam"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">

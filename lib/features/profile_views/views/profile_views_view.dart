@@ -15,6 +15,7 @@ import '../../../models/lookup_item_model.dart';
 import '../../../models/profile_view_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../chat/views/chat_conversation_view.dart';
 import '../../discover/widgets/public_profile_detail_sheet.dart';
@@ -180,16 +181,17 @@ class _ProfileViewsViewState extends State<ProfileViewsView>
         margin: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
+          // Brand-tinted wash, on-palette in both modes (was a foreign blue).
           gradient: LinearGradient(
             colors: isDark
-                ? <Color>[const Color(0xFF1E293B), const Color(0xFF0F172A)]
-                : <Color>[const Color(0xFFEFF6FF), const Color(0xFFDBEAFE)],
+                ? <Color>[AppColors.darkSurfaceAlt, AppColors.darkSurface]
+                : <Color>[AppColors.primary.withValues(alpha: 0.08), AppColors.goldLight.withValues(alpha: 0.25)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE),
+            color: isDark ? AppColors.darkBorder : AppColors.primary.withValues(alpha: 0.18),
           ),
           boxShadow: <BoxShadow>[
             BoxShadow(
@@ -361,7 +363,7 @@ class _ProfileViewsViewState extends State<ProfileViewsView>
       switch (state.status) {
         case ApiStatus.initial:
         case ApiStatus.loading:
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const SkeletonList();
         case ApiStatus.noInternet:
           return NoInternetWidget(onRetry: () => _controller.loadReceived(refresh: true));
         case ApiStatus.serverError:
@@ -412,7 +414,7 @@ class _ProfileViewsViewState extends State<ProfileViewsView>
       switch (state.status) {
         case ApiStatus.initial:
         case ApiStatus.loading:
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const SkeletonList();
         case ApiStatus.noInternet:
           return NoInternetWidget(onRetry: () => _controller.loadMyViews(refresh: true));
         case ApiStatus.serverError:
@@ -652,7 +654,7 @@ class _ProfileViewCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF1F5F9),
+                        color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(

@@ -186,7 +186,9 @@ class _SendProposalDialogState extends State<SendProposalDialog> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  backgroundColor: isDark ? AppColors.darkSurfaceAlt : Colors.grey.withValues(alpha: 0.1),
+                  backgroundColor: isDark
+                      ? AppColors.darkSurfaceAlt
+                      : AppColors.lightSurfaceAlt,
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   onPressed: () {
                     setState(() {

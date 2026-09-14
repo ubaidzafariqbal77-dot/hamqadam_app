@@ -12,6 +12,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
@@ -109,7 +110,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                 _attachmentOption(
                   icon: Icons.camera_alt_rounded,
                   label: 'Camera',
-                  color: const Color(0xFFE93B77),
+                  color: AppColors.primaryDark,
                   onTap: () async {
                     Navigator.pop(ctx);
                     final XFile? photo =
@@ -120,7 +121,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                 _attachmentOption(
                   icon: Icons.insert_drive_file_rounded,
                   label: 'Document',
-                  color: const Color(0xFF1644A6),
+                  color: AppColors.info,
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickDocument();
@@ -446,9 +447,19 @@ class _ChatConversationViewState extends State<ChatConversationView> {
       backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightBackground,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        tooltip: 'Back',
         onPressed: () {
-          _controller.closeThread();
-          Navigator.of(context).pop();
+          // One code path with the system back gesture: the PopScope around
+          // the scaffold closes the thread once the pop lands, so the button
+          // itself only navigates. maybePop (not a bare pop) keeps the
+          // cold-start deep-link case — the conversation opened as the only
+          // route after a notification tap — from popping into a black
+          // screen; if there is truly nothing beneath it, go Home instead.
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).maybePop();
+          } else {
+            Get.offAllNamed<dynamic>(AppRoutes.home);
+          }
         },
       ),
       titleSpacing: 0,
@@ -1184,6 +1195,7 @@ class _ChatImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => _openFullScreen(context),
       child: Image.network(
@@ -1207,8 +1219,11 @@ class _ChatImage extends StatelessWidget {
         },
         errorBuilder: (BuildContext ctx, Object e, StackTrace? st) => Container(
           height: height ?? 180,
-          color: Colors.grey.shade200,
-          child: const Icon(Icons.broken_image_rounded, color: Colors.grey),
+          color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+          child: Icon(
+            Icons.broken_image_rounded,
+            color: isDark ? AppColors.darkTextHint : AppColors.lightTextHint,
+          ),
         ),
       ),
     );

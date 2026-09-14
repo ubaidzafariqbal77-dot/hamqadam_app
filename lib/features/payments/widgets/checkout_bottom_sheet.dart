@@ -85,7 +85,9 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -365,6 +367,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
   }) {
     final bool isSelected = _selectedGateway == id;
     final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
 
     return InkWell(
       onTap: () => setState(() => _selectedGateway = id),
@@ -373,7 +376,9 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.grey.withValues(alpha: 0.25),
+            color: isSelected
+                ? AppColors.primary
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -402,7 +407,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
             ),
             Icon(
               isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.primary : Colors.grey,
+              color: isSelected ? AppColors.primary : theme.hintColor,
               size: 20,
             ),
           ],

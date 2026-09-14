@@ -67,10 +67,10 @@ class AppTextFormField extends StatelessWidget {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color hintColor = Theme.of(context).hintColor;
 
-    // Premium filled look: a soft, brand-tinted rounded field that lifts to the
+    // Premium filled look: a soft, neutral rounded field that lifts to the
     // brand colour (with a whisper of glow) when focused.
     final Color fill = enabled
-        ? (dark ? AppColors.requiredFieldBackgroundDark : const Color(0xFFF9F5F8))
+        ? (dark ? AppColors.requiredFieldBackgroundDark : AppColors.requiredFieldBackgroundLight)
         : (dark ? AppColors.fieldDisabledBackgroundDark : AppColors.fieldDisabledBackgroundLight);
     final Color borderColor = dark ? AppColors.requiredFieldBorderDark : AppColors.lightBorder;
 
@@ -121,7 +121,7 @@ class AppTextFormField extends StatelessWidget {
         hint: BiText.inline(
           label,
           textAlign: TextAlign.start,
-          style: AppTextStyles.body.copyWith( color: AppColors.primaryDark),
+          style: AppTextStyles.body.copyWith(color: Theme.of(context).hintColor),
         ),
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,

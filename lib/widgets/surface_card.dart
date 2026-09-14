@@ -24,15 +24,15 @@ class SurfaceCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10)),
+        border: Border.all(color: dark ? AppColors.darkBorder : AppColors.lightBorder),
         boxShadow: dark
             ? null
             : <BoxShadow>[
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                  spreadRadius: -8,
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                  spreadRadius: -6,
                 ),
               ],
       ),
@@ -52,9 +52,24 @@ class CardTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: <Widget>[
-      Icon(icon, size: AppDimensions.iconMd, color: AppColors.primary),
-      const SizedBox(width: AppSpacing.xs),
-      Expanded(child: Text(title, style: AppTextStyles.subtitle)),
+      // Small icon container so every card header reads at the same weight.
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.10),
+          borderRadius: AppRadius.smAll,
+        ),
+        child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+      ),
+      const SizedBox(width: AppSpacing.sm),
+      Expanded(
+        child: Text(
+          title,
+          style: AppTextStyles.subtitle.copyWith(
+            color: Theme.of(context).textTheme.titleLarge?.color,
+          ),
+        ),
+      ),
       ?trailing,
     ],
   );

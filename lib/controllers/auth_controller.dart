@@ -230,6 +230,12 @@ class AuthController extends GetxController {
     if (Get.isRegistered<NotificationController>()) {
       await Get.find<NotificationController>().deletePushToken();
     }
+    // Fingerprint-login credentials deliberately SURVIVE logout: the whole
+    // point for the member is signing back in with a fingerprint after
+    // logging out. They are device-protected (OS keystore/Keychain + a live
+    // biometric scan), so leaving them is safe — and if the server later
+    // rejects them (password changed elsewhere), LoginController drops them
+    // automatically so a dead fingerprint path can never linger.
     await storage.clearSession();
     await currentUser.clear();
     _resetAuthenticatedServices();

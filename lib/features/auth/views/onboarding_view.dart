@@ -219,7 +219,7 @@ class _TopBar extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: <BoxShadow>[
-                  BoxShadow(color: Color(0x40D6185E), blurRadius: 14, offset: Offset(0, 5)),
+                  BoxShadow(color: Color(0x40D63F73), blurRadius: 14, offset: Offset(0, 5)),
                 ],
               ),
               child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
@@ -401,7 +401,7 @@ class _NextFab extends StatelessWidget {
               end: Alignment.bottomRight,
             ),
             boxShadow: <BoxShadow>[
-              BoxShadow(color: Color(0x40D6185E), blurRadius: 18, offset: Offset(0, 8), spreadRadius: -2),
+              BoxShadow(color: Color(0x40D63F73), blurRadius: 18, offset: Offset(0, 8), spreadRadius: -2),
             ],
           ),
           child: const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 24),
@@ -434,7 +434,7 @@ class _Dots extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             boxShadow: active
                 ? const <BoxShadow>[
-                    BoxShadow(color: Color(0x33D6185E), blurRadius: 6, offset: Offset(0, 2)),
+                    BoxShadow(color: Color(0x33D63F73), blurRadius: 6, offset: Offset(0, 2)),
                   ]
                 : null,
           ),

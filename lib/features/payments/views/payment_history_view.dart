@@ -9,6 +9,7 @@ import '../../../controllers/payment_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../models/payment_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 import '../widgets/invoice_detail_sheet.dart';
@@ -65,7 +66,7 @@ class _PaymentHistoryViewState extends State<PaymentHistoryView> {
         switch (s.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const SkeletonList();
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: () => _controller.loadHistory());
           case ApiStatus.unauthorized:

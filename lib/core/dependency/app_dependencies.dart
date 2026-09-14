@@ -77,6 +77,7 @@ import '../storage/profile_completion_service.dart';
 import '../storage/registration_buffer.dart';
 import '../storage/registration_draft_service.dart';
 import '../storage/secure_storage_service.dart';
+import '../services/biometric_auth_service.dart';
 
 /// Central dependency wiring — called once from `main()`. Uses plain
 /// `Get.put` registrations; deliberately NO `Bindings` classes anywhere.
@@ -95,6 +96,12 @@ class AppDependencies {
     final SecureStorageService secureStorage = SecureStorageService();
     await secureStorage.init(); // load cached token before first request
     Get.put<SecureStorageService>(secureStorage, permanent: true);
+
+    // Fingerprint login (capability is checked lazily per device).
+    Get.put<BiometricAuthService>(
+      BiometricAuthService(storage: secureStorage),
+      permanent: true,
+    );
 
     Get.put<RegistrationDraftService>(RegistrationDraftService(prefs), permanent: true);
     Get.put<RegistrationBuffer>(RegistrationBuffer(prefs), permanent: true);
@@ -233,6 +240,8 @@ class AppDependencies {
       () => SearchProfilesController(
         repository: Get.find<SearchRepository>(),
         lookupController: Get.find<LookupController>(),
+        // Backs the Discover screen's "AI Filtered" top-5 mode (GET /matches).
+        matchRepository: Get.find<MatchRepository>(),
       ),
       fenix: true,
     );

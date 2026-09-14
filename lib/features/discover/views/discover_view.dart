@@ -14,6 +14,7 @@ import '../../../core/api/api_response.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../chat/views/chat_conversation_view.dart';
 import '../../notifications/views/notifications_view.dart';
@@ -50,16 +51,27 @@ class DiscoverView extends StatelessWidget {
           _SearchBarHeader(controller: controller),
           // Active Filter Chips (if any filters applied)
           _ActiveFilterChips(controller: controller),
+          // AI Filtered toggle — narrows the feed to the matchmaking model's
+          // top 5 matches for this member.
+          _AiFilteredBar(controller: controller),
           // Single User Full-Screen Vertical Feed
           Expanded(
             child: Obx(() {
-              final ApiState<SearchProfilesPage> state = controller.state.value;
+              // The AI Filtered mode renders its own state (AI matches); the
+              // normal feed renders the search state.
+              final ApiState<SearchProfilesPage> state = controller.displayState;
 
               switch (state.status) {
                 case ApiStatus.initial:
                 case ApiStatus.loading:
-                  return const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                  // Structure-preserving skeleton instead of a bare spinner.
+                  return ListView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 4),
+                    children: const <Widget>[
+                      SkeletonProfileCard(),
+                      SkeletonProfileCard(),
+                    ],
                   );
                 case ApiStatus.noInternet:
                   return NoInternetWidget(onRetry: controller.reload);
@@ -75,7 +87,7 @@ class DiscoverView extends StatelessWidget {
                     title: 'No Matches Found',
                     message: state.message ??
                         'No profiles match your current filters. Try relaxing some criteria.',
-                    onRefresh: controller.resetFilter,
+                    onRefresh: controller.reload,
                   );
                 case ApiStatus.success:
                   return _VerticalProfilesFeed(controller: controller);
@@ -132,6 +144,11 @@ class _SearchBarHeader extends StatelessWidget {
               child: TextField(
                 controller: controller.searchInputController,
                 onChanged: controller.onSearchChanged,
+                // The magnifier key on the keyboard commits the query
+                // immediately and reloads — the field used to rely on the
+                // 500 ms debounce alone, which read as a dead button.
+                textInputAction: TextInputAction.search,
+                onSubmitted: controller.submitSearch,
                 decoration: InputDecoration(
                   hintText: 'Search by name, ID, or keyword...',
                   hintStyle: AppTextStyles.body.copyWith(
@@ -328,7 +345,8 @@ class _SearchBarHeader extends StatelessWidget {
             );
           }),
           const SizedBox(width: AppSpacing.sm),
-          // Partner Preference Filter Toggle
+          // Partner Preference Filter Toggle — a distinct icon so it cannot be
+          // mistaken for the duplicate tune button beside it.
           Obx(() {
             final bool active = controller.filter.value.partnerPreferenceFilter;
             return Stack(
@@ -360,7 +378,7 @@ class _SearchBarHeader extends StatelessWidget {
                       ],
                     ),
                     child: Icon(
-                      Icons.tune_rounded,
+                      Icons.favorite_outline_rounded,
                       color: active
                           ? Colors.white
                           : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
@@ -391,6 +409,138 @@ class _SearchBarHeader extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// AI Filtered Bar — toggle that narrows the feed to the matchmaking model's
+// top 5 matches for this member, with a live count pill while active.
+// ---------------------------------------------------------------------------
+
+class _AiFilteredBar extends StatelessWidget {
+  const _AiFilteredBar({required this.controller});
+
+  final SearchProfilesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final bool isDark = theme.brightness == Brightness.dark;
+
+    return Obx(() {
+      final bool active = controller.aiFiltered.value;
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.md, 4),
+        child: Row(
+          children: <Widget>[Expanded(child: _buildButton(theme, isDark, active))],
+        ),
+      );
+    });
+  }
+
+  Widget _buildButton(ThemeData theme, bool isDark, bool active) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: controller.toggleAiFiltered,
+        borderRadius: AppRadius.lgAll,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            gradient: active
+                ? const LinearGradient(
+                    colors: <Color>[Color(0xFF6A3DE8), Color(0xFF9B4DCA)],
+                  )
+                : null,
+            color: active
+                ? null
+                : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(
+              color: active
+                  ? Colors.transparent
+                  : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: active
+                    ? const Color(0xFF6A3DE8).withValues(alpha: 0.28)
+                    : Colors.black.withValues(alpha: 0.04),
+                blurRadius: active ? 10 : 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.auto_awesome_rounded,
+                size: 18,
+                color: active ? Colors.white : AppColors.gold,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'AI Filtered',
+                style: TextStyle(
+                  color: active
+                      ? Colors.white
+                      : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.1,
+                ),
+              ),
+              if (active) ...<Widget>[
+                const SizedBox(width: 8),
+                _buildCountPill(),
+                const Spacer(),
+                Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ] else ...<Widget>[
+                const Spacer(),
+                Text(
+                  'Top 5',
+                  style: TextStyle(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Total AI matches available (up to 5) for the pill while the mode is on.
+  Widget _buildCountPill() {
+    final int shown = controller.aiFilteredProfiles.length;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        '$shown',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w900,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Active Filter Chips Bar
 // ---------------------------------------------------------------------------
 
@@ -407,10 +557,13 @@ class _ActiveFilterChips extends StatelessWidget {
 
       if (f.ageMin != null || f.ageMax != null) {
         final int min = f.ageMin ?? 18;
-        final int max = f.ageMax ?? 60;
+        // A null upper bound means the slider sat at its top (70+) — say so
+        // instead of the old hardcoded "60", which contradicted the slider.
+        final String label =
+            f.ageMax == null ? 'Age: $min+' : 'Age: $min-${f.ageMax}';
         chips.add(
           _FilterChipItem(
-            label: 'Age: $min-$max',
+            label: label,
             onRemove: () => controller.applyFilter(f.copyWith(clearAgeMin: true, clearAgeMax: true)),
           ),
         );
@@ -602,14 +755,9 @@ class _VerticalProfilesFeedState extends State<_VerticalProfilesFeed> {
         final List<SearchProfileModel> visible = widget.controller.visibleProfiles;
 
         if (visible.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(AppSpacing.xl),
-              child: Text(
-                'No more profiles to show right now.',
-                style: TextStyle(fontSize: 15, color: Colors.grey),
-              ),
-            ),
+          return const EmptyStateWidget(
+            title: 'You are all caught up',
+            message: 'No more profiles to show right now. Check back soon or relax your filters.',
           );
         }
 
@@ -691,7 +839,10 @@ class _SingleUserProfileCard extends StatelessWidget {
     final String genderLabel = profile.gender == '1' ? 'Male' : profile.gender == '2' ? 'Female' : '';
     final String heightLabel = profile.heightFormatted ?? '';
     final String ageLabel = profile.age != null ? '${profile.age} yrs' : '';
-    final int trustPercentage = profile.compatibilityPercentage ?? (profile.isVerified ? 80 : 70);
+    // The API's real compatibility score — or nothing. A fabricated 80/70%
+    // told every member the same lie about every profile, and the pill only
+    // means something when it is the server's number.
+    final int? matchPercentage = profile.compatibilityPercentage;
 
     return Container(
       decoration: BoxDecoration(
@@ -771,7 +922,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                     final bool hasSent = interestCtrl?.hasSentInterestTo(profile.id) == true;
                     return _glassIconButton(
                       icon: hasSent ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                      iconColor: hasSent ? const Color(0xFFE93B77) : Colors.white,
+                      iconColor: hasSent ? AppColors.primaryDark : Colors.white,
                       tooltip: 'Interest',
                       onTap: () => SendInterestDialog.show(context, profile),
                     );
@@ -856,45 +1007,47 @@ class _SingleUserProfileCard extends StatelessWidget {
                             const SizedBox(width: 5),
                             Icon(
                               profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
-                              color: profile.isVerified ? const Color(0xFF1DA1F2) : Colors.white54,
+                              color: profile.isVerified ? const Color(0xFF3B9BE9) : Colors.white54,
                               size: 19,
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Compatibility / Trust Score Pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: <Color>[Color(0xFFE89538), Color(0xFFE93B77)],
-                          ),
-                          borderRadius: BorderRadius.circular(6),
-                          boxShadow: <BoxShadow>[
-                            BoxShadow(
-                              color: const Color(0xFFE93B77).withValues(alpha: 0.4),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
+                      // Compatibility Score Pill — shown only when the server
+                      // sent a real score; never a fabricated number.
+                      if (matchPercentage != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: <Color>[Color(0xFFE89538), AppColors.primaryDark],
                             ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
-                            const SizedBox(width: 3),
-                            Text(
-                              '$trustPercentage%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
+                            borderRadius: BorderRadius.circular(6),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: AppColors.primaryDark.withValues(alpha: 0.4),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
+                              const SizedBox(width: 3),
+                              Text(
+                                '$matchPercentage%',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                     ],
                   ),
 
@@ -944,7 +1097,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                       _QuickActionButton(
                         icon: Icons.favorite_outline_rounded,
                         label: 'Interest',
-                        color: const Color(0xFFE93B77),
+                        color: AppColors.primaryDark,
                         onTap: () => SendInterestDialog.show(context, profile),
                       ),
                       const SizedBox(width: 8),
@@ -1125,7 +1278,7 @@ class _SingleUserProfileCard extends StatelessWidget {
               ),
 
               ListTile(
-                leading: const Icon(Icons.visibility_off_outlined, color: Colors.grey),
+                leading: Icon(Icons.visibility_off_outlined, color: Theme.of(context).hintColor),
                 title: const Text('Ignore Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -1216,7 +1369,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                  child: Text('Cancel', style: TextStyle(color: Theme.of(ctx).hintColor)),
                 ),
               ],
             ),
@@ -1323,8 +1476,9 @@ class _FallbackBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
+        // Brand-adjacent rose wash: fallback photo stays on-palette.
         gradient: LinearGradient(
-          colors: <Color>[Color(0xFF0D9488), Color(0xFF1E3A8A)],
+          colors: <Color>[AppColors.primaryLight, AppColors.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

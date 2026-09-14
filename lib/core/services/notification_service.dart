@@ -1412,7 +1412,9 @@ class NotificationService {
             return;
           }
         }
-        Get.to(() => const ChatInboxView());
+        // Standalone: the inbox pushed as its own route over whatever is on
+        // screen — it carries its own back-capable header in this mode.
+        Get.to(() => const ChatInboxView(standalone: true));
         return;
       }
 

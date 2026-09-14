@@ -25,11 +25,15 @@ class AppSwitchTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: AppRadius.mdAll,
-        border: Border.all(color: AppColors.primaryDark),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.darkBorder
+              : AppColors.lightBorder,
+        ),
       ),
       child: Row(
         children: <Widget>[

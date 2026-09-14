@@ -133,7 +133,7 @@ class _OtpBox extends StatelessWidget {
       height: 58,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: dark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+        color: dark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
         borderRadius: AppRadius.mdAll,
         border: Border.all(color: border, width: active ? 1.8 : 1.2),
       ),

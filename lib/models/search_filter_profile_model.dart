@@ -281,7 +281,12 @@ class SearchFilterModel {
     if (searchQuery != null && searchQuery!.trim().isNotEmpty) {
       params['search'] = searchQuery!.trim();
     }
-    if (partnerPreferenceFilter) params['partner_preference'] = 'false';
+    // The backend applies the saved partner-preference scope only when this is
+    // truthy (filter_var BOOLEAN). It used to send 'false' here when the
+    // member switched the filter ON — an inverted flag that made the toggle a
+    // no-op. Absent (default) and false mean the same thing, so only the ON
+    // case needs to send anything.
+    if (partnerPreferenceFilter) params['partner_preference'] = 'true';
 
     return params;
   }

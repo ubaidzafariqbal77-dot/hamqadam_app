@@ -73,28 +73,29 @@ class AppCardSelector extends StatelessWidget {
   Widget _card(BuildContext context, CardOption o) {
     final bool isSelected = selected == o.value;
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    final Color base = dark ? AppColors.requiredFieldBackgroundDark : AppColors.optionalFieldBackgroundLight;
+    final Color base = dark ? AppColors.requiredFieldBackgroundDark : AppColors.lightSurface;
+    final Color lineColor = dark ? AppColors.darkBorder : AppColors.lightBorder;
     final Color labelColor = Theme.of(context).textTheme.bodyLarge?.color ?? AppColors.lightTextPrimary;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => onSelect(o),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primary.withValues(alpha: 0.10) : base,
-            borderRadius: BorderRadius.circular(12),
+            color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : base,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? AppColors.primary : AppColors.primaryDark,
+              color: isSelected ? AppColors.primary : lineColor,
               width: isSelected ? 1.6 : 1.1,
             ),
             boxShadow: isSelected
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.30),
+                      color: AppColors.primary.withValues(alpha: 0.28),
                       blurRadius: 18,
                       spreadRadius: -4,
                       offset: const Offset(0, 6),

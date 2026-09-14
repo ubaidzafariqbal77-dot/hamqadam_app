@@ -5,11 +5,11 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 
-/// Premium light & dark themes for HamQadam, built on the #D6185E brand colour.
+/// Premium light & dark themes for HamQadam, built on the #E85A8A brand colour.
 ///
 /// Everything is centralised here: AppBar, bottom navigation, buttons, inputs,
 /// cards, dialogs, chips, switches, pickers, snackbars — so screens never need
-/// hardcoded colours.
+/// hardcoded colours. Pink carries action; ink carries content.
 class AppTheme {
   const AppTheme._();
 
@@ -26,7 +26,7 @@ class AppTheme {
     final Color textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final Color border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final Color divider = isDark ? AppColors.darkDivider : AppColors.lightDivider;
-    // Hints/placeholders use a soft pink instead of Flutter's default black38.
+    // Hints/placeholders use quiet neutral ink instead of brand colour.
     final Color hint = isDark ? AppColors.darkTextHint : AppColors.lightTextHint;
 
     final ColorScheme scheme = ColorScheme(
@@ -147,7 +147,7 @@ class AppTheme {
         foregroundColor: Colors.white,
       ),
 
-      // ---- Inputs (baseline; custom fields refine per required/optional) ---
+      // ---- Inputs: calm neutral fields, brand only on focus ----------------
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
@@ -178,16 +178,16 @@ class AppTheme {
       // ---- Selection controls: brand active state -------------------------
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) =>
-            s.contains(WidgetState.selected) ? AppColors.primary : (isDark ? Colors.grey.shade400 : Colors.white)),
+            s.contains(WidgetState.selected) ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.white)),
         trackColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) => s.contains(WidgetState.selected)
-            ? AppColors.primary.withValues(alpha: 0.45)
+            ? AppColors.primary
             : (isDark ? Colors.grey.shade700 : Colors.grey.shade300)),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
             s.contains(WidgetState.selected) ? AppColors.primary : null),
         checkColor: const WidgetStatePropertyAll<Color>(Colors.white),
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
@@ -195,7 +195,7 @@ class AppTheme {
       ),
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primary),
 
-      // ---- Chips -----------------------------------------------------------
+      // ---- Chips: neutral resting state, brand when selected ---------------
       chipTheme: ChipThemeData(
         backgroundColor: surfaceAlt,
         selectedColor: AppColors.primary,
@@ -209,8 +209,8 @@ class AppTheme {
       // ---- Surfaces --------------------------------------------------------
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 1.5,
-        shadowColor: Colors.black.withValues(alpha: 0.08),
+        elevation: 0,
+        shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
@@ -219,7 +219,7 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        elevation: 6,
+        elevation: 8,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
         titleTextStyle: AppTextStyles.title.copyWith(color: textPrimary),
         contentTextStyle: AppTextStyles.body.copyWith(color: textSecondary),

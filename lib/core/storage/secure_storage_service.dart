@@ -64,4 +64,19 @@ class SecureStorageService {
     await _storage.delete(key: StorageKeys.authToken);
     await _storage.delete(key: StorageKeys.authUser);
   }
+
+  // ---- Generic secure values (fingerprint login credentials, etc.) ---------
+
+  Future<String?> readString(String key) async {
+    try {
+      return await _storage.read(key: key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> writeString(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  Future<void> delete(String key) => _storage.delete(key: key);
 }

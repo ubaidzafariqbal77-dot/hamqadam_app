@@ -10,6 +10,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/help_chat_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/help_chat_model.dart';
 
@@ -88,7 +89,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                 _attachmentOption(
                   icon: Icons.camera_alt_rounded,
                   label: 'Camera',
-                  color: const Color(0xFFE93B77),
+                  color: AppColors.primaryDark,
                   onTap: () async {
                     Navigator.pop(ctx);
                     final XFile? photo = await _imagePicker
@@ -142,7 +143,17 @@ class _HelpChatViewState extends State<HelpChatView> {
         backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightBackground,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          onPressed: () => Navigator.of(context).pop(),
+          tooltip: 'Back',
+          // maybePop + Home fallback: the same navigation contract as the chat
+          // conversation — consistent back behaviour even if this screen was
+          // ever surfaced as the bottom-most route.
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).maybePop();
+            } else {
+              Get.offAllNamed<dynamic>(AppRoutes.home);
+            }
+          },
         ),
         titleSpacing: 0,
         title: Row(

@@ -14,6 +14,7 @@ import '../../../models/lookup_item_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../models/shortlist_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 import '../../chat/views/chat_conversation_view.dart';
@@ -72,7 +73,7 @@ class _ShortlistViewState extends State<ShortlistView> {
         switch (s.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const SkeletonList();
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: () => _controller.loadShortlists());
           case ApiStatus.unauthorized:

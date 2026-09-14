@@ -28,7 +28,15 @@ class AppSnackbar {
       ),
       backgroundColor: color,
       borderRadius: AppRadius.md,
-      margin: const EdgeInsets.all(AppSpacing.md),
+      margin: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        // Clear the rounded gradient headers (home shell / login): a TOP
+        // snackbar flush against the top edge crashed into "Welcome back" —
+        // status bar + breathing room keeps it on safe ground in both modes.
+        MediaQuery.of(Get.context!).padding.top + AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
       snackPosition: SnackPosition.TOP,
       duration: const Duration(seconds: 3),
       animationDuration: const Duration(milliseconds: 350),

@@ -9,6 +9,7 @@ import '../../../controllers/payment_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../models/payment_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 
@@ -64,7 +65,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
         switch (s.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const SkeletonList();
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: () => _controller.loadUsage());
           case ApiStatus.unauthorized:
@@ -245,10 +246,14 @@ class _UsageRow extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _iconColor(item.feature).withValues(alpha: 0.12),
+              color: _iconColor(item.feature, context).withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: Icon(_iconFor(item.feature), color: _iconColor(item.feature), size: 18),
+            child: Icon(
+              _iconFor(item.feature),
+              color: _iconColor(item.feature, context),
+              size: 18,
+            ),
           ),
           const SizedBox(width: 12),
 
@@ -326,7 +331,7 @@ class _UsageRow extends StatelessWidget {
     }
   }
 
-  Color _iconColor(String feature) {
+  Color _iconColor(String feature, BuildContext context) {
     switch (feature) {
       case 'interest':
         return AppColors.primary;
@@ -339,7 +344,7 @@ class _UsageRow extends StatelessWidget {
       case 'gallery_image_view':
         return Colors.blue;
       default:
-        return Colors.grey;
+        return Theme.of(context).hintColor;
     }
   }
 }

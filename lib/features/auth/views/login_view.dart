@@ -9,6 +9,7 @@ import '../../../controllers/login_controller.dart';
 import '../../../controllers/mobile_otp_controller.dart';
 import '../../../controllers/registration_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/biometric_auth_service.dart';
 import '../../../core/utils/view_controller_mixin.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../repositories/auth_repository.dart';
@@ -17,7 +18,6 @@ import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/app_otp_field.dart';
 import '../../../widgets/app_password_field.dart';
 import '../../../widgets/app_phone_field.dart';
-import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/dismiss_keyboard.dart';
 import '../../../widgets/loading_overlay.dart';
@@ -26,6 +26,11 @@ import '../../../widgets/reveal.dart';
 /// Premium login screen with Email and Mobile-OTP methods + Google.
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
+
+  /// Space reserved above content so TOP-positioned snackbars (login errors,
+  /// pending-approval notices) land on the white body instead of crashing into
+  /// the gradient header — the collision seen on the previous design.
+  static const double _headerTopGap = AppSpacing.xxl + AppSpacing.lg;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -76,7 +81,12 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
               children: <Widget>[
                 const _LoginHeader(),
                 Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    LoginView._headerTopGap,
+                    AppSpacing.lg,
+                    AppSpacing.lg,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
@@ -86,12 +96,9 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                       const SizedBox(height: AppSpacing.lg),
                       const _OrDivider(),
                       const SizedBox(height: AppSpacing.md),
-                      AppButton(
-                        label: 'With Google',
-                        variant: AppButtonVariant.outline,
-                        icon: Icons.g_mobiledata_rounded,
-                        onPressed: _google,
-                      ),
+                      // Fingerprint login replaces the (never-enabled) Google
+                      // button: one tap, system biometric prompt, straight in.
+                      _FingerprintLoginButton(onPressed: c.loginWithBiometric),
                       const SizedBox(height: AppSpacing.lg),
                       _CreateAccountRow(),
                     ],
@@ -113,12 +120,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Obx(() => c.generalError.value.isEmpty
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: _ErrorBanner(message: c.generalError.value),
-                )),
           Reveal(
             child: UrduScope(
               enabled: false,
@@ -178,17 +179,11 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Obx(() => otp.generalError.value.isEmpty
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: _ErrorBanner(message: otp.generalError.value),
-                )),
           Reveal(
             child: UrduScope(
               enabled: false,
               child: AppPhoneField(
-                label: 'Mobile number',
+                label: 'Enter Email',
                 controller: otp.phoneCtrl,
                 validator: (String? v) => AppValidators.pakistaniPhone(v),
               ),
@@ -232,13 +227,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
     );
   }
 
-  void _google() {
-    // The Google ID-token flow is wired in AuthRepository.loginWithGoogle().
-    // Enabling it requires a Google OAuth client (serverClientId) +
-    // google-services.json, which must be configured first.
-    AppSnackbar.info('Google Sign-In will be enabled after Google OAuth setup.');
-  }
-
   void _forgotPassword() {
     // Opens the dedicated forgot/reset password screen (email → OTP → new password).
     Get.toNamed(AppRoutes.forgotPassword);
@@ -253,16 +241,20 @@ class _MethodToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final bool email = emailMode.value;
+      final bool dark = Theme.of(context).brightness == Brightness.dark;
+      // Segmented control with a pill indicator + subtle shadow so the active
+      // segment reads as raised, not merely recoloured.
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: dark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
           borderRadius: AppRadius.mdAll,
+          border: Border.all(color: dark ? AppColors.darkBorder : AppColors.lightBorder),
         ),
         child: Row(
           children: <Widget>[
             _seg(context, 'Email', email, () => emailMode.value = true),
-            _seg(context, 'Mobile OTP', !email, () => emailMode.value = false),
+            _seg(context, 'Email OTP', !email, () => emailMode.value = false),
           ],
         ),
       );
@@ -275,10 +267,21 @@ class _MethodToggle extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: active ? AppColors.primary : Colors.transparent,
             borderRadius: AppRadius.smAll,
+            boxShadow: active
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.30),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
           ),
           alignment: Alignment.center,
           child: BiText(
@@ -324,7 +327,7 @@ class _LoginHeader extends StatelessWidget {
         top: MediaQuery.of(context).padding.top + AppSpacing.xxl,
         left: AppSpacing.lg,
         right: AppSpacing.lg,
-        bottom: AppSpacing.xxl,
+        bottom: AppSpacing.xxl + AppSpacing.md,
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -335,17 +338,53 @@ class _LoginHeader extends StatelessWidget {
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
+          // The new brand mark in a glass ring — same treatment as the splash,
+          // so login, splash and the launcher icon all read as one product.
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.65), width: 2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                  spreadRadius: -6,
+                ),
+              ],
+            ),
+            child: const CircleAvatar(
+              radius: 40,
+              backgroundColor: Colors.white,
+              backgroundImage: AssetImage('assets/images/app_icon_white_bg.jpeg'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
           BiText(
             AppStrings.loginTitle,
-            style: AppTextStyles.display.copyWith(color: Colors.white),
+            textAlign: TextAlign.center,
+            style: AppTextStyles.display.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+              shadows: <Shadow>[
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  offset: const Offset(0, 2),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
             urduColor: Colors.white.withValues(alpha: 0.9),
           ),
           const SizedBox(height: 4),
           BiText(
             AppStrings.loginSubtitle,
-            style: AppTextStyles.body.copyWith(color: Colors.white70),
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(color: Colors.white.withValues(alpha: 0.85)),
             urduColor: Colors.white70,
           ),
         ],
@@ -353,6 +392,61 @@ class _LoginHeader extends StatelessWidget {
     );
   }
 }
+
+/// Fingerprint login button. Shown only when the member has opted in and the
+/// device can verify them — otherwise it disappears entirely (a dead button
+/// would be worse than none). One tap opens the system BiometricPrompt and on
+/// success the saved credentials are replayed through the normal login API.
+class _FingerprintLoginButton extends StatefulWidget {
+  const _FingerprintLoginButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_FingerprintLoginButton> createState() => _FingerprintLoginButtonState();
+}
+
+class _FingerprintLoginButtonState extends State<_FingerprintLoginButton> {
+  bool _available = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAvailability();
+  }
+
+  Future<void> _checkAvailability() async {
+    if (!Get.isRegistered<BiometricAuthService>()) return;
+    final bool enabled = await Get.find<BiometricAuthService>().isEnabled();
+    if (!mounted) return;
+    setState(() => _available = enabled);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_available) return const SizedBox.shrink();
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        foregroundColor: AppColors.primary,
+        side: BorderSide(
+          color: AppColors.primary.withValues(alpha: 0.55),
+          width: 1.2,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+        backgroundColor: AppColors.primary.withValues(alpha: dark ? 0.12 : 0.05),
+      ),
+      onPressed: widget.onPressed,
+      icon: const Icon(Icons.fingerprint_rounded, size: 24),
+      label: Text(
+        'Login with Fingerprint',
+        style: AppTextStyles.label.copyWith(fontSize: 14.5, color: AppColors.primary),
+      ),
+    );
+  }
+}
+
 
 class _CreateAccountRow extends StatelessWidget {
   @override
@@ -389,28 +483,3 @@ class _CreateAccountRow extends StatelessWidget {
   }
 }
 
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
-        borderRadius: AppRadius.mdAll,
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
-          ),
-        ],
-      ),
-    );
-  }
-}

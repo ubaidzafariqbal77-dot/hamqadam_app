@@ -11,7 +11,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.util.Rational
 import android.view.WindowManager
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import org.json.JSONObject
@@ -22,7 +22,7 @@ import org.json.JSONObject
  * call lasts, and report the Android grants that decide whether a sleeping
  * phone rings at all.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private companion object {
         const val CHANNEL = "com.app.hamqadam/call_reliability"
 

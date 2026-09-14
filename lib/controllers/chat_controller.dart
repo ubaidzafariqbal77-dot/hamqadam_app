@@ -776,7 +776,8 @@ class ChatController extends GetxController {
         return;
       }
     }
-    Get.to(() => const ChatInboxView());
+    // Standalone: the inbox pushed as its own route (back-capable header).
+    Get.to(() => const ChatInboxView(standalone: true));
   }
 
   /// Returns the active thread with [userId] if already created on server, else null.

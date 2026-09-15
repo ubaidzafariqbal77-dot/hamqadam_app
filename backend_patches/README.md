@@ -199,3 +199,41 @@ stops being consulted.
 `StorePushTokenRequest` validates `platform`, and the app was sending
 `device_type`, so `user_push_tokens.platform` was always null. The app now sends
 both keys; nothing to change here unless you want to drop the alias.
+
+---
+
+## Chat completion patches (2026-09-15)
+
+Applied to the live source at `/Applications/XAMPP/xamppfiles/htdocs/hamqadam_live/`
+(git-tracked there; `git diff` shows everything).
+
+### 1. Presence — "last seen / active" (NEW)
+- **Migration** `2026_09_15_000001_add_last_active_at_to_users_table.php`:
+  `users.last_active_at` + index. (Applied via direct SQL; the dump's
+  `migrations` table was out of sync, so `php artisan migrate` would fail on an
+  unrelated `jobs` migration. Column + index + a `migrations` row were inserted
+  manually.)
+- **Middleware** `app/Http/Middleware/EnsureApiMemberActivity.php` (alias
+  `member.activity`): stamps `last_active_at` on every authenticated request,
+  throttled to once per member per minute (single conditional UPDATE).
+  Mounted on the `chat` and `help-chat` route groups.
+- **Resources**: `ChatUserResource` now returns `last_active_at` + `is_online`
+  (online = active within 2 minutes, the middleware's own constant).
+- `User::$casts` gained `'last_active_at' => 'datetime'` (without it the
+  resource crashed: `gt()` on string).
+
+### 2. Delivered tick — proper single → double tick (NEW)
+- `POST /chat/threads/{thread}/delivered` (throttled 60/min) +
+  `ChatApiService::markDelivered()`: stamps `delivered_at` on the recipient's
+  unseen messages and broadcasts the new **`ChatMessageDelivered`** event
+  (`message-delivered` on `private-chat-thread.{id}`) with the id list.
+- `send()` no longer stamps `delivered_at` at creation — it stays NULL until
+  the recipient's app ACKs, which is what makes the sender's single tick mean
+  anything. `read_at` (blue tick) was already set by `markRead()` inside
+  `messages()`.
+
+### 3. Voice-note metadata (NEW)
+- `SendMessageRequest` accepts `metadata` (array). `send()` persists it into
+  `chats.metadata` (JSON cast already existed); `ChatMessageResource` and the
+  `ChatMessageSent` broadcast return it. The app sends
+  `{duration: seconds, waveform: [ints]}` with each voice upload.

@@ -38,6 +38,13 @@ import '../../proposals/views/proposals_view.dart';
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
 
+  /// External tab switching — a saved search "Apply" lands the member back on
+  /// the Discover tab with its filter active, from anywhere in the app.
+  static final ValueNotifier<int> tabRequest = ValueNotifier<int>(0);
+
+  /// Jumps the shell to [index]: 0 Discover, 1 Matches, 2 Chat, 3 Profile.
+  static void goToTab(int index) => tabRequest.value = index;
+
   @override
   State<HomeView> createState() => _HomeViewState();
 }
@@ -65,10 +72,24 @@ class _HomeViewState extends State<HomeView> {
   @override
   void initState() {
     super.initState();
+    HomeView.tabRequest.addListener(_onTabRequest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _auth.refreshUser();
       _checkPushReadiness();
     });
+  }
+
+  void _onTabRequest() {
+    final int requested = HomeView.tabRequest.value;
+    if (requested != _index && requested >= 0 && requested < _tabs.length) {
+      setState(() => _index = requested);
+    }
+  }
+
+  @override
+  void dispose() {
+    HomeView.tabRequest.removeListener(_onTabRequest);
+    super.dispose();
   }
 
   /// Tells the member if this device cannot be reached while the app is closed.
@@ -293,8 +314,27 @@ class _AppDrawer extends StatelessWidget {
                           () => Get.to<void>(() => const ShortlistView())),
                       _DrawerEntry(Icons.favorite_border_rounded, 'Manage Interests',
                           () => Get.to<void>(() => const InterestsView())),
+                      _DrawerEntry(Icons.bookmarks_outlined, 'Saved Searches',
+                          () => Get.toNamed<void>(AppRoutes.savedSearches)),
                       _DrawerEntry(Icons.notifications_none_rounded, 'Notifications',
                           () => Get.to<void>(() => const NotificationsView())),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _group(
+                    context,
+                    cardColor: cardColor,
+                    hairline: hairline,
+                    label: 'FAMILY & COMMUNITY',
+                    entries: <_DrawerEntry>[
+                      _DrawerEntry(Icons.family_restroom_rounded, 'Family & Wali Mode',
+                          () => Get.toNamed<void>(AppRoutes.family)),
+                      _DrawerEntry(Icons.videocam_outlined, 'Webinars',
+                          () => Get.toNamed<void>(AppRoutes.webinars)),
+                      _DrawerEntry(Icons.support_rounded, 'Expert Advice',
+                          () => Get.toNamed<void>(AppRoutes.expertQuestions)),
+                      _DrawerEntry(Icons.forum_outlined, 'Community Forums',
+                          () => Get.toNamed<void>(AppRoutes.forums)),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),

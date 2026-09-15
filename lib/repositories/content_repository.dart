@@ -195,14 +195,31 @@ class ContentRepository {
 
   // ---- Helpers --------------------------------------------------------------
 
+  /// Parses one of two paginator shapes the backend sends:
+  ///
+  /// 1. Laravel API resources: `data: [ …items ]` + `meta: {current_page…}`
+  /// 2. Plain Builder paginators (content/*): `data: {data: [ …items ],
+  ///    current_page: 1, last_page: 1, total: 0}` — the pagination metadata
+  ///    lives INSIDE the data map, so `dataList` alone comes back empty.
   ContentPage<Map<String, dynamic>> _parsePage(ApiEnvelope res) {
-    final List<dynamic> raw = res.dataList;
-    final List<Map<String, dynamic>> items = raw.whereType<Map<String, dynamic>>().toList();
+    final dynamic d = res.data;
+    if (d is Map<String, dynamic>) {
+      final List<dynamic> raw = (d['data'] as List<dynamic>?) ?? const <dynamic>[];
+      final List<Map<String, dynamic>> items = raw.whereType<Map<String, dynamic>>().toList();
+      final Map<String, dynamic> meta = res.meta ?? d;
+      return ContentPage<Map<String, dynamic>>(
+        items: items,
+        currentPage: (meta['current_page'] as num?)?.toInt() ?? 1,
+        lastPage: (meta['last_page'] as num?)?.toInt() ?? 1,
+        total: (meta['total'] as num?)?.toInt() ?? items.length,
+      );
+    }
+    final List<Map<String, dynamic>> items = res.dataList.whereType<Map<String, dynamic>>().toList();
     return ContentPage<Map<String, dynamic>>(
       items: items,
-      currentPage: (res.meta?['current_page'] as int?) ?? 1,
-      lastPage: (res.meta?['last_page'] as int?) ?? 1,
-      total: (res.meta?['total'] as int?) ?? items.length,
+      currentPage: (res.meta?['current_page'] as num?)?.toInt() ?? 1,
+      lastPage: (res.meta?['last_page'] as num?)?.toInt() ?? 1,
+      total: (res.meta?['total'] as num?)?.toInt() ?? items.length,
     );
   }
 }

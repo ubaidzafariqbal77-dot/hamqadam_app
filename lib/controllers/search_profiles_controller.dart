@@ -427,33 +427,24 @@ class SearchProfilesController extends GetxController {
 
   /// Appends the next page to the existing list.
   ///
-  /// While a keyword search is active, a match may live several pages deep
-  /// (the keyword is matched client-side over the fetched pages), so each
-  /// scroll step pulls up to 3 pages and stops early once something survives
-  /// the local filter — the deep result is actually reachable instead of
-  /// leaving a spinner card that never resolves.
+  /// Standard single-page pagination. The `search` keyword is applied
+  /// SERVER-side now (ProfileSearchService filters name/ID before paginating),
+  /// so matches are reachable on every page and the old 3-pages-per-scroll
+  /// workaround is no longer needed.
   Future<void> loadMore() async {
     final SearchProfilesPage? current = pageData;
     if (current == null || !current.hasMore || isLoadingMore.value || state.value.isLoading) {
       return;
     }
 
-    final String query = (filter.value.searchQuery ?? '').trim();
     isLoadingMore.value = true;
     try {
-      SearchProfilesPage merged = current;
-      final int maxFetches = query.isEmpty ? 1 : 3;
-      for (int fetched = 0; fetched < maxFetches; fetched++) {
-        final SearchProfilesPage next = await _repo.fetchProfiles(
-          filter: _effectiveFilter,
-          page: merged.currentPage + 1,
-          perPage: _perPage,
-        );
-        merged = merged.merge(next);
-        state.value = ApiState<SearchProfilesPage>.success(merged);
-        if (!merged.hasMore) break;
-        if (visibleProfiles.isNotEmpty) break; // found one — stop fetching
-      }
+      final SearchProfilesPage next = await _repo.fetchProfiles(
+        filter: _effectiveFilter,
+        page: current.currentPage + 1,
+        perPage: _perPage,
+      );
+      state.value = ApiState<SearchProfilesPage>.success(current.merge(next));
     } on AppException catch (_) {
       // Do not replace existing list on pagination error
     } catch (_) {

@@ -114,6 +114,9 @@ class _SearchBarHeader extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
+    // Icon row first, full-width search field BELOW it — the icons sit on both
+    // sides and the search field spans the whole width underneath, so it is
+    // the visual anchor of the screen and never squeezed on small phones.
     return Container(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.md,
@@ -121,137 +124,171 @@ class _SearchBarHeader extends StatelessWidget {
         AppSpacing.md,
         AppSpacing.xs,
       ),
-      child: Row(
+      child: Column(
         children: <Widget>[
-          // Search text box
-          Expanded(
+          _buildIconRow(context, theme, isDark),
+          const SizedBox(height: AppSpacing.sm),
+          _buildSearchField(context, theme, isDark),
+        ],
+      ),
+    );
+  }
+
+  /// Horoscope · Filter · Notifications · Partner-preference — the same four
+  /// icon buttons, now arranged filter/notification on the LEFT and horoscope /
+  /// partner-preference on the RIGHT with an even spread between.
+  Widget _buildIconRow(BuildContext context, ThemeData theme, bool isDark) {
+    return Row(
+      children: <Widget>[
+        _buildFilterButton(context, isDark),
+        const SizedBox(width: AppSpacing.sm),
+        _buildNotificationButton(context, isDark),
+        const Spacer(),
+        _buildHoroscopeButton(isDark),
+        const SizedBox(width: AppSpacing.sm),
+        _buildPartnerPrefButton(isDark),
+      ],
+    );
+  }
+
+  Widget _buildSearchField(BuildContext context, ThemeData theme, bool isDark) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        borderRadius: AppRadius.lgAll,
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+        ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller.searchInputController,
+        onChanged: controller.onSearchChanged,
+        // The magnifier key on the keyboard commits the query immediately and
+        // reloads — the field used to rely on the 500 ms debounce alone, which
+        // read as a dead button.
+        textInputAction: TextInputAction.search,
+        onSubmitted: controller.submitSearch,
+        decoration: InputDecoration(
+          hintText: 'Search by name, ID, or keyword...',
+          hintStyle: AppTextStyles.body.copyWith(
+            color: Theme.of(context).hintColor.withValues(alpha: 0.7),
+            fontSize: 13.5,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+          suffixIcon: Obx(() {
+            final bool hasText =
+                controller.filter.value.searchQuery?.isNotEmpty == true;
+            if (!hasText) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.close_rounded, size: 16),
+              onPressed: controller.clearSearchQuery,
+            );
+          }),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 11,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButton(BuildContext context, bool isDark) {
+    return Obx(() {
+      final int filterCount = controller.activeFilterCount;
+      final bool hasFilters = filterCount > 0;
+
+      return Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          InkWell(
+            onTap: () => SearchFilterBottomSheet.show(context),
+            borderRadius: AppRadius.lgAll,
             child: Container(
               height: 44,
+              width: 44,
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                color: hasFilters
+                    ? AppColors.primary
+                    : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
                 borderRadius: AppRadius.lgAll,
                 border: Border.all(
-                  color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+                  color: hasFilters
+                      ? AppColors.primary
+                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: (hasFilters ? AppColors.primary : Colors.black)
+                        .withValues(alpha: hasFilters ? 0.25 : 0.04),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
                 ],
               ),
-              child: TextField(
-                controller: controller.searchInputController,
-                onChanged: controller.onSearchChanged,
-                // The magnifier key on the keyboard commits the query
-                // immediately and reloads — the field used to rely on the
-                // 500 ms debounce alone, which read as a dead button.
-                textInputAction: TextInputAction.search,
-                onSubmitted: controller.submitSearch,
-                decoration: InputDecoration(
-                  hintText: 'Search by name, ID, or keyword...',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: Theme.of(context).hintColor.withValues(alpha: 0.7),
-                    fontSize: 13.5,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                  suffixIcon: Obx(() {
-                    final bool hasText =
-                        controller.filter.value.searchQuery?.isNotEmpty == true;
-                    if (!hasText) return const SizedBox.shrink();
-                    return IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 16),
-                      onPressed: controller.clearSearchQuery,
-                    );
-                  }),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm,
-                    vertical: 11,
+              child: Icon(
+                Icons.tune_rounded,
+                color: hasFilters
+                    ? Colors.white
+                    : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
+                size: 20,
+              ),
+            ),
+          ),
+          if (hasFilters)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppColors.gold,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    '$filterCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          // Filter Button with Badge
-          Obx(() {
-            final int filterCount = controller.activeFilterCount;
-            final bool hasFilters = filterCount > 0;
+        ],
+      );
+    });
+  }
 
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                InkWell(
-                  onTap: () => SearchFilterBottomSheet.show(context),
-                  borderRadius: AppRadius.lgAll,
-                  child: Container(
-                    height: 44,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: hasFilters
-                          ? AppColors.primary
-                          : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
-                      borderRadius: AppRadius.lgAll,
-                      border: Border.all(
-                        color: hasFilters
-                            ? AppColors.primary
-                            : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: (hasFilters ? AppColors.primary : Colors.black)
-                              .withValues(alpha: hasFilters ? 0.25 : 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.tune_rounded,
-                      color: hasFilters
-                          ? Colors.white
-                          : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
-                      size: 20,
-                    ),
-                  ),
-                ),
-                if (hasFilters)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.gold,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                      child: Center(
-                        child: Text(
-                          '$filterCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }),
-          const SizedBox(width: AppSpacing.sm),
-          // Horoscope Button
+  Widget _buildNotificationButton(BuildContext context, bool isDark) {
+    return Obx(() {
+      final NotificationController? notifCtrl =
+          Get.isRegistered<NotificationController>()
+              ? Get.find<NotificationController>()
+              : null;
+      final int unread = notifCtrl?.unreadCount.value ?? 0;
+      return Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
           InkWell(
-            onTap: () => HoroscopeFormSheet.show(context),
+            onTap: () => Get.to(() => const NotificationsView()),
             borderRadius: AppRadius.lgAll,
             child: Container(
               height: 44,
@@ -270,141 +307,130 @@ class _SearchBarHeader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.auto_awesome_rounded,
-                color: AppColors.gold,
+              child: Icon(
+                unread > 0
+                    ? Icons.notifications_rounded
+                    : Icons.notifications_none_rounded,
+                color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
                 size: 22,
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          // Notification Bell Button with unread badge
-          Obx(() {
-            final NotificationController? notifCtrl =
-                Get.isRegistered<NotificationController>()
-                    ? Get.find<NotificationController>()
-                    : null;
-            final int unread = notifCtrl?.unreadCount.value ?? 0;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                InkWell(
-                  onTap: () => Get.to(() => const NotificationsView()),
-                  borderRadius: AppRadius.lgAll,
-                  child: Container(
-                    height: 44,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-                      borderRadius: AppRadius.lgAll,
-                      border: Border.all(
-                        color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      unread > 0
-                          ? Icons.notifications_rounded
-                          : Icons.notifications_none_rounded,
-                      color: isDark ? AppColors.darkTextPrimary : AppColors.primary,
-                      size: 22,
+          if (unread > 0)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    unread > 99 ? '99+' : '$unread',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
                     ),
                   ),
                 ),
-                if (unread > 0)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                      child: Center(
-                        child: Text(
-                          unread > 99 ? '99+' : '$unread',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }),
-          const SizedBox(width: AppSpacing.sm),
-          // Partner Preference Filter Toggle — a distinct icon so it cannot be
-          // mistaken for the duplicate tune button beside it.
-          Obx(() {
-            final bool active = controller.filter.value.partnerPreferenceFilter;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                InkWell(
-                  onTap: controller.togglePartnerPreferenceFilter,
-                  borderRadius: AppRadius.lgAll,
-                  child: Container(
-                    height: 44,
-                    width: 44,
-                    decoration: BoxDecoration(
-                      color: active
-                          ? AppColors.primary
-                          : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
-                      borderRadius: AppRadius.lgAll,
-                      border: Border.all(
-                        color: active
-                            ? AppColors.primary
-                            : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
-                      ),
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: (active ? AppColors.primary : Colors.black)
-                              .withValues(alpha: active ? 0.25 : 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.favorite_outline_rounded,
-                      color: active
-                          ? Colors.white
-                          : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
-                      size: 20,
-                    ),
-                  ),
-                ),
-                if (active)
-                  Positioned(
-                    top: -4,
-                    right: -4,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
-                        color: AppColors.success,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }),
+              ),
+            ),
         ],
+      );
+    });
+  }
+
+  Widget _buildHoroscopeButton(bool isDark) {
+    return InkWell(
+      onTap: () => HoroscopeFormSheet.show(Get.context!),
+      borderRadius: AppRadius.lgAll,
+      child: Container(
+        height: 44,
+        width: 44,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: AppRadius.lgAll,
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Icon(
+          Icons.auto_awesome_rounded,
+          color: AppColors.gold,
+          size: 22,
+        ),
       ),
     );
+  }
+
+  Widget _buildPartnerPrefButton(bool isDark) {
+    return Obx(() {
+      final bool active = controller.filter.value.partnerPreferenceFilter;
+      return Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          InkWell(
+            onTap: controller.togglePartnerPreferenceFilter,
+            borderRadius: AppRadius.lgAll,
+            child: Container(
+              height: 44,
+              width: 44,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.primary
+                    : (isDark ? AppColors.darkSurface : AppColors.lightSurface),
+                borderRadius: AppRadius.lgAll,
+                border: Border.all(
+                  color: active
+                      ? AppColors.primary
+                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: (active ? AppColors.primary : Colors.black)
+                        .withValues(alpha: active ? 0.25 : 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.favorite_outline_rounded,
+                color: active
+                    ? Colors.white
+                    : (isDark ? AppColors.darkTextPrimary : AppColors.primary),
+                size: 20,
+              ),
+            ),
+          ),
+          if (active)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: AppColors.success,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
+      );
+    });
   }
 }
 

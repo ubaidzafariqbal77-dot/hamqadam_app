@@ -18,6 +18,13 @@ class FamilyController extends GetxController {
   final RxList<Map<String, dynamic>> conversations = <Map<String, dynamic>>[].obs;
   final RxBool busy = false.obs;
 
+  /// Whether the member's wali/family-involvement mode is on (server flag).
+  final RxBool waliModeEnabled = false.obs;
+
+  /// Guardian digest preview: `{managed_profiles, new_proposals_this_week,
+  /// pending_family_approvals}`.
+  final RxMap<String, dynamic> digest = <String, dynamic>{}.obs;
+
   // ---- Dashboard
   Future<void> loadDashboard({int? profileUserId}) async {
     dashboardState.value = const ApiState.loading();
@@ -86,9 +93,20 @@ class FamilyController extends GetxController {
   Future<void> toggleWaliMode(bool enabled) async {
     try {
       await _repo.toggleWaliMode(enabled: enabled);
+      // The service echoes the new state; trust our intent when it does not.
+      waliModeEnabled.value = enabled;
       AppSnackbar.success(enabled ? 'Wali mode enabled.' : 'Wali mode disabled.');
     } catch (e) {
       AppSnackbar.error('Failed to toggle wali mode.');
+    }
+  }
+
+  // ---- Digest
+  Future<void> loadDigest() async {
+    try {
+      digest.value = await _repo.fetchDigestPreview();
+    } catch (_) {
+      // Digest is a nice-to-have on this screen; silence is fine.
     }
   }
 
@@ -104,6 +122,31 @@ class FamilyController extends GetxController {
     try {
       approvalRequests.assignAll(await _repo.fetchApprovalRequests());
     } catch (_) {}
+  }
+
+  /// Asks an approved guardian to approve something (e.g. a proposal chat).
+  Future<bool> createApprovalRequest({
+    required int guardianUserId,
+    required String requestType,
+    Map<String, dynamic>? payload,
+  }) async {
+    if (busy.value) return false;
+    busy.value = true;
+    try {
+      await _repo.requestApproval(<String, dynamic>{
+        'guardian_user_id': guardianUserId,
+        'request_type': requestType,
+        if (payload != null) 'payload': payload,
+      });
+      AppSnackbar.success('Approval request sent.');
+      await loadApprovalRequests();
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Could not send the approval request.');
+      return false;
+    } finally {
+      busy.value = false;
+    }
   }
 
   Future<bool> approveRequest(int approvalId, {String? note}) async {

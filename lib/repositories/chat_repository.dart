@@ -52,6 +52,8 @@ class ChatRepository {
     int? replyToChatId,
     int? recipientUserId,
     List<String> attachmentPaths = const <String>[],
+    Map<String, dynamic>? metadata,
+    int disappearAfter = 0,
   }) async {
     final ApiEnvelope res;
     if (attachmentPaths.isNotEmpty) {
@@ -59,6 +61,9 @@ class ChatRepository {
         'message': message,
         'message_type': messageType,
       };
+      if (disappearAfter > 0) {
+        fields['disappear_after'] = '$disappearAfter';
+      }
       if (replyToChatId != null && replyToChatId > 0) {
         fields['reply_to_chat_id'] = replyToChatId.toString();
         fields['reply_to_id'] = replyToChatId.toString();
@@ -67,6 +72,14 @@ class ChatRepository {
         fields['receiver_id'] = recipientUserId.toString();
         fields['recipient_id'] = recipientUserId.toString();
         fields['user_id'] = recipientUserId.toString();
+      }
+      if (metadata != null) {
+        fields['metadata[duration]'] = '${metadata['duration'] ?? ''}';
+        final List<int> wave =
+            ((metadata['waveform'] as List<dynamic>?) ?? const <dynamic>[]).map((dynamic e) => (e as num).toInt()).toList();
+        for (int i = 0; i < wave.length; i++) {
+          fields['metadata[waveform][$i]'] = '${wave[i]}';
+        }
       }
       res = await _client.multipart(
         ApiEndpoints.chatSend(threadId),
@@ -81,6 +94,9 @@ class ChatRepository {
         'message_type': messageType,
         'attachments': <dynamic>[],
       };
+      if (disappearAfter > 0) {
+        body['disappear_after'] = disappearAfter;
+      }
       if (replyToChatId != null && replyToChatId > 0) {
         body['reply_to_chat_id'] = replyToChatId;
         body['reply_to_id'] = replyToChatId;
@@ -89,6 +105,9 @@ class ChatRepository {
         body['receiver_id'] = recipientUserId;
         body['recipient_id'] = recipientUserId;
         body['user_id'] = recipientUserId;
+      }
+      if (metadata != null) {
+        body['metadata'] = metadata;
       }
       res = await _client.post(
         ApiEndpoints.chatSend(threadId),
@@ -109,6 +128,29 @@ class ChatRepository {
     } catch (_) {
       // Typing indicator failure is non-fatal
     }
+  }
+
+  /// `POST /chat/threads/{thread}/delivered` — acknowledges having the
+  /// thread's messages on device, turning the sender's single tick into a
+  /// double tick. Non-fatal by design.
+  Future<void> markThreadDelivered(int threadId) async {
+    try {
+      await _client.post(ApiEndpoints.chatDelivered(threadId));
+    } catch (_) {
+      // A failed delivery ping must never break the conversation; the next
+      // open/retry re-asserts it.
+    }
+  }
+
+  /// `POST /chat/threads/{thread}/disappear` — persists the thread's
+  /// disappearing-message TTL (seconds; 0 = off). Returns the stored value.
+  Future<int> setDisappearAfter(int threadId, int seconds) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.chatDisappear(threadId),
+      body: <String, dynamic>{'disappear_after': seconds.clamp(0, 31536000)},
+    );
+    final dynamic data = res.dataMap['disappear_after'];
+    return data is num ? data.toInt() : seconds;
   }
 
   // --------------------------------------------------------------------------

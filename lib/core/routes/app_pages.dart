@@ -4,6 +4,7 @@ import 'bounce_page_transition.dart';
 import '../../features/auth/views/forgot_password_view.dart';
 import '../../features/auth/views/home_view.dart';
 import '../../features/auth/views/login_view.dart';
+import '../../features/auth/views/manual_review_view.dart';
 import '../../features/auth/views/onboarding_view.dart';
 import '../../features/auth/views/registration_completed_view.dart';
 import '../../features/auth/views/splash_view.dart';
@@ -32,6 +33,11 @@ import '../../features/registration/steps/step16_family_info.dart';
 import '../../features/registration/steps/step17_family_details.dart';
 import '../../features/registration/steps/step18_partner.dart';
 import '../../features/chat/views/incoming_call_screen.dart';
+import '../../features/content/views/expert_questions_view.dart';
+import '../../features/content/views/forums_view.dart';
+import '../../features/content/views/webinars_view.dart';
+import '../../features/discover/views/saved_searches_view.dart';
+import '../../features/family/views/family_view.dart';
 import 'app_routes.dart';
 
 /// GetX page table. Controllers are created/disposed by their own views
@@ -94,10 +100,16 @@ class AppPages {
     _page(AppRoutes.finalizing, () => const FinalizingView()),
     _page(AppRoutes.verifyEmail, () => const VerifyEmailView()),
     _page(AppRoutes.registrationCompleted, () => const RegistrationCompletedView()),
+    _page(AppRoutes.manualReview, () => const ManualReviewView()),
     _page(AppRoutes.home, () => const HomeView()),
     _page(AppRoutes.profileCompletion, () => const ProfileCompletionView()),
     _page(AppRoutes.aiVerification, () => const AiVerificationView()),
     _page(AppRoutes.expressInterests, () => const InterestsView()),
     _page(AppRoutes.partnerPreferencesEdit, () => const PartnerPreferencesView()),
+    _page(AppRoutes.family, () => const FamilyView()),
+    _page(AppRoutes.webinars, () => const WebinarsView()),
+    _page(AppRoutes.expertQuestions, () => const ExpertQuestionsView()),
+    _page(AppRoutes.forums, () => const ForumsView()),
+    _page(AppRoutes.savedSearches, () => const SavedSearchesView()),
   ];
 }

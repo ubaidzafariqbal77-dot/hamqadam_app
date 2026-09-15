@@ -8,6 +8,7 @@ import 'package:dio/dio.dart';
 
 import '../../constants/app_constants.dart';
 import '../../exceptions/app_exceptions.dart';
+import '../../models/manual_review_state.dart';
 import '../network/network_info.dart';
 import '../storage/secure_storage_service.dart';
 import '../utils/app_logger.dart';
@@ -60,6 +61,13 @@ class ApiClient {
   FutureOr<void> Function()? onUnauthorized;
   bool _handlingUnauthorized = false;
 
+  /// Invoked when the server answers `423 manual_review_read_only` — the
+  /// account is under manual review and the request was refused. Carries the
+  /// `review` node from the response so the UI can open the gate screen
+  /// without a second round trip.
+  FutureOr<void> Function(ManualReviewState review)? onManualReview;
+  bool _handlingManualReview = false;
+
   Dio get raw => _dio;
 
   /// Whether a bearer token is available. Callers use this to skip requests to
@@ -110,6 +118,8 @@ class ApiClient {
           }
           if (error.response?.statusCode == 401) {
             await _fireUnauthorized();
+          } else if (error.response?.statusCode == 423) {
+            await _fireManualReview(error.response);
           }
           handler.next(error);
         },
@@ -131,6 +141,29 @@ class ApiClient {
       // Small window so a burst of parallel 401s only triggers one logout.
       Future<void>.delayed(const Duration(seconds: 2), () {
         _handlingUnauthorized = false;
+      });
+    }
+  }
+
+  /// Extracts the review state from a 423 body and hands it to the app once
+  /// per wave — parallel refused requests must not stack gate navigations.
+  Future<void> _fireManualReview(Response<dynamic>? response) async {
+    final dynamic body = response?.data;
+    ManualReviewState state = const ManualReviewState(
+      underReview: true,
+      status: 'manual_review',
+    );
+    if (body is Map<String, dynamic>) {
+      final dynamic review = body['review'];
+      if (review is Map<String, dynamic>) state = ManualReviewState.fromJson(review);
+    }
+    if (_handlingManualReview) return;
+    _handlingManualReview = true;
+    try {
+      await onManualReview?.call(state);
+    } finally {
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        _handlingManualReview = false;
       });
     }
   }

@@ -6,10 +6,12 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/lookup_controller.dart';
+import '../../../controllers/search_extra_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_button.dart';
+import '../../../widgets/app_snackbar.dart';
 
 /// Modal bottom sheet for configuring search and filter options.
 ///
@@ -144,6 +146,55 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
 
     _controller.applyFilter(updated);
     Navigator.of(context).pop();
+    // The sheet is gone; ask (once) whether to keep this combination.
+    _offerSave(updated);
+  }
+
+  /// Offers to save the current filter combination as a named saved search
+  /// (re-runnable from the Saved Searches screen). Shown right after Apply.
+  Future<void> _offerSave(SearchFilterModel saved) async {
+    final TextEditingController nameCtrl = TextEditingController();
+    final bool? shouldSave = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text('Save this search?', style: AppTextStyles.bodyStrong),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Re-run these filters any time from Saved Searches.',
+              style: AppTextStyles.caption.copyWith(color: Get.theme.hintColor),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'e.g. Lahore 25-35',
+                border: OutlineInputBorder(borderRadius: AppRadius.mdAll),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Get.back<bool>(result: false), child: const Text('Not now')),
+          TextButton(
+            onPressed: () => Get.back<bool>(result: true),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave != true) return;
+    final String name = nameCtrl.text.trim();
+    if (Get.isRegistered<SearchExtraController>()) {
+      await Get.find<SearchExtraController>().saveSearch(
+        name.isEmpty ? 'My search' : name,
+        saved,
+      );
+      AppSnackbar.success('Search saved.');
+    }
   }
 
   @override

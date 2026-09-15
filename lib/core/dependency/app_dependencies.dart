@@ -205,6 +205,10 @@ class AppDependencies {
 
     // Centralised 401 handling (clears session, routes to login, no loops).
     apiClient.onUnauthorized = authController.handleUnauthorized;
+    // 423 manual_review_read_only → open the full-screen review gate. The
+    // refused action's own error still reaches its caller, but the member is
+    // taken out of the app into the one screen that explains the state.
+    apiClient.onManualReview = authController.enterManualReview;
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
 

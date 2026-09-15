@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:ui' show FontFeature;
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,9 +41,19 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
 
+  /// Reactive mirror of "composer has text" — TextEditingController is not
+  /// observable, so the mic/send swap needs this to rebuild on each keystroke.
+  final RxBool _composerHasText = false.obs;
+
+  /// Composer panels (emoji picker / disappearing-timer menu). Only one is
+  /// open at a time; both close when a message is sent.
+  bool _emojiPanelOpen = false;
+  bool _timerMenuOpen = false;
+
   @override
   void initState() {
     super.initState();
+    _controller.messageInputController.addListener(_syncComposerState);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.openThread(widget.thread);
     });
@@ -54,8 +66,14 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     });
   }
 
+  void _syncComposerState() {
+    final bool hasText = _controller.messageInputController.text.trim().isNotEmpty;
+    if (_composerHasText.value != hasText) _composerHasText.value = hasText;
+  }
+
   @override
   void dispose() {
+    _controller.messageInputController.removeListener(_syncComposerState);
     _scrollController.dispose();
     super.dispose();
   }
@@ -245,7 +263,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             Expanded(
               child: Obx(() {
                 final ApiStatus status = _controller.messagesStatus.value;
-                final List<ChatMessage> list = _controller.messages;
+                final List<ChatMessage> list = _controller.visibleMessages;
 
                 if (status == ApiStatus.loading && list.isEmpty) {
                   return const Center(child: CircularProgressIndicator(color: AppColors.primary));
@@ -491,14 +509,22 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                 ),
                 Obx(() {
                   final bool typing = _controller.isOtherTyping.value;
+                  // Live presence: the inbox refresh carries the other
+                  // member's fresh stamp, so read it from the controller's
+                  // active thread rather than the stale widget.thread copy.
+                  final ChatParticipant participant =
+                      _controller.activeThread.value?.participant ??
+                          widget.thread.participant;
                   return Text(
-                    typing ? 'Typing…' : (widget.thread.participant.isOnline ? 'Online' : 'Active'),
+                    typing
+                        ? 'Typing…'
+                        : _presenceLabel(participant),
                     style: TextStyle(
                       fontSize: 11,
                       color: typing
                           ? AppColors.primary
-                          : (widget.thread.participant.isOnline ? AppColors.success : Theme.of(context).hintColor),
-                      fontWeight: typing || widget.thread.participant.isOnline ? FontWeight.bold : FontWeight.normal,
+                          : (participant.isOnline ? AppColors.success : Theme.of(context).hintColor),
+                      fontWeight: typing || participant.isOnline ? FontWeight.bold : FontWeight.normal,
                     ),
                   );
                 }),
@@ -576,6 +602,22 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     );
   }
 
+  /// Presence line under the conversation title: Online / Last seen …
+  /// (never a bare "Active" that could mean anything).
+  String _presenceLabel(ChatParticipant participant) {
+    if (participant.isOnline) return 'Online';
+    final DateTime? at = participant.lastActiveAt;
+    if (at == null) return 'Offline';
+
+    final Duration diff = DateTime.now().difference(at);
+    if (diff.inMinutes < 1) return 'Active just now';
+    if (diff.inMinutes < 60) return 'Last seen ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Last seen ${diff.inHours}h ago';
+    if (diff.inDays == 1) return 'Last seen yesterday';
+    if (diff.inDays < 7) return 'Last seen ${diff.inDays}d ago';
+    return 'Last seen ${DateFormat('d MMM').format(at)}';
+  }
+
   Widget _buildComposer(BuildContext context, bool isDark) {
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -588,14 +630,40 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
         border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: <Widget>[
+      child: Obx(() {
+        // While recording, the whole composer becomes the recording bar.
+        if (_controller.isRecording.value) {
+          return _buildRecordingBar(context, isDark);
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            // Emoji / timer panels live above the input row when open.
+            if (_emojiPanelOpen) _buildEmojiPanel(isDark),
+            if (_timerMenuOpen) _buildTimerMenu(isDark),
+            Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
           // Attachment Button
           IconButton(
             icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
             tooltip: 'Attach Media or Document',
             onPressed: _showAttachmentOptions,
+          ),
+          // Emoji button — quick picker above the keyboard.
+          IconButton(
+            icon: Icon(
+              Icons.emoji_emotions_outlined,
+              color: _emojiPanelOpen ? AppColors.primary : AppColors.primary.withValues(alpha: 0.75),
+              size: 24,
+            ),
+            tooltip: 'Emoji',
+            onPressed: () {
+              setState(() {
+                _emojiPanelOpen = !_emojiPanelOpen;
+                _timerMenuOpen = false;
+              });
+            },
           ),
           // Text Input Box
           Expanded(
@@ -604,7 +672,11 @@ class _ChatConversationViewState extends State<ChatConversationView> {
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                border: Border.all(
+                  color: _timerActive
+                      ? AppColors.success
+                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                ),
               ),
               child: TextField(
                 controller: _controller.messageInputController,
@@ -614,7 +686,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                 textCapitalization: TextCapitalization.sentences,
                 style: AppTextStyles.body,
                 decoration: InputDecoration(
-                  hintText: 'Type a message…',
+                  hintText: _timerActive ? 'Disappearing message…' : 'Type a message…',
                   hintStyle: AppTextStyles.body.copyWith(
                     color: Theme.of(context).hintColor.withValues(alpha: 0.7),
                     fontSize: 14,
@@ -626,17 +698,41 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          // Send Button
+          // Disappearing-message timer — timer chip toggles the menu.
+          IconButton(
+            icon: Icon(
+              Icons.timer_outlined,
+              size: 22,
+              color: _timerActive
+                  ? AppColors.success
+                  : AppColors.primary.withValues(alpha: 0.75),
+            ),
+            tooltip: 'Disappearing messages',
+            onPressed: () {
+              setState(() {
+                _timerMenuOpen = !_timerMenuOpen;
+                _emojiPanelOpen = false;
+              });
+            },
+          ),
+          // Mic when the composer is empty, send otherwise — the WhatsApp
+          // pattern: one thumb, no mode switching.
           Obx(() {
+            final bool hasText = _composerHasText.value;
             final bool sending = _controller.isSending.value;
             return Container(
               margin: const EdgeInsets.only(bottom: 2),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: AppColors.brandGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+              decoration: BoxDecoration(
+                gradient: hasText || sending
+                    ? const LinearGradient(
+                        colors: AppColors.brandGradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: hasText || sending
+                    ? null
+                    : AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -646,13 +742,184 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
-                    : const Icon(Icons.send_rounded, color: Colors.white, size: 19),
-                onPressed: sending ? null : _controller.sendMessage,
+                    : Icon(
+                        hasText ? Icons.send_rounded : Icons.mic_rounded,
+                        color: hasText || sending
+                            ? Colors.white
+                            : AppColors.primary,
+                        size: hasText ? 19 : 22,
+                      ),
+                tooltip: hasText ? 'Send' : 'Record voice note',
+                onPressed: sending
+                    ? null
+                    : hasText
+                        ? _controller.sendMessage
+                        : _controller.startRecording,
               ),
             );
           }),
+            ],
+          ),
+          ],
+        );
+      }),
+    );
+  }
+
+  /// Timer state from the thread's remembered setting (server-backed).
+  bool get _timerActive => (_controller.activeThread.value?.disappearAfter ?? 0) > 0;
+
+  static const List<(String, String)> _timerChoices = <(String, String)>[
+    ('Off', '0'),
+    ('24 hours', '86400'),
+    ('7 days', '604800'),
+    ('90 days', '7776000'),
+  ];
+
+  /// Disappearing-message choices shown above the composer.
+  Widget _buildTimerMenu(bool isDark) {
+    final int current = _controller.activeThread.value?.disappearAfter ?? 0;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+        borderRadius: AppRadius.mdAll,
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'New messages disappear after',
+            style: AppTextStyles.caption.copyWith(
+              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.xs,
+            children: <Widget>[
+              for (final (String label, String value) in _timerChoices)
+                ChoiceChip(
+                  label: Text(label, style: AppTextStyles.caption),
+                  selected: current.toString() == value,
+                  onSelected: (bool sel) {
+                    setState(() => _timerMenuOpen = false);
+                    _controller.setDisappearTimer(int.parse(value));
+                  },
+                ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  static const List<String> _emojiChoices = <String>[
+    '😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😜', '🤗', '🤔',
+    '😐', '😴', '😢', '😭', '😡', '👍', '👎', '🙏', '👏', '💪',
+    '❤️', '💔', '🌹', '🎉', '🤲', '🕌', '⭐', '✨', '🔥', '💯',
+  ];
+
+  /// Quick emoji strip — one tap inserts into the composer at the cursor.
+  Widget _buildEmojiPanel(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+        borderRadius: AppRadius.mdAll,
+        border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
+      ),
+      child: SizedBox(
+        height: 108,
+        child: GridView.builder(
+          physics: const BouncingScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 10,
+            childAspectRatio: 1,
+          ),
+          itemCount: _emojiChoices.length,
+          itemBuilder: (BuildContext _, int i) => IconButton(
+            icon: Text(_emojiChoices[i], style: const TextStyle(fontSize: 20)),
+            onPressed: () => _controller.appendEmoji(_emojiChoices[i]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Live recording bar: pulsing dot, running clock, cancel and send.
+  Widget _buildRecordingBar(BuildContext context, bool isDark) {
+    return Row(
+      children: <Widget>[
+        IconButton(
+          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+          tooltip: 'Cancel recording',
+          onPressed: _controller.cancelRecording,
+        ),
+        Expanded(
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: <Widget>[
+                const _RecordingPulse(),
+                const SizedBox(width: 10),
+                Obx(() {
+                  final int s = _controller.recordingSeconds.value;
+                  final String mm = (s ~/ 60).toString().padLeft(2, '0');
+                  final String ss = (s % 60).toString().padLeft(2, '0');
+                  return Text(
+                    '$mm:$ss',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.error,
+                      fontFeatures: <FontFeature>[FontFeature.tabularFigures()],
+                    ),
+                  );
+                }),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Recording voice note…',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: AppColors.brandGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            shape: BoxShape.circle,
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
+            tooltip: 'Send voice note',
+            onPressed: _controller.stopRecordingAndSend,
+          ),
+        ),
+      ],
     );
   }
 
@@ -915,8 +1182,10 @@ class _MessageBubble extends StatelessWidget {
                             failed: message.isFailed,
                           ),
 
-                        // Message text / Call event tile
-                        if (message.isCallEvent)
+                        // Message text / Voice player / Call event tile
+                        if (message.isVoice)
+                          _VoiceBubble(message: message, isMine: isMine)
+                        else if (message.isCallEvent)
                           InkWell(
                             // A call tile is a record of a past call, so tapping
                             // it calls back rather than rejoining: the channel it
@@ -1135,12 +1404,14 @@ class _PendingAttachments extends StatelessWidget {
 // Delivery state on an outgoing bubble
 // ---------------------------------------------------------------------------
 
-/// Clock while the POST is in flight, exclamation if it failed, tick once the
-/// server has it.
+/// The full tick ladder on an outgoing bubble:
 ///
-/// The bubble is drawn before the request completes now, so without this the
-/// member could not tell a sent message from one still going out — or from one
-/// that never went at all.
+///   clock        POST still in flight
+///   alert        POST failed — tap the bubble to retry
+///   one tick     server has it (delivered_at on the server is still null)
+///   two ticks    the recipient's app has the message on device
+///   blue ticks   the recipient opened the conversation (read receipt)
+///
 class _DeliveryTick extends StatelessWidget {
   const _DeliveryTick({required this.message, required this.color});
 
@@ -1155,7 +1426,14 @@ class _DeliveryTick extends StatelessWidget {
       case MessageDelivery.failed:
         return Icon(Icons.error_outline_rounded, size: 13, color: color);
       case MessageDelivery.sent:
-        return Icon(Icons.done_all_rounded, size: 13, color: color);
+        if (message.serverRead) {
+          // Blue double tick — read.
+          return const Icon(Icons.done_all_rounded, size: 13, color: Color(0xFF7ECBFF));
+        }
+        if (message.serverDelivered) {
+          return Icon(Icons.done_all_rounded, size: 13, color: color);
+        }
+        return Icon(Icons.done_rounded, size: 13, color: color);
     }
   }
 }
@@ -1377,6 +1655,254 @@ class _DocCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Full-screen image viewer
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Voice-note bubble: play/pause, waveform progress, duration. Only one clip
+// plays at a time across the whole conversation.
+// ---------------------------------------------------------------------------
+
+class _VoiceBubble extends StatefulWidget {
+  const _VoiceBubble({required this.message, required this.isMine});
+
+  final ChatMessage message;
+  final bool isMine;
+
+  @override
+  State<_VoiceBubble> createState() => _VoiceBubbleState();
+}
+
+class _VoiceBubbleState extends State<_VoiceBubble> {
+  static _VoiceBubbleState? _active;
+
+  final AudioPlayer _player = AudioPlayer();
+  bool _playing = false;
+  bool _loaded = false;
+  Duration _position = Duration.zero;
+  Duration _total = Duration.zero;
+
+  int? get _durationSeconds => widget.message.voiceDuration;
+
+  String get _label {
+    final int secs = _total.inSeconds > 0
+        ? _total.inSeconds
+        : (_durationSeconds ?? 0);
+    final int m = secs ~/ 60;
+    final int s = secs % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  double get _progress {
+    final int totalMs = _total.inMilliseconds > 0
+        ? _total.inMilliseconds
+        : (_durationSeconds ?? 0) * 1000;
+    if (totalMs <= 0) return 0;
+    return (_position.inMilliseconds / totalMs).clamp(0.0, 1.0);
+  }
+
+  String? get _sourceUrl {
+    if (widget.message.attachments.isNotEmpty) {
+      return widget.message.attachments.first.url;
+    }
+    // Optimistic bubble: the clip is still a local file.
+    if ((widget.message.isPending || widget.message.isFailed) &&
+        widget.message.localAttachmentPaths.isNotEmpty) {
+      return widget.message.localAttachmentPaths.first;
+    }
+    return null;
+  }
+
+  Future<void> _toggle() async {
+    final String? src = _sourceUrl;
+    if (src == null) return;
+
+    if (_playing) {
+      await _player.pause();
+      return;
+    }
+
+    // One voice note at a time: whatever else is playing pauses first.
+    _active?._player.pause();
+    _active = this;
+
+    try {
+      if (!_loaded) {
+        final bool isLocal = !src.startsWith('http');
+        await _player.play(
+          isLocal ? DeviceFileSource(src) : UrlSource(src),
+        );
+        _loaded = true;
+      } else {
+        await _player.resume();
+      }
+    } catch (e) {
+      AppSnackbar.error('Could not play this voice note.');
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _player.onPlayerStateChanged.listen((PlayerState s) {
+      if (!mounted) return;
+      setState(() => _playing = s == PlayerState.playing);
+    });
+    _player.onPositionChanged.listen((Duration p) {
+      if (!mounted) return;
+      setState(() => _position = p);
+    });
+    _player.onDurationChanged.listen((Duration d) {
+      if (!mounted) return;
+      if (d > Duration.zero) setState(() => _total = d);
+    });
+    _player.onPlayerComplete.listen((_) {
+      if (!mounted) return;
+      setState(() {
+        _playing = false;
+        _position = Duration.zero;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_active == this) _active = null;
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = widget.isMine ? Colors.white : AppColors.primary;
+    final List<int> wave = widget.message.voiceWaveform;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          InkWell(
+            onTap: _toggle,
+            customBorder: const CircleBorder(),
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: widget.isMine
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: accent,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          CustomPaint(
+            size: const Size(110, 30),
+            painter: _WaveformPainter(
+              wave: wave,
+              progress: _progress,
+              played: accent,
+              unplayed: accent.withValues(alpha: 0.35),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: widget.isMine
+                  ? Colors.white.withValues(alpha: 0.85)
+                  : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+              fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  const _WaveformPainter({
+    required this.wave,
+    required this.progress,
+    required this.played,
+    required this.unplayed,
+  });
+
+  final List<int> wave;
+  final double progress;
+  final Color played;
+  final Color unplayed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final int bars = wave.isNotEmpty ? wave.length : 24;
+    final double gap = 2.5;
+    final double barWidth = (size.width - (bars - 1) * gap) / bars;
+    final Paint paint = Paint()..style = PaintingStyle.fill;
+
+    final double playedUpTo = size.width * progress;
+    double x = 0;
+    for (int i = 0; i < bars; i++) {
+      final int amp = wave.isNotEmpty ? wave[i] : 3 + ((i * 7) % 11);
+      final double h = (amp / 14).clamp(0.15, 1.0) * size.height;
+      final Rect rect = Rect.fromLTWH(x, (size.height - h) / 2, barWidth, h);
+      final RRect rrect = RRect.fromRectAndRadius(rect, Radius.circular(barWidth / 2));
+      paint.color = x + barWidth <= playedUpTo ? played : unplayed;
+      canvas.drawRRect(rrect, paint);
+      x += barWidth + gap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WaveformPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.played != played;
+}
+
+// ---------------------------------------------------------------------------
+// Recording pulse — the little breathing dot in the recording bar.
+// ---------------------------------------------------------------------------
+
+class _RecordingPulse extends StatefulWidget {
+  const _RecordingPulse();
+
+  @override
+  State<_RecordingPulse> createState() => _RecordingPulseState();
+}
+
+class _RecordingPulseState extends State<_RecordingPulse>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.35, end: 1).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      ),
+      child: Container(
+        width: 10,
+        height: 10,
+        decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+      ),
+    );
+  }
+}
 
 class _FullScreenImage extends StatelessWidget {
   const _FullScreenImage({required this.url});

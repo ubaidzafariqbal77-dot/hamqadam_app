@@ -2,10 +2,14 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../core/api/api_response.dart';
+import '../exceptions/app_exceptions.dart';
 import 'call_controller.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/pusher_chat_service.dart';
@@ -98,6 +102,12 @@ class ChatController extends GetxController {
 
   /// Newest first — the conversation list is drawn with `reverse: true`.
   final RxList<ChatMessage> messages = <ChatMessage>[].obs;
+
+  /// Messages that have not yet hit their disappearing deadline.
+  /// Expired ones stay in `messages` (so optimistic bookkeeping is simple)
+  /// but never render again.
+  List<ChatMessage> get visibleMessages =>
+      messages.where((ChatMessage m) => !m.isExpired).toList();
   final Rx<ApiStatus> messagesStatus = ApiStatus.initial.obs;
   final RxBool isLoadingMore = false.obs;
   final RxBool hasMore = false.obs;
@@ -106,6 +116,18 @@ class ChatController extends GetxController {
   final RxBool isOtherTyping = false.obs;
   Timer? _typingResetTimer;
   Timer? _typingThrottle;
+
+  // ---- Voice notes ----------------------------------------------------------
+  final AudioRecorder _recorder = AudioRecorder();
+
+  /// A recording is live right now (the composer shows the recording bar).
+  final RxBool isRecording = false.obs;
+
+  /// Live seconds counter shown while recording.
+  final RxInt recordingSeconds = 0.obs;
+  String? _recordingPath;
+  bool _cancelRecordingSend = false;
+  Timer? _recordingTimer;
 
   final Rxn<ChatMessage> replyingTo = Rxn<ChatMessage>();
   final RxBool isSending = false.obs;
@@ -182,9 +204,11 @@ class ChatController extends GetxController {
     messageInputController.dispose();
     _typingResetTimer?.cancel();
     _typingThrottle?.cancel();
+    _recordingTimer?.cancel();
     _threadRefreshTimer?.cancel();
     _fallbackTimer?.cancel();
     _statusSub?.cancel();
+    _recorder.dispose();
     // IMPORTANT: Do NOT disconnect the socket here.
     // It must stay connected for the whole app lifecycle so call-incoming
     // events, typing indicators and new messages arrive on ANY screen — not
@@ -219,11 +243,16 @@ class ChatController extends GetxController {
     _pusher.onThreadTyping = (Map<String, dynamic> data) {
       // Defensive parse: the backend has sent this key as both an int and a
       // string, and a hard cast in a socket callback takes the stream with it.
-      final int senderId = _asInt(data['sender_id'] ?? data['user_id']) ?? 0;
+      // The sender object arrives under `user` (ChatTypingIndicator event) or
+      // `sender` — check both before giving up.
+      final int senderId = _asInt(data['sender_id'] ?? data['user_id']) ??
+          _asInt(data['user'] is Map ? (data['user'] as Map)['id'] : null) ??
+          _asInt(data['sender'] is Map ? (data['sender'] as Map)['id'] : null) ??
+          0;
       if (senderId == 0 || senderId == myUserId) return;
       isOtherTyping.value = true;
       _typingResetTimer?.cancel();
-      _typingResetTimer = Timer(const Duration(seconds: 4), () {
+      _typingResetTimer = Timer(const Duration(seconds: 6), () {
         isOtherTyping.value = false;
       });
     };
@@ -282,10 +311,29 @@ class ChatController extends GetxController {
       return;
     }
 
-    if (event.contains('read')) {
-      // Nothing to draw yet — there are no read ticks in the bubble. Kept as an
-      // explicit branch so it does not fall through and get mistaken for a new
-      // message, which is what used to append an empty bubble.
+    if (event.contains('delivered') || event.contains('read')) {
+      // Ticks on MY OWN outgoing messages. `message-delivered` upgrades the
+      // single tick to a double; `message-read` turns them blue.
+      final List<int> ids = <int>[
+        ...((data['message_ids'] as List<dynamic>?) ?? const <dynamic>[])
+            .map(_asInt)
+            .whereType<int>(),
+      ];
+      final DateTime at = DateTime.tryParse(
+            (data['read_at'] ?? data['delivered_at'] ?? '').toString(),
+          ) ??
+          DateTime.now();
+      for (int i = 0; i < messages.length; i++) {
+        final ChatMessage m = messages[i];
+        if (m.senderId != myUserId) continue;
+        if (ids.isNotEmpty && !ids.contains(m.id)) continue;
+        if (event.contains('read')) {
+          if (!m.serverRead) messages[i] = m.copyWith(readAt: at, seen: true);
+        } else if (!m.serverDelivered) {
+          messages[i] = m.copyWith(deliveredAt: at);
+        }
+      }
+      messages.refresh();
       return;
     }
 
@@ -699,6 +747,20 @@ class ChatController extends GetxController {
           ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
           : ApiState<List<ChatThread>>.success(list);
 
+      // Keep the open conversation's header honest: the refreshed inbox row
+      // carries the other member's presence stamp (Online / Last seen …).
+      final ChatThread? open = activeThread.value;
+      if (open != null) {
+        final int index = list.indexWhere((ChatThread t) => t.id == open.id);
+        if (index >= 0) {
+          final ChatParticipant fresh = list[index].participant;
+          if (fresh.isOnline != open.participant.isOnline ||
+              fresh.lastActiveAt != open.participant.lastActiveAt) {
+            activeThread.value = open.copyWith(participant: fresh);
+          }
+        }
+      }
+
       // Announce anything the socket and the pushes did not deliver.
       _noticeThreadPreviews(list);
 
@@ -749,6 +811,11 @@ class ChatController extends GetxController {
       _pusher.subscribeToThreadChannel(thread.id);
 
       await loadMessages(thread.id);
+
+      // This device has the thread — tell the server so the other side's
+      // single tick becomes a double tick. Reading (blue) happens server-side
+      // because the messages fetch marks read.
+      _repo.markThreadDelivered(thread.id);
 
       // Reset unread count locally for instant UI feedback
       if (thread.unreadCount > 0) {
@@ -947,6 +1014,9 @@ class ChatController extends GetxController {
         replyToChatId: replyId,
         recipientUserId: recipientUserId,
         attachmentPaths: attachments,
+        // Disappearing-messages TTL (0 = off). The thread's remembered value
+        // is the default so both sides stay consistent without re-picking.
+        disappearAfter: activeThread.value?.disappearAfter ?? 0,
       );
 
       _replaceLocal(localId, sent);
@@ -1010,6 +1080,186 @@ class ChatController extends GetxController {
     if (_typingThrottle?.isActive ?? false) return;
     _typingThrottle = Timer(const Duration(milliseconds: 2500), () {});
     _repo.sendTyping(activeThreadId);
+  }
+
+  // --------------------------------------------------------------------------
+  // Disappearing messages + emoji (composer helpers)
+  // --------------------------------------------------------------------------
+
+  /// Persists the thread's disappearing TTL (seconds; 0 = off) on the server
+  /// and mirrors it locally so the composer chip and outgoing messages use it.
+  Future<void> setDisappearTimer(int seconds) async {
+    final int threadId = activeThreadId;
+    if (threadId <= 0) return;
+    final int value = seconds.clamp(0, 31536000);
+    try {
+      final int stored = await _repo.setDisappearAfter(threadId, value);
+      final ChatThread? thread = activeThread.value;
+      if (thread != null && thread.id == threadId) {
+        activeThread.value = thread.copyWith(disappearAfter: stored);
+      }
+      AppSnackbar.success(
+        stored > 0 ? 'New messages will disappear automatically.' : 'Disappearing messages off.',
+      );
+    } on AppException catch (e) {
+      AppSnackbar.error(e.message);
+    }
+  }
+
+  /// Appends an emoji to the composer at the cursor (or the end) — used by
+  /// the emoji panel so members don't have to switch keyboards.
+  void appendEmoji(String emoji) {
+    final TextEditingController ctrl = messageInputController;
+    final TextSelection sel = ctrl.selection;
+    final String base = ctrl.text;
+    if (!sel.isValid || sel.baseOffset < 0 || sel.extentOffset < 0) {
+      ctrl.text = '$base$emoji';
+      ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
+      return;
+    }
+    final int start = sel.start < sel.end ? sel.start : sel.end;
+    ctrl.text = base.replaceRange(start, sel.end, emoji);
+    ctrl.selection = TextSelection.collapsed(offset: start + emoji.length);
+    onTextChanged(ctrl.text);
+  }
+
+  // --------------------------------------------------------------------------
+  // Voice notes
+  // --------------------------------------------------------------------------
+
+  /// Starts recording a voice note. The composer swaps to the recording bar
+  /// until [stopRecording] / [cancelRecording] is called.
+  Future<void> startRecording() async {
+    if (isRecording.value || activeThreadId <= 0) return;
+    try {
+      if (!await _recorder.hasPermission()) {
+        AppSnackbar.error('Microphone permission is required for voice notes.');
+        return;
+      }
+      final Directory dir = await getTemporaryDirectory();
+      final String path =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100),
+        path: path,
+      );
+      _recordingPath = path;
+      _cancelRecordingSend = false;
+      recordingSeconds.value = 0;
+      isRecording.value = true;
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+        recordingSeconds.value = t.tick;
+        // Safety cap: 5 minutes.
+        if (t.tick >= 300) stopRecordingAndSend();
+      });
+    } catch (e) {
+      AppLogger.w('Voice record start failed: $e');
+      AppSnackbar.error('Could not start recording.');
+    }
+  }
+
+  /// Slide/tap cancel: the recording is discarded, nothing is sent.
+  Future<void> cancelRecording() async {
+    _cancelRecordingSend = true;
+    await stopRecordingAndSend();
+  }
+
+  /// Stops the recorder. When not cancelled, the clip is uploaded as a voice
+  /// message with its duration + a small waveform so the other side gets a
+  /// proper player bubble.
+  Future<void> stopRecordingAndSend() async {
+    if (!isRecording.value) return;
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    isRecording.value = false;
+
+    final String? path = _recordingPath;
+    final int seconds = recordingSeconds.value;
+    _recordingPath = null;
+    recordingSeconds.value = 0;
+
+    try {
+      await _recorder.stop();
+    } catch (_) {}
+
+    if (_cancelRecordingSend) {
+      _cancelRecordingSend = false;
+      if (path != null) File(path).delete().catchError((_) => File(path));
+      return;
+    }
+    if (path == null || seconds < 1) {
+      // A tap shorter than a second produces an empty clip — drop it silently
+      // rather than send a broken note.
+      if (path != null) File(path).delete().catchError((_) => File(path));
+      return;
+    }
+
+    await _sendVoiceNote(path: path, seconds: seconds);
+  }
+
+  /// Uploads a recorded clip as a `voice` message with duration + waveform.
+  Future<void> _sendVoiceNote({required String path, required int seconds}) async {
+    if (activeThread.value == null || activeThreadId <= 0 || isSending.value) return;
+
+    final int targetId = activeThread.value!.id;
+    final int? replyId = replyingTo.value?.id;
+    final ChatMessage? replySource = replyingTo.value;
+
+    final String localId = 'local-${DateTime.now().microsecondsSinceEpoch}-${_localIdSeed++}';
+    final ChatMessage optimistic = ChatMessage(
+      id: 0,
+      threadId: targetId,
+      senderId: myUserId,
+      message: '',
+      messageType: 'voice',
+      createdAt: DateTime.now(),
+      replyToChatId: replyId,
+      replyToMessage: replySource,
+      delivery: MessageDelivery.sending,
+      localId: localId,
+      localAttachmentPaths: <String>[path],
+      metadata: <String, dynamic>{'duration': seconds, 'waveform': _mockWave(seconds)},
+    );
+    messages.insert(0, optimistic);
+    replyingTo.value = null;
+
+    isSending.value = true;
+    try {
+      final ChatMessage sent = await _repo.sendMessage(
+        threadId: targetId,
+        message: '',
+        messageType: 'voice',
+        replyToChatId: replyId,
+        recipientUserId: activeThread.value!.participant.id,
+        attachmentPaths: <String>[path],
+        metadata: <String, dynamic>{
+          'duration': seconds,
+          'waveform': _waveOf(path, seconds),
+        },
+      );
+      _replaceLocal(localId, sent);
+      _patchThreadPreview(sent, incrementUnread: false);
+    } catch (e) {
+      _markLocalFailed(localId);
+      AppSnackbar.error('Voice note not sent. Tap to retry.');
+      AppLogger.w('Voice send failed: $e');
+    } finally {
+      isSending.value = false;
+    }
+  }
+
+  /// Waveform sent with the clip. Amplitudes are read by the player on the
+  /// other side only as a visual hint, so a coarse deterministic pattern keyed
+  /// on the clip length is enough when live amplitude capture is unavailable.
+  List<int> _waveOf(String path, int seconds) => _mockWave(seconds);
+
+  List<int> _mockWave(int seconds) {
+    final int bars = seconds.clamp(6, 24);
+    final List<int> wave = <int>[];
+    for (int i = 0; i < bars; i++) {
+      wave.add(3 + ((i * 7 + seconds * 3) % 11));
+    }
+    return wave;
   }
 
   void setReplyTo(ChatMessage message) {

@@ -12,6 +12,7 @@ import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/auth_response_model.dart';
+import '../models/manual_review_state.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -224,6 +225,55 @@ class AuthController extends GetxController {
     } on AppException catch (e) {
       AppLogger.w('refreshUser failed (ignored): $e');
     }
+  }
+
+  // ---- Manual-review gate ---------------------------------------------------
+
+  /// True when the last [checkManualReview] found the account under review.
+  /// Also lets the review screen re-open on resume without re-fetching.
+  final RxBool underManualReview = false.obs;
+
+  /// The latest gate state received from the server.
+  final Rxn<ManualReviewState> manualReview = Rxn<ManualReviewState>();
+
+  /// Asks the server whether this member is under manual review and routes to
+  /// the review screen when it is.
+  ///
+  /// Returns true when the caller must STOP (the review screen is now in
+  /// front); false means the normal flow may continue.
+  Future<bool> checkManualReview({bool navigate = true}) async {
+    try {
+      final ManualReviewState state = await authRepository.manualReviewStatus();
+      manualReview.value = state;
+      underManualReview.value = state.isActive;
+      if (state.isActive && navigate) {
+        await Get.offAllNamed<dynamic>(AppRoutes.manualReview);
+      }
+      return state.isActive;
+    } on AppException catch (e) {
+      // Status unreachable → never trap the member on a guess. If the account
+      // really is gated, the next mutating call 423s and [enterManualReview]
+      // handles it with the response's own review node.
+      AppLogger.w('manual-review status check failed (ignored): $e');
+      return false;
+    }
+  }
+
+  /// Enters the review screen from a 423 response — the response itself carried
+  /// the state, so no extra round trip is needed.
+  Future<void> enterManualReview(ManualReviewState state) async {
+    manualReview.value = state;
+    underManualReview.value = state.isActive;
+    if (Get.currentRoute != AppRoutes.manualReview) {
+      await Get.offAllNamed<dynamic>(AppRoutes.manualReview);
+    }
+  }
+
+  /// Leaves the gate: called when the review clears (member retakes the AI
+  /// verification and is approved) or on explicit logout from the gate screen.
+  void clearManualReview() {
+    underManualReview.value = false;
+    manualReview.value = null;
   }
 
   Future<void> _clearAndGoLogin() async {

@@ -42,6 +42,12 @@ class AppRoutes {
   static const String verifyEmail = '/register/verify-email';
 
   static const String registrationCompleted = '/register/completed';
+
+  /// Full-screen gate shown when the server answers 423 (`manual_review`): the
+  /// account is in manual identity review and the app stays read-only until it
+  /// clears.
+  static const String manualReview = '/auth/manual-review';
+
   static const String home = '/home';
 
   /// "Complete your profile" — hub for the sections skipped during signup.
@@ -60,6 +66,17 @@ class AppRoutes {
   /// Partner preferences (registration step 17), editable after signup. These
   /// drive server-side match filtering.
   static const String partnerPreferencesEdit = '/preferences/partner';
+
+  // ---- Family & Wali mode ---------------------------------------------
+  static const String family = '/family';
+
+  // ---- Community content ----------------------------------------------
+  static const String webinars = '/content/webinars';
+  static const String expertQuestions = '/content/expert-questions';
+  static const String forums = '/content/forums';
+
+  // ---- Saved searches ---------------------------------------------------
+  static const String savedSearches = '/search/saved/view';
 
   /// step number (1-based) -> route.
   static const List<String> stepRoutes = <String>[

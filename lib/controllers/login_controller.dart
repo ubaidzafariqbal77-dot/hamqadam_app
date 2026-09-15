@@ -98,6 +98,8 @@ class LoginController extends GetxController {
     }
 
     // Route based on server registration status.
+    final bool gated = await authController.checkManualReview();
+    if (gated) return;
     await Get.find<RegistrationController>().resume();
   }
 
@@ -125,6 +127,8 @@ class LoginController extends GetxController {
         return;
       }
       await authController.persistSession(res);
+      final bool gated = await authController.checkManualReview();
+      if (gated) return;
       await Get.find<RegistrationController>().resume();
     } on ValidationException catch (e) {
       // The stored password no longer matches (changed on another device, or

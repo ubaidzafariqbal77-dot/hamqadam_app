@@ -82,7 +82,7 @@ enum MessageDelivery {
   /// The server has it — the normal state for everything read back from the API.
   sent,
 
-  /// The POST failed. Kept on screen so the text is not lost and can be retried.
+  /// The server has it, the POST failed. Kept on screen so the text is not lost and can be retried.
   failed,
 }
 
@@ -103,6 +103,11 @@ class ChatMessage {
     this.delivery = MessageDelivery.sent,
     this.localId,
     this.localAttachmentPaths = const <String>[],
+    this.deliveredAt,
+    this.readAt,
+    this.seen = false,
+    this.metadata,
+    this.expiresAt,
   });
 
   final int id;
@@ -128,6 +133,52 @@ class ChatMessage {
   /// File paths for an optimistic message whose attachments are still
   /// uploading, so the bubble can preview them before the server has URLs.
   final List<String> localAttachmentPaths;
+
+  /// When the recipient's app acknowledged having this message on device —
+  /// the sender's single tick becomes a double tick at this moment.
+  final DateTime? deliveredAt;
+
+  /// When the recipient opened the conversation — the blue double tick.
+  final DateTime? readAt;
+
+  /// Server's read flag (kept alongside [readAt]; older rows set it without
+  /// the timestamp).
+  final bool seen;
+
+  /// Free-form server extras. For a voice note: `{duration: seconds,
+  /// waveform: [int, …]}` — everything the player bubble needs to draw.
+  final Map<String, dynamic>? metadata;
+
+  /// When this disappearing message will vanish from the thread (null =
+  /// keep forever). The server hides+deletes rows past this moment.
+  final DateTime? expiresAt;
+
+  /// True once the disappearing deadline has passed on-device — the bubble
+  /// renders as a tombstone until the next fetch removes it.
+  bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
+
+  /// Ticks for one of MY messages, resolved from the server's own flags:
+  /// sending → clock, failed → alert, read → blue double, delivered → double,
+  /// otherwise single.
+  bool get serverRead => readAt != null || seen;
+  bool get serverDelivered => deliveredAt != null || serverRead;
+
+  /// True when this message is a voice note: typed as one by the sender, or an
+  /// audio attachment arrived from the website.
+  bool get isVoice =>
+      messageType == 'voice' ||
+      (messageType == 'audio') ||
+      (attachments.isNotEmpty && attachments.every((ChatAttachment a) => a.isAudio));
+
+  /// Length in seconds recorded with a voice note (null when unknown).
+  int? get voiceDuration => (metadata?['duration'] as num?)?.toInt();
+
+  /// Amplitude bars recorded with a voice note (0–15ish each; empty when the
+  /// client that sent it did not capture one).
+  List<int> get voiceWaveform =>
+      ((metadata?['waveform'] as List<dynamic>?) ?? const <dynamic>[])
+          .map((dynamic e) => (e as num).toInt())
+          .toList();
 
   bool get isPending => delivery == MessageDelivery.sending;
   bool get isFailed => delivery == MessageDelivery.failed;
@@ -175,6 +226,10 @@ class ChatMessage {
     int? threadId,
     bool? deletedForMe,
     MessageDelivery? delivery,
+    DateTime? deliveredAt,
+    DateTime? readAt,
+    bool? seen,
+    Map<String, dynamic>? metadata,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -192,6 +247,10 @@ class ChatMessage {
       delivery: delivery ?? this.delivery,
       localId: localId,
       localAttachmentPaths: localAttachmentPaths,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+      readAt: readAt ?? this.readAt,
+      seen: seen ?? this.seen,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -230,6 +289,13 @@ class ChatMessage {
       deletedForMe: json['deleted_for_me'] as bool? ?? false,
       senderName: senderName,
       senderPhoto: senderPhoto,
+      deliveredAt: DateTime.tryParse(json['delivered_at'] as String? ?? ''),
+      readAt: DateTime.tryParse(json['read_at'] as String? ?? ''),
+      seen: json['seen'] as bool? ?? false,
+      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? ''),
+      metadata: json['metadata'] is Map<String, dynamic>
+          ? json['metadata'] as Map<String, dynamic>
+          : null,
     );
   }
 }
@@ -241,12 +307,17 @@ class ChatParticipant {
     required this.name,
     this.photo,
     this.isOnline = false,
+    this.lastActiveAt,
   });
 
   final int id;
   final String name;
   final String? photo;
   final bool isOnline;
+
+  /// The member's last active moment from the server's presence stamp. Null
+  /// when the server has not seen them (never active / older app version).
+  final DateTime? lastActiveAt;
 
   bool get hasPhoto => photo != null && photo!.isNotEmpty;
 
@@ -269,6 +340,7 @@ class ChatParticipant {
           (json['user'] is Map ? json['user']['photo'] as String? : null) ??
           (json['member'] is Map ? json['member']['photo'] as String? : null),
       isOnline: json['is_online'] as bool? ?? json['online'] as bool? ?? false,
+      lastActiveAt: DateTime.tryParse(json['last_active_at'] as String? ?? ''),
     );
   }
 }
@@ -288,6 +360,7 @@ class ChatThread {
     this.messageRequestStatus,
     this.lastMessage,
     this.lastMessageAt,
+    this.disappearAfter = 0,
   });
 
   final int id;
@@ -302,6 +375,10 @@ class ChatThread {
   final String? messageRequestStatus;
   final ChatMessage? lastMessage;
   final DateTime? lastMessageAt;
+
+  /// Remembered disappearing-message TTL for this thread (seconds; 0 = off).
+  /// New messages default to it; the composer's timer chip reflects it.
+  final int disappearAfter;
 
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
@@ -321,6 +398,7 @@ class ChatThread {
     String? messageRequestStatus,
     ChatMessage? lastMessage,
     DateTime? lastMessageAt,
+    int? disappearAfter,
   }) {
     return ChatThread(
       id: id ?? this.id,
@@ -335,6 +413,7 @@ class ChatThread {
       messageRequestStatus: messageRequestStatus ?? this.messageRequestStatus,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      disappearAfter: disappearAfter ?? this.disappearAfter,
     );
   }
 
@@ -386,6 +465,7 @@ class ChatThread {
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.tryParse(json['last_message_at'] as String)
           : (json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null),
+      disappearAfter: json['disappear_after'] as int? ?? 0,
     );
   }
 }

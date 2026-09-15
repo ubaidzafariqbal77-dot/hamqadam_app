@@ -20,6 +20,12 @@ class ApiEndpoints {
   static const String authEmailVerificationCode = '/auth/email/verification-code';
   static const String authEmailVerify = '/auth/email/verify';
 
+  /// Manual-review gate (`GET` status, `POST` contact). Both are explicitly
+  /// allowed by the backend's `ManualReviewReadOnly` middleware, so they work
+  /// while every other mutating endpoint answers 423.
+  static const String manualReviewStatus = '/auth/manual-review/status';
+  static const String manualReviewContact = '/auth/manual-review/contact';
+
   // ---- Registration (single complete submission + email OTP) ----------------
   /// The whole 18-step payload in ONE `multipart/form-data` request. Public:
   /// it creates the draft account and returns the Sanctum token.
@@ -202,6 +208,15 @@ class ApiEndpoints {
 
   /// Typing indicator.
   static String chatTyping(int threadId) => '/chat/threads/$threadId/typing';
+
+  /// `POST /chat/threads/{thread}/delivered` — recipient acknowledges having
+  /// the messages on device (sender's single tick becomes a double tick).
+  static String chatDelivered(int threadId) => '/chat/threads/$threadId/delivered';
+
+  /// `POST /chat/threads/{thread}/disappear` — sets the thread's
+  /// disappearing-message TTL (seconds; 0 = off). New messages on both
+  /// clients inherit it.
+  static String chatDisappear(int threadId) => '/chat/threads/$threadId/disappear';
 
   /// Block a thread.
   static String chatBlock(int threadId) => '/chat/threads/$threadId/block';

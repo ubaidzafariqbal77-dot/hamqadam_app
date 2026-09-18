@@ -26,23 +26,46 @@ class ChatAttachment {
   static const List<String> _audioExts = <String>['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac'];
   static const List<String> _videoExts = <String>['mp4', 'mov', 'avi', 'mkv', 'm4v', 'webm'];
 
-  /// Derive MIME category from a file name or URL.
-  static String _detectType(String serverType, String name, String url) {
-    if (serverType.isNotEmpty && serverType != 'file') return serverType;
-    final String src = (name.isNotEmpty ? name : url).toLowerCase().split('?').first;
-    final String ext = src.split('.').last;
+  /// Derive the media category for an attachment.
+  ///
+  /// The file's own extension wins over [serverType]. Every upload made before
+  /// the API started classifying them is stored as `image` whatever it really
+  /// is, so a voice note read back from history claims to be an image — which
+  /// put it in the picture grid as a broken thumbnail instead of in a player.
+  /// Trusting the extension repairs those rows on the client, with no
+  /// migration and no second round trip.
+  ///
+  /// [serverType] still decides when the extension says nothing: a file with
+  /// no extension, or one these lists do not know.
+  static String _detectType(String serverType, String extension, String name, String url) {
+    final String ext = _extensionOf(extension, name, url);
+
     if (_imageExts.contains(ext)) return 'image';
     if (_audioExts.contains(ext)) return 'audio';
     if (_videoExts.contains(ext)) return 'video';
+
+    if (serverType.isNotEmpty && serverType != 'file') return serverType;
     return 'file';
   }
 
-  bool get isImage {
-    if (type == 'image') return true;
-    // Also check url/name extension as a fallback
-    final String src = (originalName.isNotEmpty ? originalName : url).toLowerCase().split('?').first;
-    return _imageExts.contains(src.split('.').last);
+  /// Lower-case extension, preferring the API's own `extension` field and
+  /// falling back to the URL. `original_name` comes back with the extension
+  /// already stripped, so it is the least useful of the three.
+  static String _extensionOf(String extension, String name, String url) {
+    final String declared = extension.trim().toLowerCase().replaceAll('.', '');
+    if (declared.isNotEmpty) return declared;
+
+    for (final String candidate in <String>[url, name]) {
+      final String src = candidate.toLowerCase().split('?').first.split('#').first;
+      if (!src.contains('.')) continue;
+      final String ext = src.split('.').last;
+      if (ext.isNotEmpty && ext.length <= 5) return ext;
+    }
+
+    return '';
   }
+
+  bool get isImage => type == 'image';
 
   bool get isFile => !isImage && type != 'audio' && type != 'video';
   bool get isAudio => type == 'audio';
@@ -53,7 +76,13 @@ class ChatAttachment {
     final String name = json['name'] as String? ?? '';
     final String originalName = json['original_name'] as String? ?? '';
     final String url = json['url'] as String? ?? '';
-    final String resolvedType = _detectType(serverType, originalName.isNotEmpty ? originalName : name, url);
+    final String extension = json['extension'] as String? ?? '';
+    final String resolvedType = _detectType(
+      serverType,
+      extension,
+      originalName.isNotEmpty ? originalName : name,
+      url,
+    );
 
     return ChatAttachment(
       id: json['id'] as int? ?? 0,
@@ -171,13 +200,20 @@ class ChatMessage {
       (attachments.isNotEmpty && attachments.every((ChatAttachment a) => a.isAudio));
 
   /// Length in seconds recorded with a voice note (null when unknown).
-  int? get voiceDuration => (metadata?['duration'] as num?)?.toInt();
+  /// Tolerant of strings: older rows and web-sent notes stored "7", not 7.
+  int? get voiceDuration {
+    final dynamic raw = metadata?['duration'];
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
 
   /// Amplitude bars recorded with a voice note (0–15ish each; empty when the
-  /// client that sent it did not capture one).
+  /// client that sent it did not capture one). String-tolerant for the same
+  /// reason as [voiceDuration].
   List<int> get voiceWaveform =>
       ((metadata?['waveform'] as List<dynamic>?) ?? const <dynamic>[])
-          .map((dynamic e) => (e as num).toInt())
+          .map((dynamic e) => e is num ? e.toInt() : int.tryParse('$e') ?? 0)
           .toList();
 
   bool get isPending => delivery == MessageDelivery.sending;
@@ -382,8 +418,28 @@ class ChatThread {
 
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
-    if (lastMessage!.isAttachmentOnly) return '📎 Attachment';
-    return lastMessage!.message;
+    // Voice notes first: an audio-only message has no text, so the generic
+    // attachment label below read "📎 Attachment" for what is really a voice
+    // note. Same for other media kinds — the preview should say WHAT it is.
+    final ChatMessage last = lastMessage!;
+    if (last.isVoice) {
+      final int? secs = last.voiceDuration;
+      return secs != null && secs > 0
+          ? '🎤 Voice message (${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')})'
+          : '🎤 Voice message';
+    }
+    if (last.isCallInvite) return last.callDisplayName;
+    if (last.isCallDecline) return last.callDisplayName;
+    if (last.isAttachmentOnly) {
+      if (last.attachments.every((ChatAttachment a) => a.isImage)) {
+        return '📷 Photo';
+      }
+      if (last.attachments.every((ChatAttachment a) => a.isVideo)) {
+        return '🎬 Video';
+      }
+      return '📎 Attachment';
+    }
+    return last.message;
   }
 
   ChatThread copyWith({

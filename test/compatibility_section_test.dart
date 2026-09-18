@@ -118,11 +118,12 @@ void main() {
     testWidgets('renders the AI score, reasons and criteria', (WidgetTester tester) async {
       await _pump(tester, _parse(_aiResponse));
 
-      expect(find.text('81%'), findsOneWidget);
-      expect(find.text('Very high compatibility'), findsOneWidget);
-      expect(find.text('AI matchmaking'), findsOneWidget);
-      expect(find.text('Religion matches: Islam'), findsWidgets);
-      expect(find.text('What was compared'), findsOneWidget);
+      // The reference design: accent bar + "81% compatibility" headline under
+      // a "Why this match?" header, with the checklist beneath.
+      expect(find.text('Why this match?'), findsOneWidget);
+      expect(find.text('81% compatibility'), findsOneWidget);
+      expect(find.text('AI matchmaking · Very high compatibility'), findsOneWidget);
+      expect(find.text('Why?'), findsOneWidget);
 
       // Both sides of the verdict are on screen, not just the flattering half.
       expect(find.text('Religion'), findsOneWidget);
@@ -132,9 +133,8 @@ void main() {
     testWidgets('renders a stored rule-based score', (WidgetTester tester) async {
       await _pump(tester, _parse(_storedResponse));
 
-      expect(find.text('64%'), findsOneWidget);
-      expect(find.text('High compatibility'), findsOneWidget);
-      expect(find.text('Saved score'), findsOneWidget);
+      expect(find.text('64% compatibility'), findsOneWidget);
+      expect(find.text('Saved score · High compatibility'), findsOneWidget);
     });
 
     testWidgets('shows nothing for a zero score', (WidgetTester tester) async {

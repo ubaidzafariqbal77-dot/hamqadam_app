@@ -250,6 +250,15 @@ class ChatController extends GetxController {
           _asInt(data['sender'] is Map ? (data['sender'] as Map)['id'] : null) ??
           0;
       if (senderId == 0 || senderId == myUserId) return;
+      // The backend broadcasts is_typing:false when the other side stops —
+      // without honouring it the “typing…” pill stuck around for the full
+      // 6-second reset window after they had clearly stopped.
+      final bool typing = data['is_typing'] as bool? ?? true;
+      if (!typing) {
+        _typingResetTimer?.cancel();
+        isOtherTyping.value = false;
+        return;
+      }
       isOtherTyping.value = true;
       _typingResetTimer?.cancel();
       _typingResetTimer = Timer(const Duration(seconds: 6), () {
@@ -1381,14 +1390,25 @@ class ChatController extends GetxController {
   /// thread id is some other kind of event and must not be turned into a bubble.
   ChatMessage? _messageFrom(Map<String, dynamic> data) {
     final dynamic raw = data['message'] ?? data['chat'] ?? data;
-    if (raw is! Map<String, dynamic>) return null;
-    final int? id = _asInt(raw['id']);
-    final int? threadId = _asInt(raw['thread_id'] ?? raw['threadId'] ?? raw['chat_thread_id']);
+    // The backend broadcasts FLAT payloads: on `message-sent`, `data['message']`
+    // is the TEXT of the message (a String), not a nested object. Treating a
+    // String there as "wrong shape" silently dropped every realtime message —
+    // the socket stayed connected, the logs stayed quiet, and the conversation
+    // only moved when the fallback poller happened to run. When the field is a
+    // String it IS the flat payload, so parse the envelope itself.
+    final bool flatPayload = raw is String || raw is! Map<String, dynamic>;
+    final dynamic envelope = flatPayload ? data : raw;
+    if (envelope is! Map<String, dynamic>) return null;
+    final Map<String, dynamic> source = envelope;
+    final int? id = _asInt(source['id'] ?? source['chat_id'] ?? source['message_id']);
+    final int? threadId =
+        _asInt(source['thread_id'] ?? source['threadId'] ?? source['chat_thread_id']);
     if (id == null || id <= 0 || threadId == null || threadId <= 0) return null;
     try {
       final ChatMessage parsed = ChatMessage.fromJson(<String, dynamic>{
-        ...raw,
+        ...source,
         'thread_id': threadId,
+        'id': id,
       });
       return parsed;
     } catch (e) {

@@ -455,21 +455,35 @@ class _ThreadTile extends StatelessWidget {
                               ),
                             ],
                             Expanded(
-                              child: Text(
-                                thread.previewText,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: hasUnread
-                                      ? (dark
-                                          ? AppColors.darkTextPrimary
-                                          : AppColors.lightTextPrimary)
-                                      : theme.hintColor.withValues(alpha: 0.8),
-                                  fontWeight: hasUnread
-                                      ? FontWeight.w600
-                                      : FontWeight.normal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: <Widget>[
+                                  // Voice previews get a mic glyph ahead of the
+                                  // label — a scan of the inbox should read the
+                                  // message KIND at a glance, not just text.
+                                  if (thread.lastMessage?.isVoice ?? false) ...<Widget>[
+                                    const Icon(Icons.mic_rounded,
+                                        size: 14, color: AppColors.primary),
+                                    const SizedBox(width: 4),
+                                  ],
+                                  Expanded(
+                                    child: Text(
+                                      thread.previewText,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: hasUnread
+                                            ? (dark
+                                                ? AppColors.darkTextPrimary
+                                                : AppColors.lightTextPrimary)
+                                            : theme.hintColor.withValues(alpha: 0.8),
+                                        fontWeight: hasUnread
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (hasUnread) ...<Widget>[

@@ -193,6 +193,7 @@ class ProfileVerification {
   const ProfileVerification({
     this.status,
     this.ai = const AiVerificationModel(status: 'not_started'),
+    this.checks = const ProfileTrustChecks(),
   });
 
   /// unverified | draft | submitted | verified — the document workflow.
@@ -201,6 +202,11 @@ class ProfileVerification {
   /// Never null: a profile with no attempt yet reads as `not_started`, which is
   /// what the UI wants to show anyway.
   final AiVerificationModel ai;
+
+  /// The server-computed trust checklist (`verification.checks`) — one boolean
+  /// per thing members ask "is this real?" about. Absent on older payloads,
+  /// in which case every row reads as unknown rather than lying.
+  final ProfileTrustChecks checks;
 
   /// A moderator approved the documents. On the backend this is the only thing
   /// that writes `verification_status = 'verified'` (VerificationService::approve).
@@ -235,6 +241,62 @@ class ProfileVerification {
       ai: json['ai'] is Map<String, dynamic>
           ? AiVerificationModel.fromProfileBlock(json['ai'] as Map<String, dynamic>)
           : const AiVerificationModel(status: 'not_started'),
+      checks: ProfileTrustChecks.fromJson(_asMap(json['checks'])),
+    );
+  }
+}
+
+/// The server-computed trust checklist behind the profile's
+/// "Trust & Verification" section: seven booleans straight from `GET /profile`
+/// (`verification.checks`), each derived from the actual records — never from
+/// what the client guesses.
+///
+/// A missing block (older payload, other client versions) reads every row as
+/// `null` — the UI renders "—" instead of pretending to know.
+class ProfileTrustChecks {
+  const ProfileTrustChecks({
+    this.identity,
+    this.face,
+    this.liveness,
+    this.phone,
+    this.email,
+    this.profile,
+    this.intent,
+  });
+
+  /// A moderator approved the CNIC documents.
+  final bool? identity;
+
+  /// The AI face comparison saw a face in the submitted selfie.
+  final bool? face;
+
+  /// The AI pre-screen APPROVEd the member (live person, no fraud signals).
+  final bool? liveness;
+
+  /// The mobile OTP round completed.
+  final bool? phone;
+
+  /// The email address is verified.
+  final bool? email;
+
+  /// The account carries the HamQadam team's approval.
+  final bool? profile;
+
+  /// The profile was created for the member by someone on their behalf —
+  /// a marriage intent on record (wali/family mode).
+  final bool? intent;
+
+  static bool? _asBoolOrNull(dynamic v) => v == null ? null : v == true || v == 1 || v == '1' || v == 'true';
+
+  factory ProfileTrustChecks.fromJson(Map<String, dynamic> json) {
+    return ProfileTrustChecks(
+      identity: _asBoolOrNull(json['identity']),
+      face: _asBoolOrNull(json['face']),
+      liveness: _asBoolOrNull(json['liveness']),
+      phone: _asBoolOrNull(json['phone']),
+      email: _asBoolOrNull(json['email']),
+      profile: _asBoolOrNull(json['profile']),
+      intent: _asBoolOrNull(json['intent']),
     );
   }
 }

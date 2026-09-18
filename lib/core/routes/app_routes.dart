@@ -4,6 +4,11 @@ class AppRoutes {
 
   static const String splash = '/';
   static const String onboarding = '/onboarding';
+
+  /// First-look "Proposals for you" preview shown after onboarding — every
+  /// card/button on it opens the Create Account / Login dialog.
+  static const String welcomePreview = '/welcome';
+
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
 

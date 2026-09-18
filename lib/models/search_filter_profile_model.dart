@@ -67,26 +67,40 @@ class SearchProfileModel {
   factory SearchProfileModel.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic> verification = json['verification'] is Map<String, dynamic>
         ? json['verification'] as Map<String, dynamic>
-        : <String, dynamic>{};
+        : const <String, dynamic>{};
+
+    // `GET /matches` items are ProfileMatch rows, not profiles: the real
+    // candidate id rides in `matched_user_id` (`id` is the row's own primary
+    // key) and the human fields live in a nested `profile` object. Parsing
+    // only the flat search shape made every match card carry a row id — so
+    // tapping one opened the WRONG member's detail sheet and a compatibility
+    // score that belonged to whoever happened to hold that id.
+    final Map<String, dynamic> nested = json['profile'] is Map<String, dynamic>
+        ? json['profile'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+
+    dynamic field(String key) => json[key] ?? nested[key];
 
     return SearchProfileModel(
-      id: _asInt(json['id']),
-      code: json['code']?.toString(),
-      name: json['name']?.toString(),
-      photo: json['photo']?.toString(),
+      id: _asInt(json['matched_user_id'] ?? json['id']),
+      code: field('code')?.toString(),
+      name: field('name')?.toString(),
+      photo: field('photo')?.toString(),
       membership: _asIntOrNull(json['membership']),
-      approved: _asBool(json['approved']),
-      age: _asIntOrNull(json['age']),
-      gender: json['gender']?.toString(),
+      approved: _asBool(json['approved'] ?? nested['verified']),
+      age: _asIntOrNull(field('age')),
+      gender: field('gender')?.toString(),
       maritalStatusId: _asIntOrNull(json['marital_status_id']),
-      height: json['height']?.toString(),
-      religionId: _asIntOrNull(json['religion_id']),
+      height: field('height')?.toString(),
+      religionId: _asIntOrNull(field('religion_id')),
       casteId: _asIntOrNull(json['caste_id']),
       cityId: _asIntOrNull(json['city_id']),
       stateId: _asIntOrNull(json['state_id']),
       countryId: _asIntOrNull(json['country_id']),
       compatibilityPercentage: _asIntOrNull(json['compatibility_percentage']),
-      identityVerified: _asBool(verification['identity_verified']),
+      identityVerified: verification.isNotEmpty
+          ? _asBool(verification['identity_verified'])
+          : _asBool(nested['verified']),
       verifiedAt: _asDate(verification['verified_at']),
       lastActiveAt: _asDate(json['last_active_at']),
       createdAt: _asDate(json['created_at']),

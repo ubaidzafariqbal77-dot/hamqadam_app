@@ -110,6 +110,10 @@ class ApiEndpoints {
   /// Compatibility score against another member.
   static String profileCompatibility(int id) => '/profiles/$id/compatibility';
 
+  /// `GET /profiles/{id}/trust` — the server-computed Trust & Verification
+  /// checklist for a public profile. Lightweight: no view-coin is consumed.
+  static String profileTrust(int id) => '/profiles/$id/trust';
+
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
 
@@ -248,6 +252,9 @@ class ApiEndpoints {
 
   /// Available payment gateways (`GET /payments/gateways`).
   static const String paymentGateways = '/payments/gateways';
+
+  /// Custom coin pricing — admin-configured per-coin charge (`GET /payments/coins/pricing`).
+  static const String paymentCoinPricing = '/payments/coins/pricing';
 
   /// Gateway details (`GET /payments/gateways/{gateway}`).
   static String paymentGatewayDetail(String gateway) => '/payments/gateways/$gateway';

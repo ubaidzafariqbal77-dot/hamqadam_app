@@ -1,2 +1,15 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+
+// Build the simulator slice for Apple Silicon only.
+//
+// Flutter 3.44.1 verifies the engine framework with
+//   lipo <binary> -verify_arch arm64 x86_64
+// and Xcode 27's lipo rejects more than one arch there
+// ("-verify_arch requires exactly one input file"), which fails the build at
+// the debug_unpack_ios step even though both slices are present. Keeping the
+// simulator to a single arch keeps that call to one argument.
+//
+// Device builds are untouched. Drop this once Flutter is upgraded to a
+// release that supports Xcode 27.
+EXCLUDED_ARCHS[sdk=iphonesimulator*] = i386 x86_64

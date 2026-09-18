@@ -26,6 +26,78 @@ void main() {
       expect(attachment.size, 245671);
     });
 
+    test('a voice note the API mistyped as an image is still audio', () {
+      // Every upload made before the API classified them is stored as
+      // type=image. The extension has to win, or the clip lands in the picture
+      // grid as a broken thumbnail instead of in the player.
+      final ChatAttachment attachment = ChatAttachment.fromJson(<String, dynamic>{
+        'id': 164,
+        'url': 'https://example.com/uploads/all/kpgw03gUxn0.m4a',
+        'type': 'image',
+        'original_name': 'voice_note', // extension stripped by the backend
+        'extension': 'm4a',
+        'size': 41141,
+      });
+
+      expect(attachment.type, 'audio');
+      expect(attachment.isAudio, true);
+      expect(attachment.isImage, false);
+      expect(attachment.isFile, false);
+    });
+
+    test('falls back to the URL when no extension field is sent', () {
+      final ChatAttachment attachment = ChatAttachment.fromJson(<String, dynamic>{
+        'id': 165,
+        'url': 'https://example.com/uploads/all/clip.ogg?v=2',
+        'type': 'image',
+        'original_name': 'voice_note',
+      });
+
+      expect(attachment.type, 'audio');
+      expect(attachment.isAudio, true);
+    });
+
+    test('a real image is unaffected', () {
+      final ChatAttachment attachment = ChatAttachment.fromJson(<String, dynamic>{
+        'id': 166,
+        'url': 'https://example.com/uploads/all/photo.jpg',
+        'type': 'image',
+        'original_name': 'photo',
+        'extension': 'jpg',
+      });
+
+      expect(attachment.type, 'image');
+      expect(attachment.isImage, true);
+      expect(attachment.isAudio, false);
+    });
+
+    test('a voice message renders as voice, not as an image attachment', () {
+      final ChatMessage message = ChatMessage.fromJson(<String, dynamic>{
+        'id': 900,
+        'thread_id': 16,
+        'sender_id': 3,
+        'message': '',
+        'message_type': 'voice',
+        'created_at': '2026-09-15T10:00:00.000Z',
+        'metadata': <String, dynamic>{'duration': 7, 'waveform': <int>[3, 9, 12, 5]},
+        'attachments': <dynamic>[
+          <String, dynamic>{
+            'id': 164,
+            'url': 'https://example.com/uploads/all/kpgw03gUxn0.m4a',
+            'type': 'image',
+            'original_name': 'voice_note',
+            'extension': 'm4a',
+          },
+        ],
+      });
+
+      expect(message.isVoice, true);
+      expect(message.voiceDuration, 7);
+      expect(message.voiceWaveform, <int>[3, 9, 12, 5]);
+      // The picture grid is driven by isImage — nothing must land in it.
+      expect(message.attachments.where((ChatAttachment a) => a.isImage), isEmpty);
+    });
+
     test('parses ChatMessage from JSON with attachments and reply', () {
       final Map<String, dynamic> json = <String, dynamic>{
         'id': 40,

@@ -148,6 +148,8 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - url_launcher_ios (0.0.1):
+    - Flutter
 
 DEPENDENCIES:
   - agora_rtc_engine (from `.symlinks/plugins/agora_rtc_engine/ios`)
@@ -167,6 +169,7 @@ DEPENDENCIES:
   - pusher_channels_flutter (from `.symlinks/plugins/pusher_channels_flutter/ios`)
   - record_ios (from `.symlinks/plugins/record_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
   trunk:
@@ -221,6 +224,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/record_ios/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
 
 SPEC CHECKSUMS:
   agora_rtc_engine: 0c7d50312967c4dc31c3c45e50589ce48f57e08a
@@ -255,7 +260,8 @@ SPEC CHECKSUMS:
   PusherTweetNacl: 015f56f2cf010e718703f2bd9bca66fdcc91b208
   record_ios: 390a30c7caaf8b5d0fb1cb1d2fd5064b48b4520c
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
+  url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
-PODFILE CHECKSUM: b4ec775b7e41f6e2256a92d09bc0bef4813f533f
+PODFILE CHECKSUM: 1fab7c669ad9124fb6877d5e1dd1b315e7f5afe3
 
 COCOAPODS: 1.17.0

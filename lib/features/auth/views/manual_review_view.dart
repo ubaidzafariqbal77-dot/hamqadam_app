@@ -241,12 +241,9 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'آپ کا اکاؤنٹ جائزے میں ہے',
+                        'HamQadam — A respectful path to marriage',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.urdu(
-                          AppTextStyles.body,
-                          color: Colors.white70,
-                        ),
+                        style: AppTextStyles.body.copyWith(color: Colors.white70),
                       ),
                       const SizedBox(height: AppSpacing.md),
                       // ---- The message the user asked for ----------------

@@ -20,6 +20,7 @@ import '../../chat/views/chat_conversation_view.dart';
 import '../../notifications/views/notifications_view.dart';
 import '../widgets/public_profile_detail_sheet.dart';
 import '../widgets/report_profile_dialog.dart';
+import '../widgets/trust_verification_sheet.dart';
 import '../widgets/horoscope_form_sheet.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
@@ -1031,10 +1032,25 @@ class _SingleUserProfileCard extends StatelessWidget {
                               ),
                             ],
                             const SizedBox(width: 5),
-                            Icon(
-                              profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
-                              color: profile.isVerified ? const Color(0xFF3B9BE9) : Colors.white54,
-                              size: 19,
+                            // The blue tick doubles as a button: tapping it
+                            // opens the member's Trust & Verification dialog
+                            // (same checklist as their profile card).
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => TrustVerificationSheet.show(
+                                context,
+                                profileId: profile.id,
+                                name: profile.displayName,
+                                photoUrl: profile.photo,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
+                                  color: profile.isVerified ? const Color(0xFF3B9BE9) : Colors.white54,
+                                  size: 19,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -1118,38 +1134,16 @@ class _SingleUserProfileCard extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   // ── Row 4: Quick Action Buttons ─────────────────────
+                  // One action per row here — Chat / Interest / Profile also
+                  // live on the right-rail icons, so repeating them below
+                  // duplicated every primary action on the card.
                   Row(
                     children: <Widget>[
-                      _QuickActionButton(
-                        icon: Icons.favorite_outline_rounded,
-                        label: 'Interest',
-                        color: AppColors.primaryDark,
-                        onTap: () => SendInterestDialog.show(context, profile),
-                      ),
-                      const SizedBox(width: 8),
-                      _QuickActionButton(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        label: 'Chat',
-                        color: AppColors.primary,
-                        onTap: () => _handleChatTap(context, profile),
-                      ),
-                      const SizedBox(width: 8),
                       _QuickActionButton(
                         icon: Icons.mail_outline_rounded,
                         label: 'Proposal',
                         color: AppColors.gold,
                         onTap: () => SendProposalDialog.show(context, profile),
-                      ),
-                      const SizedBox(width: 8),
-                      _QuickActionButton(
-                        icon: Icons.person_search_outlined,
-                        label: 'Profile',
-                        color: Colors.white70,
-                        onTap: () => PublicProfileDetailSheet.show(
-                          context,
-                          profileId: profile.id,
-                          searchProfile: profile,
-                        ),
                       ),
                     ],
                   ),

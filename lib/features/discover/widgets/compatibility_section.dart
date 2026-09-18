@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_text_styles.dart';
 import '../../../models/public_profile_model.dart';
 
 /// Shows what the matchmaking model actually decided about a pair.
@@ -67,121 +68,137 @@ class _CompatibilityCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: _scoreColor.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: _scoreColor.withValues(alpha: 0.25)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: AppColors.lightDivider),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          // ---- Header: "Why this match?" -------------------------------
           Row(
             children: <Widget>[
-              _ScoreDial(percentage: data.percentage, color: _scoreColor),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      _levelLabel,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: _scoreColor,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          data.isAi ? Icons.auto_awesome_rounded : Icons.tune_rounded,
-                          size: 13,
-                          color: AppColors.lightTextSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            data.sourceLabel,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.lightTextSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(colors: AppColors.brandGradient),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 15,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Why this match?',
+                  style: AppTextStyles.subtitle.copyWith(
+                    color: AppColors.lightTextPrimary,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
           ),
 
-          if (data.explanation != null && data.explanation!.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              data.explanation!.trim(),
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.45,
-                color: AppColors.lightInputText,
-              ),
-            ),
-          ],
-
-          // Reasons the model gave, in its own words.
-          if (data.reasons.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.md),
-            ...data.reasons.take(4).map(
-                  (String r) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.check_circle_rounded,
-                            size: 15,
-                            color: AppColors.success,
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: Text(
-                            r,
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              height: 1.4,
-                              color: AppColors.lightInputText,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+          // ---- Score: accent bar + "82% compatibility" -----------------
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              Container(
+                width: 4,
+                height: 26,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(99),
+                  color: _scoreColor,
                 ),
-          ],
-
-          if (matched.isNotEmpty || unmatched.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(height: AppSpacing.lg),
-            const Text(
-              'What was compared',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                '${data.percentage}% compatibility',
+                style: AppTextStyles.title.copyWith(
+                  color: AppColors.lightTextPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 14),
+            child: Text(
+              '${data.sourceLabel} · $_levelLabel',
+              style: AppTextStyles.caption.copyWith(
                 color: AppColors.lightTextSecondary,
               ),
             ),
+          ),
+
+          // ---- The model's own explanation -----------------------------
+          if (data.explanation != null && data.explanation!.trim().isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: <Widget>[
-                ...matched.map((CompatibilityCriterion c) => _CriterionChip(criterion: c, met: true)),
-                ...unmatched.map((CompatibilityCriterion c) => _CriterionChip(criterion: c, met: false)),
-              ],
+            Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: Text(
+                data.explanation!.trim(),
+                style: AppTextStyles.caption.copyWith(
+                  height: 1.5,
+                  color: AppColors.lightInputText,
+                ),
+              ),
+            ),
+          ],
+
+          // ---- "Why?" checklist — met and unmet criteria alike ---------
+          if (matched.isNotEmpty || unmatched.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: Text(
+                'Why?',
+                style: AppTextStyles.label.copyWith(
+                  color: AppColors.lightTextPrimary,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: Column(
+                children: <Widget>[
+                  ...matched.map(
+                    (CompatibilityCriterion c) => _WhyRow(
+                      criterion: c,
+                      met: true,
+                    ),
+                  ),
+                  ...unmatched.map(
+                    (CompatibilityCriterion c) => _WhyRow(
+                      criterion: c,
+                      met: false,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],
@@ -190,83 +207,53 @@ class _CompatibilityCard extends StatelessWidget {
   }
 }
 
-/// A criterion as a chip. Long-press shows the model's own sentence for it,
-/// which is far more specific than the label ("Age 26 is within preferred
-/// range 22-30").
-class _CriterionChip extends StatelessWidget {
-  const _CriterionChip({required this.criterion, required this.met});
+/// One line of the "Why?" checklist: ✓ for a satisfied criterion, ⚠ for one
+/// that did not line up. Tap shows the model's own sentence for that criterion
+/// when it has one — far more specific than the label alone.
+class _WhyRow extends StatelessWidget {
+  const _WhyRow({required this.criterion, required this.met});
 
   final CompatibilityCriterion criterion;
   final bool met;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = met ? AppColors.success : AppColors.error;
-    final Widget chip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
+    final Color color = met ? AppColors.success : Colors.orange;
+    final Widget row = Padding(
+      padding: const EdgeInsets.only(bottom: 7),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(met ? Icons.check_rounded : Icons.close_rounded, size: 12, color: color),
-          const SizedBox(width: 4),
-          Text(
-            criterion.label,
-            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: color),
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(
+              met ? Icons.check_rounded : Icons.warning_amber_rounded,
+              size: 16,
+              color: color,
+            ),
           ),
-          if (criterion.isHardConstraint) ...<Widget>[
-            const SizedBox(width: 3),
-            Icon(Icons.priority_high_rounded, size: 11, color: color),
-          ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              criterion.label,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 13.5,
+                height: 1.4,
+                color: AppColors.lightInputText,
+              ),
+            ),
+          ),
         ],
       ),
     );
 
     final String? reason = criterion.reason;
-    if (reason == null) return chip;
+    if (reason == null || reason.trim().isEmpty) return row;
     return Tooltip(
       message: reason,
       triggerMode: TooltipTriggerMode.tap,
       showDuration: const Duration(seconds: 4),
-      child: chip,
-    );
-  }
-}
-
-class _ScoreDial extends StatelessWidget {
-  const _ScoreDial({required this.percentage, required this.color});
-
-  final int percentage;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 54,
-      height: 54,
-      child: Stack(
-        alignment: Alignment.center,
-        children: <Widget>[
-          SizedBox(
-            width: 54,
-            height: 54,
-            child: CircularProgressIndicator(
-              value: (percentage / 100).clamp(0.0, 1.0),
-              strokeWidth: 5,
-              backgroundColor: color.withValues(alpha: 0.15),
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-          Text(
-            '$percentage%',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: color),
-          ),
-        ],
-      ),
+      child: row,
     );
   }
 }

@@ -181,6 +181,8 @@ class _ProfileBody extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
+          _TrustChecklistCard(checks: profile.verification.checks),
+          const SizedBox(height: AppSpacing.md),
           _VerificationCard(verification: profile.verification),
           const SizedBox(height: AppSpacing.md),
           const _QuickActionsCard(),
@@ -1309,6 +1311,99 @@ class _SectionCard extends StatelessWidget {
 /// The per-document detail lives on `GET /verification/current`, so this reads
 /// [VerificationController]. It falls back to the summary block embedded in
 /// `GET /profile` while that request is still in flight.
+/// The "Trust & Verification" checklist — one row per thing a visitor (or the
+/// member themselves) wants to know is real, driven entirely by the
+/// server-computed `verification.checks` booleans on `GET /profile`.
+///
+/// Each row: label + short verdict + a state icon. A missing boolean (older
+/// payload) renders as unknown "—" instead of a wrong tick or cross.
+class _TrustChecklistCard extends StatelessWidget {
+  const _TrustChecklistCard({required this.checks});
+
+  final ProfileTrustChecks checks;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final Color muted = dark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    return _Surface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const _CardHeader(icon: Icons.fact_check_rounded, title: 'Trust & Verification'),
+          const SizedBox(height: AppSpacing.xs),
+          _TrustRow(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
+          _TrustRow(label: 'Intent', passed: checks.intent, passedText: 'Marriage intention confirmed', failedText: 'Not on record', ink: ink, muted: muted),
+        ],
+      ),
+    );
+  }
+}
+
+/// One checklist row: bold label, soft verdict, and a state icon that never
+/// relies on colour alone (tick / cross / dash carry the meaning).
+class _TrustRow extends StatelessWidget {
+  const _TrustRow({
+    required this.label,
+    required this.passed,
+    required this.passedText,
+    required this.failedText,
+    required this.ink,
+    required this.muted,
+  });
+
+  final String label;
+  final bool? passed;
+  final String passedText;
+  final String failedText;
+  final Color ink;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color) = switch (passed) {
+      true => (Icons.check_circle_rounded, AppColors.success),
+      false => (Icons.cancel_rounded, AppColors.error),
+      null => (Icons.remove_circle_outline_rounded, muted),
+    };
+    final String text = passed == true ? passedText : failedText;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 86,
+            child: Text(
+              label,
+              style: AppTextStyles.bodyStrong.copyWith(color: ink, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTextStyles.caption.copyWith(
+                color: passed == true ? muted : ink,
+                fontWeight: passed == true ? FontWeight.w500 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VerificationCard extends StatelessWidget {
   const _VerificationCard({required this.verification});
   final ProfileVerification verification;

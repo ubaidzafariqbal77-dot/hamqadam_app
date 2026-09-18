@@ -8,6 +8,7 @@ import '../../features/auth/views/manual_review_view.dart';
 import '../../features/auth/views/onboarding_view.dart';
 import '../../features/auth/views/registration_completed_view.dart';
 import '../../features/auth/views/splash_view.dart';
+import '../../features/auth/views/welcome_preview_view.dart';
 import '../../features/interests/views/interests_view.dart';
 import '../../features/preferences/views/partner_preferences_view.dart';
 import '../../features/profile/views/profile_completion_view.dart';
@@ -67,6 +68,7 @@ class AppPages {
   static final List<GetPage<dynamic>> pages = <GetPage<dynamic>>[
     _page(AppRoutes.splash, () => const SplashView()),
     _page(AppRoutes.onboarding, () => const OnboardingView()),
+    _page(AppRoutes.welcomePreview, () => const WelcomePreviewView()),
     _page(AppRoutes.login, () => const LoginView()),
     _page(AppRoutes.forgotPassword, () => const ForgotPasswordView()),
     // No bounce transition: a ringing screen should be *there*, not slide in.

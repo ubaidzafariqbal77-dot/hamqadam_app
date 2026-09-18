@@ -461,10 +461,17 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, bool isDark) {
     return AppBar(
-      elevation: 1,
+      elevation: 0,
       backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightBackground,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+        icon: Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 20,
+          // Explicit ink colour: the global AppBarTheme paints white icons for
+          // the pink brand bar, but this screen uses a light surface — without
+          // this the back chevron is white-on-white and invisible.
+          color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+        ),
         tooltip: 'Back',
         onPressed: () {
           // One code path with the system back gesture: the PopScope around
@@ -642,7 +649,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
             if (_timerMenuOpen) _buildTimerMenu(isDark),
             Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            // Vertically centered, not end-aligned: the field's contentPadding
+            // grows its intrinsic height, so CrossAxisAlignment.end pushed the
+            // mic/send bubble below the row's baseline (the screenshot bug).
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
           // Attachment Button
           IconButton(
@@ -668,7 +678,11 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           // Text Input Box
           Expanded(
             child: Container(
-              constraints: const BoxConstraints(maxHeight: 120),
+              // A minimum height matching the circular buttons (40dp) keeps the
+              // single-line field from rendering shorter than its neighbours —
+              // the box looked visually “floating” between them.
+              constraints: const BoxConstraints(minHeight: 44, maxHeight: 120),
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
                 borderRadius: BorderRadius.circular(22),
@@ -691,7 +705,8 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     color: Theme.of(context).hintColor.withValues(alpha: 0.7),
                     fontSize: 14,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  isDense: true,
                   border: InputBorder.none,
                 ),
               ),
@@ -721,7 +736,8 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             final bool hasText = _composerHasText.value;
             final bool sending = _controller.isSending.value;
             return Container(
-              margin: const EdgeInsets.only(bottom: 2),
+              // No bottom margin: the row is center-aligned now, so an offset
+              // here visibly dropped the mic/send bubble below the others.
               decoration: BoxDecoration(
                 gradient: hasText || sending
                     ? const LinearGradient(
@@ -1034,18 +1050,26 @@ class _MessageBubble extends StatelessWidget {
     final bool isDark = theme.brightness == Brightness.dark;
     final String timeStr = DateFormat('h:mm a').format(message.createdAt);
 
-    // Separate images from documents
+    // Separate images from documents. A voice note's audio clip must NOT hit
+    // the document list — the player bubble below renders it, and a second
+    // file chip beside the player is what made voice notes look like random
+    // file uploads.
     final List<ChatAttachment> images =
         message.attachments.where((ChatAttachment a) => a.isImage).toList();
-    final List<ChatAttachment> docs =
-        message.attachments.where((ChatAttachment a) => !a.isImage).toList();
+    final List<ChatAttachment> docs = message.attachments
+        .where((ChatAttachment a) => !a.isImage && !(message.isVoice && a.isAudio))
+        .toList();
 
     // An optimistic bubble has no server attachments yet — only the local file
     // paths that are still uploading. Previewing those is the whole point of
     // drawing the bubble early: an image upload is the slowest thing in the
-    // composer, so an empty bubble would sit there for seconds.
+    // composer, so an empty bubble would sit there for seconds. Voice notes
+    // skip the file chips entirely — their player bubble already reads the
+    // local path, so an m4a chip next to it is just noise.
     final List<String> localFiles = message.isPending || message.isFailed
-        ? message.localAttachmentPaths
+        ? (message.isVoice
+            ? message.localAttachmentPaths.where((String p) => p.toLowerCase().endsWith('.jpg') || p.toLowerCase().endsWith('.jpeg') || p.toLowerCase().endsWith('.png') || p.toLowerCase().endsWith('.webp')).toList()
+            : message.localAttachmentPaths)
         : const <String>[];
 
     // Bubble bg
@@ -1674,6 +1698,10 @@ class _VoiceBubble extends StatefulWidget {
 class _VoiceBubbleState extends State<_VoiceBubble> {
   static _VoiceBubbleState? _active;
 
+  /// Width of the waveform strip. Named because the scrub gesture has to map a
+  /// touch x back onto it.
+  static const double _waveWidth = 110;
+
   final AudioPlayer _player = AudioPlayer();
   bool _playing = false;
   bool _loaded = false;
@@ -1682,13 +1710,46 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
 
   int? get _durationSeconds => widget.message.voiceDuration;
 
+  /// Total length, from the player once it knows and from the sender's
+  /// recorded duration until then.
+  Duration get _effectiveTotal => _total > Duration.zero
+      ? _total
+      : Duration(seconds: _durationSeconds ?? 0);
+
+  /// Counts up while playing or part-way through, and shows the clip's full
+  /// length when it is sitting at the start — the way WhatsApp reads.
   String get _label {
-    final int secs = _total.inSeconds > 0
-        ? _total.inSeconds
-        : (_durationSeconds ?? 0);
+    final Duration shown =
+        (_playing || _position > Duration.zero) ? _position : _effectiveTotal;
+    final int secs = shown.inSeconds;
     final int m = secs ~/ 60;
     final int s = secs % 60;
     return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  /// Jumps to [fraction] (0–1) of the clip. Seeking before the source has ever
+  /// been loaded would be a no-op in the player, so it starts playback first.
+  Future<void> _seekToFraction(double fraction) async {
+    final Duration total = _effectiveTotal;
+    if (total <= Duration.zero) return;
+
+    final double clamped = fraction.clamp(0.0, 1.0);
+    final Duration target = Duration(
+      milliseconds: (total.inMilliseconds * clamped).round(),
+    );
+
+    if (!_loaded) {
+      await _toggle();
+      if (!_loaded) return;
+    }
+
+    try {
+      await _player.seek(target);
+      if (mounted) setState(() => _position = target);
+    } catch (_) {
+      // A seek that the backend cannot serve (a stream still buffering) simply
+      // leaves the clip where it was.
+    }
   }
 
   double get _progress {
@@ -1800,13 +1861,23 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
             ),
           ),
           const SizedBox(width: 6),
-          CustomPaint(
-            size: const Size(110, 30),
-            painter: _WaveformPainter(
-              wave: wave,
-              progress: _progress,
-              played: accent,
-              unplayed: accent.withValues(alpha: 0.35),
+          // Scrubbing: tap or drag anywhere on the waveform to jump, the way
+          // WhatsApp does. Opaque hit testing so a drag starting here is not
+          // stolen by the message list's own vertical scroll.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (TapDownDetails d) =>
+                _seekToFraction(d.localPosition.dx / _waveWidth),
+            onHorizontalDragUpdate: (DragUpdateDetails d) =>
+                _seekToFraction(d.localPosition.dx / _waveWidth),
+            child: CustomPaint(
+              size: const Size(_waveWidth, 30),
+              painter: _WaveformPainter(
+                wave: wave,
+                progress: _progress,
+                played: accent,
+                unplayed: accent.withValues(alpha: 0.35),
+              ),
             ),
           ),
           const SizedBox(width: 8),

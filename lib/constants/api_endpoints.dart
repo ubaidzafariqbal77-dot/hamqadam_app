@@ -114,6 +114,11 @@ class ApiEndpoints {
   /// checklist for a public profile. Lightweight: no view-coin is consumed.
   static String profileTrust(int id) => '/profiles/$id/trust';
 
+  /// Guest (no-auth) discover feed for the pre-login preview screen.
+  /// Lives outside every auth group on purpose — the server only returns the
+  /// public marketing slice of each profile.
+  static const String publicDiscover = '/public/discover';
+
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
 

@@ -26,13 +26,13 @@ import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
 import '../../proposals/widgets/send_proposal_dialog.dart';
 
- 
 class DiscoverView extends StatelessWidget {
   const DiscoverView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final SearchProfilesController controller = Get.find<SearchProfilesController>();
+    final SearchProfilesController controller =
+        Get.find<SearchProfilesController>();
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -60,7 +60,8 @@ class DiscoverView extends StatelessWidget {
             child: Obx(() {
               // The AI Filtered mode renders its own state (AI matches); the
               // normal feed renders the search state.
-              final ApiState<SearchProfilesPage> state = controller.displayState;
+              final ApiState<SearchProfilesPage> state =
+                  controller.displayState;
 
               switch (state.status) {
                 case ApiStatus.initial:
@@ -86,7 +87,8 @@ class DiscoverView extends StatelessWidget {
                 case ApiStatus.empty:
                   return EmptyStateWidget(
                     title: 'No Matches Found',
-                    message: state.message ??
+                    message:
+                        state.message ??
                         'No profiles match your current filters. Try relaxing some criteria.',
                     onRefresh: controller.reload,
                   );
@@ -229,7 +231,9 @@ class _SearchBarHeader extends StatelessWidget {
                 border: Border.all(
                   color: hasFilters
                       ? AppColors.primary
-                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                      : (isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightDivider),
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
@@ -282,8 +286,8 @@ class _SearchBarHeader extends StatelessWidget {
     return Obx(() {
       final NotificationController? notifCtrl =
           Get.isRegistered<NotificationController>()
-              ? Get.find<NotificationController>()
-              : null;
+          ? Get.find<NotificationController>()
+          : null;
       final int unread = notifCtrl?.unreadCount.value ?? 0;
       return Stack(
         clipBehavior: Clip.none,
@@ -396,7 +400,9 @@ class _SearchBarHeader extends StatelessWidget {
                 border: Border.all(
                   color: active
                       ? AppColors.primary
-                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                      : (isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightDivider),
                 ),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
@@ -456,7 +462,9 @@ class _AiFilteredBar extends StatelessWidget {
       return Container(
         margin: const EdgeInsets.fromLTRB(AppSpacing.md, 2, AppSpacing.md, 4),
         child: Row(
-          children: <Widget>[Expanded(child: _buildButton(theme, isDark, active))],
+          children: <Widget>[
+            Expanded(child: _buildButton(theme, isDark, active)),
+          ],
         ),
       );
     });
@@ -512,7 +520,9 @@ class _AiFilteredBar extends StatelessWidget {
                 style: TextStyle(
                   color: active
                       ? Colors.white
-                      : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+                      : (isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.lightTextPrimary),
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.1,
@@ -532,7 +542,9 @@ class _AiFilteredBar extends StatelessWidget {
                 Text(
                   'Top 5',
                   style: TextStyle(
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -586,12 +598,15 @@ class _ActiveFilterChips extends StatelessWidget {
         final int min = f.ageMin ?? 18;
         // A null upper bound means the slider sat at its top (70+) — say so
         // instead of the old hardcoded "60", which contradicted the slider.
-        final String label =
-            f.ageMax == null ? 'Age: $min+' : 'Age: $min-${f.ageMax}';
+        final String label = f.ageMax == null
+            ? 'Age: $min+'
+            : 'Age: $min-${f.ageMax}';
         chips.add(
           _FilterChipItem(
             label: label,
-            onRemove: () => controller.applyFilter(f.copyWith(clearAgeMin: true, clearAgeMax: true)),
+            onRemove: () => controller.applyFilter(
+              f.copyWith(clearAgeMin: true, clearAgeMax: true),
+            ),
           ),
         );
       }
@@ -599,7 +614,8 @@ class _ActiveFilterChips extends StatelessWidget {
         chips.add(
           _FilterChipItem(
             label: 'Verified Only',
-            onRemove: () => controller.applyFilter(f.copyWith(verifiedOnly: false)),
+            onRemove: () =>
+                controller.applyFilter(f.copyWith(verifiedOnly: false)),
           ),
         );
       }
@@ -607,7 +623,8 @@ class _ActiveFilterChips extends StatelessWidget {
         chips.add(
           _FilterChipItem(
             label: 'With Photo',
-            onRemove: () => controller.applyFilter(f.copyWith(photoOnly: false)),
+            onRemove: () =>
+                controller.applyFilter(f.copyWith(photoOnly: false)),
           ),
         );
       }
@@ -615,7 +632,8 @@ class _ActiveFilterChips extends StatelessWidget {
         chips.add(
           _FilterChipItem(
             label: '${f.compatibilityMin}%+ Match',
-            onRemove: () => controller.applyFilter(f.copyWith(clearCompatibilityMin: true)),
+            onRemove: () =>
+                controller.applyFilter(f.copyWith(clearCompatibilityMin: true)),
           ),
         );
       }
@@ -652,7 +670,8 @@ class _ActiveFilterChips extends StatelessWidget {
           chips.add(
             _FilterChipItem(
               label: m,
-              onRemove: () => controller.applyFilter(f.copyWith(clearMaritalStatus: true)),
+              onRemove: () =>
+                  controller.applyFilter(f.copyWith(clearMaritalStatus: true)),
             ),
           );
         }
@@ -663,7 +682,8 @@ class _ActiveFilterChips extends StatelessWidget {
           chips.add(
             _FilterChipItem(
               label: r,
-              onRemove: () => controller.applyFilter(f.copyWith(clearReligion: true)),
+              onRemove: () =>
+                  controller.applyFilter(f.copyWith(clearReligion: true)),
             ),
           );
         }
@@ -674,7 +694,8 @@ class _ActiveFilterChips extends StatelessWidget {
           chips.add(
             _FilterChipItem(
               label: c,
-              onRemove: () => controller.applyFilter(f.copyWith(clearCaste: true)),
+              onRemove: () =>
+                  controller.applyFilter(f.copyWith(clearCaste: true)),
             ),
           );
         }
@@ -685,7 +706,8 @@ class _ActiveFilterChips extends StatelessWidget {
           chips.add(
             _FilterChipItem(
               label: city,
-              onRemove: () => controller.applyFilter(f.copyWith(clearCity: true)),
+              onRemove: () =>
+                  controller.applyFilter(f.copyWith(clearCity: true)),
             ),
           );
         }
@@ -694,7 +716,9 @@ class _ActiveFilterChips extends StatelessWidget {
         chips.add(
           _FilterChipItem(
             label: 'Partner Match',
-            onRemove: () => controller.applyFilter(f.copyWith(partnerPreferenceFilter: false)),
+            onRemove: () => controller.applyFilter(
+              f.copyWith(partnerPreferenceFilter: false),
+            ),
           ),
         );
       }
@@ -733,7 +757,11 @@ class _ActiveFilterChips extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
               backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-              deleteIcon: const Icon(Icons.close_rounded, size: 13, color: AppColors.primary),
+              deleteIcon: const Icon(
+                Icons.close_rounded,
+                size: 13,
+                color: AppColors.primary,
+              ),
               onDeleted: item.onRemove,
               side: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -779,12 +807,14 @@ class _VerticalProfilesFeedState extends State<_VerticalProfilesFeed> {
       color: AppColors.primary,
       onRefresh: widget.controller.reload,
       child: Obx(() {
-        final List<SearchProfileModel> visible = widget.controller.visibleProfiles;
+        final List<SearchProfileModel> visible =
+            widget.controller.visibleProfiles;
 
         if (visible.isEmpty) {
           return const EmptyStateWidget(
             title: 'You are all caught up',
-            message: 'No more profiles to show right now. Check back soon or relax your filters.',
+            message:
+                'No more profiles to show right now. Check back soon or relax your filters.',
           );
         }
 
@@ -809,7 +839,12 @@ class _VerticalProfilesFeedState extends State<_VerticalProfilesFeed> {
 
             final SearchProfileModel profile = visible[i];
             return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 88), // clears bottom navigation bar
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                4,
+                16,
+                88,
+              ), // clears bottom navigation bar
               child: _SingleUserProfileCard(
                 profile: profile,
                 controller: widget.controller,
@@ -852,18 +887,25 @@ class _SingleUserProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final InterestController? interestCtrl = Get.isRegistered<InterestController>()
+    final InterestController? interestCtrl =
+        Get.isRegistered<InterestController>()
         ? Get.find<InterestController>()
         : null;
 
-    final String? marital = controller.maritalStatusLabel(profile.maritalStatusId);
+    final String? marital = controller.maritalStatusLabel(
+      profile.maritalStatusId,
+    );
     final String? religion = controller.religionLabel(profile.religionId);
     final String? city = controller.cityLabel(profile.cityId);
     final String? state = controller.stateLabel(profile.stateId);
     final String? country = controller.countryLabel(profile.countryId);
     final String? caste = controller.casteLabel(profile.casteId);
 
-    final String genderLabel = profile.gender == '1' ? 'Male' : profile.gender == '2' ? 'Female' : '';
+    final String genderLabel = profile.gender == '1'
+        ? 'Male'
+        : profile.gender == '2'
+        ? 'Female'
+        : '';
     final String heightLabel = profile.heightFormatted ?? '';
     final String ageLabel = profile.age != null ? '${profile.age} yrs' : '';
     // The API's real compatibility score — or nothing. A fabricated 80/70%
@@ -871,286 +913,356 @@ class _SingleUserProfileCard extends StatelessWidget {
     // means something when it is the server's number.
     final int? matchPercentage = profile.compatibilityPercentage;
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
+    return GestureDetector(
+      // Whole-card tap → full profile detail sheet. Previously the detail had
+      // exactly one entry point (a tiny right-rail icon) which members could
+      // not find — the card itself now opens it. Overlaid controls (Chat /
+      // Interest / Proposal / blue tick) win the gesture arena as descendants,
+      // so their own handlers still fire.
+      onTap: () => PublicProfileDetailSheet.show(
+        context,
+        profileId: profile.id,
+        searchProfile: profile,
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            // ==============================================================
-            // 1. Profile Picture or Styled Fallback
-            // ==============================================================
-            profile.hasPhoto
-                ? Image.network(
-                    profile.photoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _FallbackBackground(profile: profile),
-                    loadingBuilder: (BuildContext ctx, Widget child, ImageChunkEvent? p) {
-                      if (p == null) return child;
-                      return _FallbackBackground(profile: profile);
-                    },
-                  )
-                : _FallbackBackground(profile: profile),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              // ============================================================
+              // 1. Profile Picture or Styled Fallback
+              // ============================================================
+              profile.hasPhoto
+                  ? Image.network(
+                      profile.photoUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) =>
+                          _FallbackBackground(profile: profile),
+                      loadingBuilder:
+                          (BuildContext ctx, Widget child, ImageChunkEvent? p) {
+                            if (p == null) return child;
+                            return _FallbackBackground(profile: profile);
+                          },
+                    )
+                  : _FallbackBackground(profile: profile),
 
-            // ==============================================================
-            // 2. Multi-Stop Gradient for text readability
-            // ==============================================================
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const <double>[0.25, 0.55, 0.8, 1.0],
-                    colors: <Color>[
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.15),
-                      Colors.black.withValues(alpha: 0.65),
-                      Colors.black.withValues(alpha: 0.97),
-                    ],
+              // ==============================================================
+              // 2. Multi-Stop Gradient for text readability
+              // ==============================================================
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const <double>[0.25, 0.55, 0.8, 1.0],
+                      colors: <Color>[
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.15),
+                        Colors.black.withValues(alpha: 0.65),
+                        Colors.black.withValues(alpha: 0.97),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // ==============================================================
-            // 3. RIGHT SIDE: Action Icons
-            // ==============================================================
-            Positioned(
-              right: 12,
-              top: 20,
-              bottom: 90,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  _glassIconButton(
-                    icon: Icons.more_vert_rounded,
-                    tooltip: 'More options',
-                    onTap: () => _showOptionsMenu(context),
-                  ),
-                  const SizedBox(height: 10),
-                  _glassIconButton(
-                    icon: Icons.chat_bubble_outline_rounded,
-                    tooltip: 'Chat',
-                    onTap: () => _handleChatTap(context, profile),
-                  ),
-                  const SizedBox(height: 10),
-                  Obx(() {
-                    final bool hasSent = interestCtrl?.hasSentInterestTo(profile.id) == true;
-                    return _glassIconButton(
-                      icon: hasSent ? Icons.favorite_rounded : Icons.favorite_outline_rounded,
-                      iconColor: hasSent ? AppColors.primaryDark : Colors.white,
-                      tooltip: 'Interest',
-                      onTap: () => SendInterestDialog.show(context, profile),
-                    );
-                  }),
-                  const SizedBox(height: 10),
-                  _glassIconButton(
-                    icon: Icons.person_outline_rounded,
-                    tooltip: 'Full Profile',
-                    onTap: () => PublicProfileDetailSheet.show(
-                      context,
-                      profileId: profile.id,
-                      searchProfile: profile,
+              // ==============================================================
+              // 3. RIGHT SIDE: Action Icons
+              // ==============================================================
+              Positioned(
+                right: 12,
+                top: 20,
+                bottom: 90,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    _glassIconButton(
+                      icon: Icons.more_vert_rounded,
+                      tooltip: 'More options',
+                      onTap: () => _showOptionsMenu(context),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Obx(() {
-                    final bool isShortlisted = controller.isShortlisted(profile.id);
-                    return _glassIconButton(
-                      icon: isShortlisted ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded,
-                      iconColor: isShortlisted ? AppColors.gold : Colors.white,
-                      tooltip: 'Shortlist',
-                      onTap: () => controller.toggleShortlist(profile.id, displayName: profile.displayName),
-                    );
-                  }),
-                  const SizedBox(height: 10),
-                  _glassIconButton(
-                    icon: Icons.do_not_disturb_on_outlined,
-                    tooltip: 'Ignore',
-                    onTap: onIgnore,
-                  ),
-                  const SizedBox(height: 10),
-                  _glassIconButton(
-                    icon: Icons.flag_outlined,
-                    tooltip: 'Report',
-                    onTap: () => ReportProfileDialog.show(context, profile),
-                  ),
-                ],
-              ),
-            ),
-
-            // ==============================================================
-            // 4. BOTTOM OVERLAY: Enterprise-Level Profile Card
-            // ==============================================================
-            Positioned(
-              left: 16,
-              right: 68,
-              bottom: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  // ── Row 1: Name + Age + Verified + Compatibility ──────
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: <Widget>[
-                      Flexible(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Flexible(
-                              child: Text(
-                                profile.displayName,
-                                style: _headingStyle.copyWith(fontSize: 24),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (ageLabel.isNotEmpty) ...<Widget>[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  ageLabel,
-                                  style: _chipTextStyle.copyWith(fontSize: 12, fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ],
-                            const SizedBox(width: 5),
-                            // The blue tick doubles as a button: tapping it
-                            // opens the member's Trust & Verification dialog
-                            // (same checklist as their profile card).
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => TrustVerificationSheet.show(
-                                context,
-                                profileId: profile.id,
-                                name: profile.displayName,
-                                photoUrl: profile.photo,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: Icon(
-                                  profile.isVerified ? Icons.verified_rounded : Icons.shield_outlined,
-                                  color: profile.isVerified ? const Color(0xFF3B9BE9) : Colors.white54,
-                                  size: 19,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    const SizedBox(height: 10),
+                    _glassIconButton(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      tooltip: 'Chat',
+                      onTap: () => _handleChatTap(context, profile),
+                    ),
+                    const SizedBox(height: 10),
+                    Obx(() {
+                      final bool hasSent =
+                          interestCtrl?.hasSentInterestTo(profile.id) == true;
+                      return _glassIconButton(
+                        icon: hasSent
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_outline_rounded,
+                        iconColor: hasSent
+                            ? AppColors.primaryDark
+                            : Colors.white,
+                        tooltip: 'Interest',
+                        onTap: () => SendInterestDialog.show(context, profile),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                    _glassIconButton(
+                      icon: Icons.person_outline_rounded,
+                      tooltip: 'Full Profile',
+                      onTap: () => PublicProfileDetailSheet.show(
+                        context,
+                        profileId: profile.id,
+                        searchProfile: profile,
                       ),
-                      const SizedBox(width: 8),
-                      // Compatibility Score Pill — shown only when the server
-                      // sent a real score; never a fabricated number.
-                      if (matchPercentage != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: <Color>[Color(0xFFE89538), AppColors.primaryDark],
-                            ),
-                            borderRadius: BorderRadius.circular(6),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: AppColors.primaryDark.withValues(alpha: 0.4),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
+                    ),
+                    const SizedBox(height: 10),
+                    Obx(() {
+                      final bool isShortlisted = controller.isShortlisted(
+                        profile.id,
+                      );
+                      return _glassIconButton(
+                        icon: isShortlisted
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_outline_rounded,
+                        iconColor: isShortlisted
+                            ? AppColors.gold
+                            : Colors.white,
+                        tooltip: 'Shortlist',
+                        onTap: () => controller.toggleShortlist(
+                          profile.id,
+                          displayName: profile.displayName,
+                        ),
+                      );
+                    }),
+                    const SizedBox(height: 10),
+                    _glassIconButton(
+                      icon: Icons.do_not_disturb_on_outlined,
+                      tooltip: 'Ignore',
+                      onTap: onIgnore,
+                    ),
+                    const SizedBox(height: 10),
+                    _glassIconButton(
+                      icon: Icons.flag_outlined,
+                      tooltip: 'Report',
+                      onTap: () => ReportProfileDialog.show(context, profile),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ==============================================================
+              // 4. BOTTOM OVERLAY: Enterprise-Level Profile Card
+              // ==============================================================
+              Positioned(
+                left: 16,
+                right: 68,
+                bottom: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    // ── Row 1: Name + Age + Verified + Compatibility ──────
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: <Widget>[
+                        Flexible(
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
-                              const Icon(Icons.favorite_rounded, color: Colors.white, size: 12),
-                              const SizedBox(width: 3),
-                              Text(
-                                '$matchPercentage%',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w900,
+                              Flexible(
+                                child: Text(
+                                  profile.displayName,
+                                  style: _headingStyle.copyWith(fontSize: 24),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (ageLabel.isNotEmpty) ...<Widget>[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    ageLabel,
+                                    style: _chipTextStyle.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(width: 5),
+                              // The blue tick doubles as a button: tapping it
+                              // opens the member's Trust & Verification dialog
+                              // (same checklist as their profile card).
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => TrustVerificationSheet.show(
+                                  context,
+                                  profileId: profile.id,
+                                  name: profile.displayName,
+                                  photoUrl: profile.photo,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(2),
+                                  child: Icon(
+                                    profile.isVerified
+                                        ? Icons.verified_rounded
+                                        : Icons.shield_outlined,
+                                    color: profile.isVerified
+                                        ? const Color(0xFF3B9BE9)
+                                        : Colors.white54,
+                                    size: 19,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        // Compatibility Score Pill — shown only when the server
+                        // sent a real score; never a fabricated number.
+                        if (matchPercentage != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: <Color>[
+                                  Color(0xFFE89538),
+                                  AppColors.primaryDark,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(6),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: AppColors.primaryDark.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.favorite_rounded,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '$matchPercentage%',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                  // ── Row 2: Quick Info Chips ──────────────────────────
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: <Widget>[
-                      if (genderLabel.isNotEmpty)
-                        _InfoChip(icon: Icons.person_outline_rounded, label: genderLabel),
-                      if (marital != null && marital.isNotEmpty)
-                        _InfoChip(icon: Icons.favorite_border_rounded, label: marital),
-                      if (heightLabel.isNotEmpty)
-                        _InfoChip(icon: Icons.height_rounded, label: heightLabel),
-                      if (religion != null && religion.isNotEmpty)
-                        _InfoChip(icon: Icons.mosque_outlined, label: religion),
-                      if (caste != null && caste.isNotEmpty)
-                        _InfoChip(icon: Icons.groups_outlined, label: caste),
-                    ],
-                  ),
+                    // ── Row 2: Quick Info Chips ──────────────────────────
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: <Widget>[
+                        if (genderLabel.isNotEmpty)
+                          _InfoChip(
+                            icon: Icons.person_outline_rounded,
+                            label: genderLabel,
+                          ),
+                        if (marital != null && marital.isNotEmpty)
+                          _InfoChip(
+                            icon: Icons.favorite_border_rounded,
+                            label: marital,
+                          ),
+                        if (heightLabel.isNotEmpty)
+                          _InfoChip(
+                            icon: Icons.height_rounded,
+                            label: heightLabel,
+                          ),
+                        if (religion != null && religion.isNotEmpty)
+                          _InfoChip(
+                            icon: Icons.mosque_outlined,
+                            label: religion,
+                          ),
+                        if (caste != null && caste.isNotEmpty)
+                          _InfoChip(icon: Icons.groups_outlined, label: caste),
+                      ],
+                    ),
 
-                  const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                  // ── Row 3: Location ─────────────────────────────────
-                  Row(
-                    children: <Widget>[
-                      Icon(Icons.location_on_outlined, color: Colors.white54, size: 14),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _buildLocationString(city, state, country),
-                          style: _subtitleStyle.copyWith(fontSize: 12.5, color: Colors.white70),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    // ── Row 3: Location ─────────────────────────────────
+                    Row(
+                      children: <Widget>[
+                        Icon(
+                          Icons.location_on_outlined,
+                          color: Colors.white54,
+                          size: 14,
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            _buildLocationString(city, state, country),
+                            style: _subtitleStyle.copyWith(
+                              fontSize: 12.5,
+                              color: Colors.white70,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // ── Row 4: Quick Action Buttons ─────────────────────
-                  // One action per row here — Chat / Interest / Profile also
-                  // live on the right-rail icons, so repeating them below
-                  // duplicated every primary action on the card.
-                  Row(
-                    children: <Widget>[
-                      _QuickActionButton(
-                        icon: Icons.mail_outline_rounded,
-                        label: 'Proposal',
-                        color: AppColors.gold,
-                        onTap: () => SendProposalDialog.show(context, profile),
-                      ),
-                    ],
-                  ),
-                ],
+                    // ── Row 4: Quick Action Buttons ─────────────────────
+                    // One action per row here — Chat / Interest / Profile also
+                    // live on the right-rail icons, so repeating them below
+                    // duplicated every primary action on the card.
+                    Row(
+                      children: <Widget>[
+                        _QuickActionButton(
+                          icon: Icons.mail_outline_rounded,
+                          label: 'Proposal',
+                          color: AppColors.gold,
+                          onTap: () =>
+                              SendProposalDialog.show(context, profile),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1228,7 +1340,10 @@ class _SingleUserProfileCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
-                leading: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: AppColors.primary,
+                ),
                 title: const Text('Chat'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -1236,7 +1351,10 @@ class _SingleUserProfileCard extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.person_outline_rounded, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.primary,
+                ),
                 title: const Text('Full Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -1248,16 +1366,24 @@ class _SingleUserProfileCard extends StatelessWidget {
                 },
               ),
               Obx(() {
-                final ProposalController? proposalCtrl = Get.isRegistered<ProposalController>()
+                final ProposalController? proposalCtrl =
+                    Get.isRegistered<ProposalController>()
                     ? Get.find<ProposalController>()
                     : null;
-                final bool proposed = proposalCtrl?.hasSentProposalTo(profile.id) == true;
+                final bool proposed =
+                    proposalCtrl?.hasSentProposalTo(profile.id) == true;
                 if (proposed) {
                   return ListTile(
-                    leading: const Icon(Icons.check_circle_rounded, color: AppColors.success),
+                    leading: const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.success,
+                    ),
                     title: const Text(
                       'Already Sent',
-                      style: TextStyle(color: AppColors.success, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     onTap: () {
                       Navigator.of(ctx).pop();
@@ -1270,7 +1396,10 @@ class _SingleUserProfileCard extends StatelessWidget {
                   );
                 }
                 return ListTile(
-                  leading: const Icon(Icons.mail_outline_rounded, color: AppColors.primary),
+                  leading: const Icon(
+                    Icons.mail_outline_rounded,
+                    color: AppColors.primary,
+                  ),
                   title: const Text('Send Proposal'),
                   onTap: () {
                     Navigator.of(ctx).pop();
@@ -1280,7 +1409,10 @@ class _SingleUserProfileCard extends StatelessWidget {
               }),
 
               ListTile(
-                leading: const Icon(Icons.favorite_border_rounded, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.favorite_border_rounded,
+                  color: AppColors.primary,
+                ),
                 title: const Text('Send Interest'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -1289,16 +1421,25 @@ class _SingleUserProfileCard extends StatelessWidget {
               ),
 
               ListTile(
-                leading: const Icon(Icons.bookmark_outline_rounded, color: AppColors.gold),
+                leading: const Icon(
+                  Icons.bookmark_outline_rounded,
+                  color: AppColors.gold,
+                ),
                 title: const Text('Shortlist'),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  controller.toggleShortlist(profile.id, displayName: profile.displayName);
+                  controller.toggleShortlist(
+                    profile.id,
+                    displayName: profile.displayName,
+                  );
                 },
               ),
 
               ListTile(
-                leading: Icon(Icons.visibility_off_outlined, color: Theme.of(context).hintColor),
+                leading: Icon(
+                  Icons.visibility_off_outlined,
+                  color: Theme.of(context).hintColor,
+                ),
                 title: const Text('Ignore Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -1307,8 +1448,14 @@ class _SingleUserProfileCard extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.flag_outlined, color: AppColors.error),
-                title: const Text('Report Profile', style: TextStyle(color: AppColors.error)),
+                leading: const Icon(
+                  Icons.flag_outlined,
+                  color: AppColors.error,
+                ),
+                title: const Text(
+                  'Report Profile',
+                  style: TextStyle(color: AppColors.error),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   ReportProfileDialog.show(context, profile);
@@ -1323,7 +1470,9 @@ class _SingleUserProfileCard extends StatelessWidget {
 
   void _handleChatTap(BuildContext context, SearchProfileModel profile) async {
     final ChatController chatCtrl = Get.find<ChatController>();
-    final ChatThread? thread = await chatCtrl.findExistingThreadWithUser(profile.id);
+    final ChatThread? thread = await chatCtrl.findExistingThreadWithUser(
+      profile.id,
+    );
     if (thread != null && thread.id > 0) {
       ChatConversationView.open(thread);
     } else {
@@ -1333,7 +1482,10 @@ class _SingleUserProfileCard extends StatelessWidget {
     }
   }
 
-  void _showChatConnectPrompt(BuildContext context, SearchProfileModel profile) {
+  void _showChatConnectPrompt(
+    BuildContext context,
+    SearchProfileModel profile,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
@@ -1352,12 +1504,18 @@ class _SingleUserProfileCard extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.mark_chat_unread_rounded, color: AppColors.primary, size: 28),
+                  child: const Icon(
+                    Icons.mark_chat_unread_rounded,
+                    color: AppColors.primary,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Text(
                   'Connect to Chat',
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1365,7 +1523,9 @@ class _SingleUserProfileCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.8),
+                    color: theme.textTheme.bodyMedium?.color?.withValues(
+                      alpha: 0.8,
+                    ),
                     height: 1.4,
                   ),
                 ),
@@ -1376,10 +1536,22 @@ class _SingleUserProfileCard extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.mdAll,
+                      ),
                     ),
-                    icon: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
-                    label: const Text('Send Express Interest', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: const Icon(
+                      Icons.favorite_rounded,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                    label: const Text(
+                      'Send Express Interest',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
                       SendInterestDialog.show(context, profile);
@@ -1389,7 +1561,10 @@ class _SingleUserProfileCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
-                  child: Text('Cancel', style: TextStyle(color: Theme.of(ctx).hintColor)),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: Theme.of(ctx).hintColor),
+                  ),
                 ),
               ],
             ),
@@ -1512,13 +1687,19 @@ class _FallbackBackground extends StatelessWidget {
               backgroundColor: Colors.white.withValues(alpha: 0.22),
               child: Text(
                 profile.initial,
-                style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 46),
+                style: AppTextStyles.display.copyWith(
+                  color: Colors.white,
+                  fontSize: 46,
+                ),
               ),
             ),
             const SizedBox(height: 12),
             Text(
               profile.displayName,
-              style: AppTextStyles.bodyStrong.copyWith(color: Colors.white70, fontSize: 18),
+              style: AppTextStyles.bodyStrong.copyWith(
+                color: Colors.white70,
+                fontSize: 18,
+              ),
             ),
           ],
         ),

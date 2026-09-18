@@ -1,20 +1,17 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
-import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../widgets/app_button.dart';
 
-/// The Create Account / Login hand-off dialog (reference screen 5).
+/// The Login / Create Account hand-off dialog (reference: "Login to View
+/// Full Profile").
 ///
 /// Shown from the onboarding hand-off page and from the "Proposals for you"
 /// preview — anywhere a first-time visitor is asked how they want to continue.
-/// Tapping outside dismisses it.
+/// Tapping outside, the ✕, or "Continue as guest?" all dismiss it.
 class EntryDialog extends StatelessWidget {
   const EntryDialog({
     super.key,
@@ -56,26 +53,14 @@ class EntryDialog extends StatelessWidget {
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(32),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 30, 24, 26),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(32),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[
-                  Colors.white.withValues(alpha: 0.92),
-                  Colors.white.withValues(alpha: 0.78),
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.9),
-                width: 1.2,
-              ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: const Color(0xFFB4487B).withValues(alpha: 0.22),
@@ -87,32 +72,28 @@ class EntryDialog extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                // Logo mark.
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
-                  child: Image.asset(
-                    'assets/icons/logo.png',
-                    width: 78,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.favorite_rounded,
-                      color: AppColors.primary,
-                      size: 64,
-                    ),
-                  ),
+                // ---- Heart logo mark ------------------------------
+                const Icon(
+                  Icons.favorite_rounded,
+                  color: Color(0xFFE5728F),
+                  size: 56,
                 ),
                 const SizedBox(height: AppSpacing.md),
+
+                // ---- Title + subtitle ------------------------------
                 Text(
-                  'Welcome to ${AppStrings.appName}',
+                  'Login to View Full Profile',
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.title.copyWith(
-                    color: AppColors.lightTextPrimary,
+                  style: AppTextStyles.display.copyWith(
+                    fontSize: 26,
                     fontWeight: FontWeight.w800,
+                    color: const Color(0xFF1B1B1B),
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  'A respectful path to marriage. How would you like to continue?',
+                  'Please log in or create account to see full details and contact team on WhatsApp',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.body.copyWith(
                     color: AppColors.lightTextSecondary,
@@ -120,39 +101,106 @@ class EntryDialog extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                AppButton(
-                  label: 'Create Account',
-                  icon: Icons.favorite_rounded,
-                  onPressed: onCreateAccount,
-                ),
-                const SizedBox(height: AppSpacing.sm),
+
+                // ---- Actions: Log in first, Create Account second ---
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: onLogin,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.primary,
+                      backgroundColor: Colors.white,
                       side: const BorderSide(
                         color: AppColors.primary,
                         width: 1.4,
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     child: Text(
-                      'Login',
+                      'Log in',
                       style: AppTextStyles.button.copyWith(
                         color: AppColors.primary,
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onCreateAccount,
+                    style: ElevatedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: const Color(0xFFE5728F),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      'Create Account',
+                      style: AppTextStyles.button.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+
+                // ---- Guest link ------------------------------------
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Text.rich(
+                    TextSpan(
+                      text: 'Continue as guest? ',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.lightTextPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: 'limited view',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
+
+          // ---- Close button (top-right, overlapping card corner) ------
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              elevation: 2,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => Navigator.of(context).pop(),
+                child: const Padding(
+                  padding: EdgeInsets.all(7),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 19,
+                    color: Color(0xFF9E9E9E),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -41,6 +41,18 @@ void main() {
     expect(p.verification.ai.status, isNotEmpty);
   });
 
+  test('GET /profiles/{id} detail parses the live production shape', () {
+    final PublicProfileModel p = PublicProfileModel.fromJson(_data('profile_detail'));
+
+    // If these regress, the Discover detail sheet opens to an error state
+    // even though the server answered 200 — the exact report we fixed.
+    expect(p.id, greaterThan(0), reason: 'detail id must parse');
+    expect(p.displayName, isNot('HamQadam Member'),
+        reason: 'the real name must come through from the captured payload');
+    expect(p.photoUrl, isNotNull);
+    expect(p.age, greaterThan(0));
+  });
+
   test('GET /verification/ai/status parses', () {
     final AiVerificationModel s = AiVerificationModel.fromJson(_data('ai_status'));
     expect(s.status, isNotEmpty);

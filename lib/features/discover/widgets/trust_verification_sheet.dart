@@ -51,7 +51,7 @@ class TrustVerificationSheet extends StatefulWidget {
 }
 
 class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
-  late Future<ProfileTrustChecks> _future;
+  late Future<_TrustPayload> _future;
 
   @override
   void initState() {
@@ -59,10 +59,22 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
     _future = _load();
   }
 
-  Future<ProfileTrustChecks> _load() async {
+  Future<_TrustPayload> _load() async {
     final ApiClient client = Get.find<ApiClient>();
     final res = await client.get(ApiEndpoints.profileTrust(widget.profileId));
-    return ProfileTrustChecks.fromJson(res.dataMap);
+    final Map<String, dynamic> data = res.dataMap;
+    // The checklist lives under `data.checks`; name/photo ride alongside it so
+    // the header always shows the member the server resolved for this id —
+    // never a stale or mismatched name from the list the tap came from.
+    final Map<String, dynamic> checks =
+        data['checks'] is Map<String, dynamic>
+            ? data['checks'] as Map<String, dynamic>
+            : <String, dynamic>{};
+    return _TrustPayload(
+      checks: ProfileTrustChecks.fromJson(checks),
+      name: (data['name'] as String?)?.trim(),
+      photoUrl: data['photo'] as String?,
+    );
   }
 
   void _retry() {
@@ -90,16 +102,20 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
                 : Colors.black.withValues(alpha: 0.06),
           ),
         ),
-        child: FutureBuilder<ProfileTrustChecks>(
+        child: FutureBuilder<_TrustPayload>(
           future: _future,
           builder: (BuildContext context,
-              AsyncSnapshot<ProfileTrustChecks> snap) {
+              AsyncSnapshot<_TrustPayload> snap) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 _SheetHeader(
-                  name: widget.name,
-                  photoUrl: widget.photoUrl,
+                  fallbackName: widget.name,
+                  serverName: snap.data?.name,
+                  photoUrl:
+                      (snap.data?.photoUrl?.isNotEmpty ?? false)
+                          ? snap.data!.photoUrl
+                          : widget.photoUrl,
                   ink: ink,
                   muted: muted,
                   dark: dark,
@@ -117,7 +133,7 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
                               padding: const EdgeInsets.fromLTRB(
                                   AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg),
                               child: _ChecklistBody(
-                                checks: snap.data ?? const ProfileTrustChecks(),
+                                checks: snap.data?.checks ?? const ProfileTrustChecks(),
                                 ink: ink,
                                 muted: muted,
                               ),
@@ -136,16 +152,31 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
 // Header
 // ---------------------------------------------------------------------------
 
+/// What the trust endpoint answered with: the checklist plus the member the
+/// server resolved for the tapped id.
+class _TrustPayload {
+  const _TrustPayload({required this.checks, this.name, this.photoUrl});
+
+  final ProfileTrustChecks checks;
+  final String? name;
+  final String? photoUrl;
+}
+
 class _SheetHeader extends StatelessWidget {
   const _SheetHeader({
-    required this.name,
+    required this.fallbackName,
+    required this.serverName,
     required this.photoUrl,
     required this.ink,
     required this.muted,
     required this.dark,
   });
 
-  final String? name;
+  /// Name passed from the card that was tapped — used only until the server
+  /// answers, then replaced by [serverName] so the header can never disagree
+  /// with the checklist below it.
+  final String? fallbackName;
+  final String? serverName;
   final String? photoUrl;
   final Color ink;
   final Color muted;
@@ -153,6 +184,9 @@ class _SheetHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String name =
+        (serverName?.isNotEmpty ?? false) ? serverName! : (fallbackName ?? 'Member');
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.md),
@@ -174,7 +208,7 @@ class _SheetHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  name?.isNotEmpty == true ? name! : 'Member',
+                  name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTextStyles.title.copyWith(color: ink),

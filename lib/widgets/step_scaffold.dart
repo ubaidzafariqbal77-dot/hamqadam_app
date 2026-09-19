@@ -8,6 +8,7 @@ import '../controllers/registration_controller.dart';
 import 'bilingual_text.dart';
 import 'dismiss_keyboard.dart';
 import 'reveal.dart';
+import 'step_art.dart';
 
 /// Clean, professional step scaffold matching the product design references:
 /// a header with a back chevron + centered brand logo, a thin rounded progress
@@ -35,6 +36,10 @@ class StepScaffold extends StatelessWidget {
     this.helpText,
     this.note,
     this.footer,
+    this.art,
+    this.artIcon,
+    this.titleColor,
+    this.flat = false,
   });
 
   final int stepNumber;
@@ -58,12 +63,34 @@ class StepScaffold extends StatelessWidget {
   final String? helpText;
   final Widget? footer;
 
+  /// Decorative watercolour illustration shown above the title (reference
+  /// style). The asset may not exist yet — [StepArt] falls back to a soft
+  /// glow icon until the real artwork is dropped in.
+  final String? art;
+  final IconData? artIcon;
+
+  /// Overrides the ink title (some reference screens use the deep-rose
+  /// serif tone for the heading).
+  final Color? titleColor;
+
+  /// Skip the floating white card: content sits directly on the rose canvas
+  /// (reference style for option-question screens).
+  final bool flat;
+
   @override
   Widget build(BuildContext context) {
-    final Color muted = Theme.of(context).textTheme.bodyMedium?.color ?? AppColors.lightTextSecondary;
+    final Color muted =
+        Theme.of(context).textTheme.bodyMedium?.color ??
+        AppColors.lightTextSecondary;
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color ink = dark
+        ? AppColors.darkTextPrimary
+        : const Color(0xFF2B2230);
 
     final RegistrationController? reg =
-        Get.isRegistered<RegistrationController>() ? Get.find<RegistrationController>() : null;
+        Get.isRegistered<RegistrationController>()
+        ? Get.find<RegistrationController>()
+        : null;
 
     // Editing one section from "Complete your profile": the step saves on its
     // own ("Save"), can always be left, and offers no Skip.
@@ -78,40 +105,48 @@ class StepScaffold extends StatelessWidget {
     // skipped and completed later, so the Skip action is offered automatically.
     // A rejected field is never skippable: skipping is what left it empty.
     final bool skipVisible =
-        !editing && !fixing && (showSkip || (reg?.canSkip(stepNumber) ?? false));
+        !editing &&
+        !fixing &&
+        (showSkip || (reg?.canSkip(stepNumber) ?? false));
     final VoidCallback? skipAction =
         onSkip ?? (reg == null ? null : () => reg.skipStep(stepNumber));
-    final VoidCallback? backAction = onBack ?? (editing ? () => Get.back<void>() : null);
+    final VoidCallback? backAction =
+        onBack ?? (editing ? () => Get.back<void>() : null);
 
     final Widget list = ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xl,
-        AppSpacing.lg,
+      padding: EdgeInsets.fromLTRB(
+        dark ? AppSpacing.lg : 18,
+        dark ? AppSpacing.xl : 10,
+        dark ? AppSpacing.lg : 18,
         AppSpacing.xl,
       ),
       children: <Widget>[
+        if (art != null) ...<Widget>[
+          StepArt(asset: art!, icon: artIcon),
+          const SizedBox(height: AppSpacing.sm),
+        ],
         if (title.isNotEmpty)
           BiText(
             title,
             textAlign: TextAlign.center,
             style: AppTextStyles.display.copyWith(
-              fontSize: 23,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+              color: titleColor ?? ink,
             ),
           ),
         if (subtitle.isNotEmpty) ...<Widget>[
-          if (title.isNotEmpty) const SizedBox(height: AppSpacing.xs),
+          if (title.isNotEmpty) const SizedBox(height: AppSpacing.sm),
           BiText(
             subtitle,
             textAlign: TextAlign.center,
-            style: AppTextStyles.body.copyWith(fontSize: 13.5, color: muted),
+            style: AppTextStyles.body.copyWith(fontSize: 14.5, color: muted),
           ),
         ],
         if (note != null) ...<Widget>[
           const SizedBox(height: AppSpacing.lg),
-          _NoteText(text: note!),
+          _TipBanner(text: note!),
         ],
         SizedBox(
           height: (title.isNotEmpty || subtitle.isNotEmpty || note != null)
@@ -135,46 +170,87 @@ class StepScaffold extends StatelessWidget {
         backAction?.call();
       },
       child: DismissKeyboard(
-        child: Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: <Widget>[
-                _Constrained(
-                  expand: false,
-                  child: _TopBar(
-                    stepNumber: stepNumber,
-                    totalSteps: totalSteps,
-                    onBack: backAction,
+        child: DecoratedBox(
+          // Reference canvas: soft rose watercolour wash behind a floating
+          // white card. Dark mode keeps the flat dark surface.
+          decoration: BoxDecoration(
+            gradient: dark
+                ? null
+                : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      AppColors.roseCanvas,
+                      AppColors.roseCanvasDeep,
+                    ],
                   ),
-                ),
-                Expanded(
-                  child: _Constrained(
-                    child: formKey == null ? list : Form(key: formKey, child: list),
-                  ),
-                ),
-              ],
-            ),
+            color: dark ? AppColors.darkBackground : null,
           ),
-          bottomNavigationBar: _BottomBar(
-            // Editing a section saves it on its own; a correction returns to
-            // finalizing; steps that drive their own label (e.g. partner
-            // preferences) keep it.
-            primaryLabel: fixing
-                ? 'Save & continue setup'
-                : editing
-                    ? 'Save'
-                    : primaryLabel,
-            primaryLabelRx: primaryLabelRx,
-            onPrimary: onPrimary,
-            busy: busy,
-            primaryEnabled: primaryEnabled,
-            showSkip: skipVisible,
-            onSkip: skipAction,
-            onBack: backAction,
-            footer: footer,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: SafeArea(
+              child: Column(
+                children: <Widget>[
+                  _Constrained(
+                    expand: false,
+                    child: _TopBar(
+                      stepNumber: stepNumber,
+                      totalSteps: totalSteps,
+                      onBack: backAction,
+                    ),
+                  ),
+                  Expanded(
+                    child: _Constrained(
+                      child: formKey == null
+                          ? _card(context, list)
+                          : Form(key: formKey, child: _card(context, list)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            bottomNavigationBar: _BottomBar(
+              // Editing a section saves it on its own; a correction returns to
+              // finalizing; steps that drive their own label (e.g. partner
+              // preferences) keep it.
+              primaryLabel: fixing
+                  ? 'Save & continue setup'
+                  : editing
+                  ? 'Save'
+                  : primaryLabel,
+              primaryLabelRx: primaryLabelRx,
+              onPrimary: onPrimary,
+              busy: busy,
+              primaryEnabled: primaryEnabled,
+              showSkip: skipVisible,
+              onSkip: skipAction,
+              onBack: backAction,
+              footer: footer,
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// The floating white rounded card that holds the step content (reference
+  /// style). Dark mode keeps the plain surface without the card treatment.
+  Widget _card(BuildContext context, Widget child) {
+    if (Theme.of(context).brightness == Brightness.dark || flat) return child;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 2, 12, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFFB4487B).withValues(alpha: 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(28), child: child),
     );
   }
 
@@ -208,11 +284,17 @@ class _TopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color track = Theme.of(context).dividerColor;
     final RegistrationController? reg =
-        Get.isRegistered<RegistrationController>() ? Get.find<RegistrationController>() : null;
+        Get.isRegistered<RegistrationController>()
+        ? Get.find<RegistrationController>()
+        : null;
 
     if (reg == null) {
-      return _bar(context, track, stepNumber / totalSteps,
-          ((stepNumber / totalSteps) * 100).round());
+      return _bar(
+        context,
+        track,
+        stepNumber / totalSteps,
+        ((stepNumber / totalSteps) * 100).round(),
+      );
     }
 
     return Obx(() {
@@ -224,12 +306,18 @@ class _TopBar extends StatelessWidget {
   }
 
   Widget _bar(BuildContext context, Color track, double fraction, int percent) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.xs),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
       child: Row(
         children: <Widget>[
           _RoundIcon(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
-          const SizedBox(width: AppSpacing.xs),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(999),
@@ -237,19 +325,25 @@ class _TopBar extends StatelessWidget {
                 tween: Tween<double>(begin: 0, end: fraction.clamp(0.0, 1.0)),
                 duration: const Duration(milliseconds: 400),
                 curve: Curves.easeOutCubic,
-                builder: (BuildContext c, double v, _) => LinearProgressIndicator(
-                  value: v,
-                  minHeight: 7,
-                  backgroundColor: track,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
+                builder: (BuildContext c, double v, _) =>
+                    LinearProgressIndicator(
+                      value: v,
+                      minHeight: 8,
+                      backgroundColor: dark ? track : const Color(0xFFF6D9E2),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppColors.primary,
+                      ),
+                    ),
               ),
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
           Text(
             '$percent%',
-            style: AppTextStyles.bodyStrong.copyWith(color: AppColors.primary, fontSize: 14),
+            style: AppTextStyles.bodyStrong.copyWith(
+              color: AppColors.primary,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -265,16 +359,24 @@ class _RoundIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color color = AppColors.primary;
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Opacity(
       opacity: onTap == null ? 0.25 : 1,
       child: InkResponse(
         onTap: onTap,
         radius: 24,
         child: Container(
-          width: 38,
-          height: 38,
+          width: 40,
+          height: 40,
           alignment: Alignment.center,
-          child: Icon(icon, size: 22, color: color),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            // Soft pink disc behind the back chevron (reference style).
+            color: dark
+                ? Colors.white.withValues(alpha: 0.06)
+                : AppColors.primary.withValues(alpha: 0.14),
+          ),
+          child: Icon(icon, size: 20, color: color),
         ),
       ),
     );
@@ -309,13 +411,21 @@ class _BottomBar extends StatelessWidget {
     final Color backColor = Color.lerp(AppColors.primary, Colors.white, 0.42)!;
 
     return SafeArea(
-      minimum: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
+      minimum: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xs,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
       child: _Constrained(
         expand: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            if (footer != null) ...<Widget>[footer!, const SizedBox(height: AppSpacing.sm)],
+            if (footer != null) ...<Widget>[
+              footer!,
+              const SizedBox(height: AppSpacing.sm),
+            ],
             Obx(
               () => Row(
                 children: <Widget>[
@@ -350,7 +460,9 @@ class _BottomBar extends StatelessWidget {
                   },
                   child: BiText.inline(
                     'Skip',
-                    style: AppTextStyles.bodyStrong.copyWith(color: AppColors.primary),
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ),
@@ -381,6 +493,12 @@ class _PillButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool disabled = onTap == null;
     final bool useGradient = gradient != null && !disabled;
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    // Reference style: the Back pill is white with a pink hairline and pink
+    // label; the primary stays the filled brand gradient.
+    final bool isBackPill =
+        gradient == null &&
+        color == Color.lerp(AppColors.primary, Colors.white, 0.42);
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: useGradient
@@ -403,32 +521,52 @@ class _PillButton extends StatelessWidget {
             : null,
       ),
       child: Material(
-        color: useGradient ? Colors.transparent : (disabled ? color.withValues(alpha: 0.5) : color),
+        color: useGradient
+            ? Colors.transparent
+            : isBackPill
+            ? (dark ? Colors.white.withValues(alpha: 0.06) : Colors.white)
+            : (disabled ? color.withValues(alpha: 0.5) : color),
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: SizedBox(
+          child: Container(
             height: 54,
-            child: Center(
-              child: busy
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: BiText.inline(
-                          label,
-                          style: AppTextStyles.button.copyWith(color: Colors.white, fontSize: 14),
-                          urduColor: Colors.white.withValues(alpha: 0.95),
+            alignment: Alignment.center,
+            decoration: isBackPill && !dark
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.roseFieldBorder,
+                      width: 1.4,
+                    ),
+                  )
+                : null,
+            child: busy
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: BiText.inline(
+                        label,
+                        style: AppTextStyles.button.copyWith(
+                          color: isBackPill ? AppColors.primary : Colors.white,
+                          fontSize: 14,
                         ),
+                        urduColor: Colors.white.withValues(alpha: 0.95),
                       ),
                     ),
-            ),
+                  ),
           ),
         ),
       ),
@@ -458,17 +596,81 @@ class _Constrained extends StatelessWidget {
   }
 }
 
-/// A soft red helper note (no box), stacked English + Urdu — matches the
-/// verification-note style in the references.
-class _NoteText extends StatelessWidget {
-  const _NoteText({required this.text});
+/// Soft pink "Tip:" banner with a bulb icon — the reference design's helper
+/// note. Reads the same [note] text steps already pass in.
+class _TipBanner extends StatelessWidget {
+  const _TipBanner({required this.text});
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return BiText(
-      text,
-      style: AppTextStyles.body.copyWith(color: AppColors.primary, fontWeight: FontWeight.w500),
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    // "Did you know? …" notes render as the Education reference card: a bulb
+    // disc, a bold question title, and the fact underneath.
+    const String q = 'Did you know?';
+    final bool splitTitle = text.startsWith(q);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: dark
+            ? AppColors.primary.withValues(alpha: 0.10)
+            : const Color(0xFFFCE9EF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: dark
+                  ? AppColors.primary.withValues(alpha: 0.18)
+                  : const Color(0xFFF7D3E0),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.lightbulb_rounded,
+              size: 24,
+              color: AppColors.primary.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: splitTitle
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      BiText(
+                        q,
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 16.5,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      BiText(
+                        text.substring(q.length).trim(),
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 13.5,
+                          height: 1.4,
+                          color: AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ],
+                  )
+                : BiText(
+                    text,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: AppColors.lightTextPrimary,
+                    ),
+                    urduColor: AppColors.lightTextPrimary,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -490,7 +692,11 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 20),
+          const Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.error,
+            size: 20,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: BiText(

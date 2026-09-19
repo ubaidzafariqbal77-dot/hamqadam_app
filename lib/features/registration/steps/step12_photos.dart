@@ -96,6 +96,8 @@ class _Step12ViewState extends State<Step12View> {
       stepNumber: 12,
       totalSteps: 18,
       title: 'Upload photos',
+      art: 'assets/registration/information.png',
+      artIcon: Icons.photo_camera_outlined,
       subtitle: 'You need to upload at least 3 photos to continue. '
           'You can change them later.',
       busy: c.busy,

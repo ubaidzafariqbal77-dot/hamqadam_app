@@ -97,6 +97,8 @@ class _Step02ViewState extends State<Step02View> {
       stepNumber: 2,
       totalSteps: 18,
       title: 'Basic information',
+      art: 'assets/images/step_profile.png',
+      artIcon: Icons.person_outline_rounded,
       subtitle: 'Tell us your name and date of birth.',
       busy: c.busy,
       error: c.error,

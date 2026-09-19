@@ -192,6 +192,8 @@ class _Step14ViewState extends State<Step14View> {
       stepNumber: 14,
       totalSteps: 18,
       title: 'Identity verification',
+      art: 'assets/images/step_verification.png',
+      artIcon: Icons.verified_user_outlined,
       subtitle: 'Verify your identity to earn a trusted badge.',
       busy: c.busy,
       error: c.error,

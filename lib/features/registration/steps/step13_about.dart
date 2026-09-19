@@ -50,6 +50,8 @@ class _Step13ViewState extends State<Step13View> {
       stepNumber: 13,
       totalSteps: 18,
       title: 'About yourself',
+      art: 'assets/images/step_about.png',
+      artIcon: Icons.favorite_outline_rounded,
       subtitle: 'Write a short introduction (max 300 characters).',
       busy: c.busy,
       error: c.error,

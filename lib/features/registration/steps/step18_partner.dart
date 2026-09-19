@@ -51,9 +51,9 @@ class Step18Controller extends StepController {
 
   /// The ordered sub-questions of this step (step-1-style one-at-a-time flow).
   static const List<String> questions = <String>[
+    'marital',
     'age',
     'height',
-    'marital',
     'religion',
     'caste',
     'language',
@@ -246,6 +246,8 @@ class _Step18ViewState extends State<Step18View> {
       stepNumber: 18,
       totalSteps: 18,
       title: 'Partner preferences',
+      art: 'assets/registration/partner.png',
+      artIcon: Icons.favorite_rounded,
       subtitle: 'Describe your ideal match.',
       busy: c.busy,
       error: c.error,
@@ -321,7 +323,6 @@ class _Step18ViewState extends State<Step18View> {
             selected: c.maritalStatus.value,
             onSelect: (CardOption o) {
               c.maritalStatus.value = o.value as int;
-              c.goNext();
             },
           ),
         );

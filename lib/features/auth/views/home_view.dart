@@ -651,7 +651,12 @@ class _AppDrawer extends StatelessWidget {
   /// confirms it once here: enter password → live fingerprint scan proves the
   /// phone's owner → credentials are saved for future fingerprint logins.
   Future<void> _enableFingerprintFlow(BuildContext sheetCtx, BiometricAuthService bio) async {
-    final TextEditingController passwordCtrl = TextEditingController();
+    // No TextEditingController: the dialog's exit animation can still be
+    // running when the awaited future resolves, and the field inside reads
+    // its controller during that window. Disposing right after the await
+    // throws "A TextEditingController was used after being disposed".
+    // The typed password is captured via onChanged instead.
+    String typedPassword = '';
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
     final String email = auth.user.value?.email ?? '';
 
@@ -672,14 +677,12 @@ class _AppDrawer extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
-                controller: passwordCtrl,
                 obscureText: true,
                 autofillHints: const <String>[AutofillHints.password],
                 textInputAction: TextInputAction.done,
+                onChanged: (String v) => typedPassword = v,
                 validator: (String? v) =>
                     (v == null || v.isEmpty) ? 'Enter your current password' : null,
-                onFieldSubmitted: (_) =>
-                    Navigator.pop(dlgCtx, formKey.currentState?.validate() ?? false),
                 decoration: const InputDecoration(
                   labelText: 'Current password',
                   prefixIcon: Icon(Icons.lock_outline_rounded),
@@ -698,8 +701,7 @@ class _AppDrawer extends StatelessWidget {
       ),
     );
 
-    if (confirmed == true) confirmedPassword = passwordCtrl.text;
-    passwordCtrl.dispose();
+    if (confirmed == true) confirmedPassword = typedPassword;
     if (confirmed != true || email.isEmpty || confirmedPassword.isEmpty) return;
 
     // Live scan: the person enabling this must prove a fingerprint that is

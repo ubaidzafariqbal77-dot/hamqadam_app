@@ -187,6 +187,8 @@ class _Step05ViewState extends State<Step05View> {
       stepNumber: 5,
       totalSteps: 18,
       title: 'Contact information',
+      art: 'assets/images/step_contact.png',
+      artIcon: Icons.contact_phone_rounded,
       subtitle: 'We use this to secure your account.',
       busy: c.busy,
       error: c.error,

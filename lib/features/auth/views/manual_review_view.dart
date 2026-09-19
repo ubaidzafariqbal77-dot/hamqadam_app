@@ -93,7 +93,12 @@ class _ManualReviewViewState extends State<ManualReviewView> {
 
   /// Support request through the one endpoint the review gate leaves open.
   Future<void> _openSupportSheet() async {
-    final TextEditingController msgCtrl = TextEditingController();
+    // NOTE: no local TextEditingController here — the sheet's exit animation
+    // keeps its TextFormField alive for a moment AFTER the awaited future
+    // resolves, and a controller disposed right after the await gets read
+    // during that window ("used after being disposed"). The typed text is
+    // captured through onChanged instead, so there is nothing to dispose.
+    String message = '';
     final RxBool sending = false.obs;
     await Get.bottomSheet<void>(
       Container(
@@ -123,7 +128,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
             const SizedBox(height: AppSpacing.lg),
             AppTextFormField(
               label: 'Your message',
-              controller: msgCtrl,
+              onChanged: (String v) => message = v,
               hint: 'e.g. I have already submitted my documents…',
               maxLines: 4,
               minLines: 3,
@@ -134,7 +139,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                   icon: Icons.send_rounded,
                   loading: sending.value,
                   onPressed: () async {
-                    final String msg = msgCtrl.text.trim();
+                    final String msg = message.trim();
                     if (msg.length < 10) {
                       AppSnackbar.error(
                           'Please write at least a few words so the team can help.');
@@ -160,7 +165,6 @@ class _ManualReviewViewState extends State<ManualReviewView> {
       isScrollControlled: true,
       isDismissible: true,
     );
-    msgCtrl.dispose();
   }
 
   String get _statusText {

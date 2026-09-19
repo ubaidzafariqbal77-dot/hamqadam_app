@@ -14,6 +14,45 @@ import 'state_widgets.dart';
 /// A premium picker field backed by a [LookupController] entry: shows the
 /// selected value in an underline field and opens a rounded bottom sheet with a
 /// searchable, brand-highlighted list — a nicer alternative to a dropdown menu.
+/// Soft pink disc holding a field's leading artwork — the Education reference
+/// style. Used by pickers that opt into a leading icon/image.
+class FieldIconDisc extends StatelessWidget {
+  const FieldIconDisc({super.key, this.icon, this.image});
+  final IconData? icon;
+  final String? image;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: dark
+            ? AppColors.primary.withValues(alpha: 0.16)
+            : const Color(0xFFF9DCE7),
+        shape: BoxShape.circle,
+      ),
+      padding: const EdgeInsets.all(10),
+      child: image != null
+          ? Image.asset(
+              image!,
+              fit: BoxFit.contain,
+              errorBuilder: (_, Object __, StackTrace? ___) => Icon(
+                icon ?? Icons.edit_note_rounded,
+                size: 24,
+                color: AppColors.primary,
+              ),
+            )
+          : Icon(
+              icon ?? Icons.edit_note_rounded,
+              size: 24,
+              color: AppColors.primary,
+            ),
+    );
+  }
+}
+
 class AppLookupPicker extends StatelessWidget {
   const AppLookupPicker({
     super.key,
@@ -28,6 +67,8 @@ class AppLookupPicker extends StatelessWidget {
     this.errorText,
     this.enabled = true,
     this.disabledHint,
+    this.icon,
+    this.image,
   });
 
   final String label;
@@ -42,6 +83,10 @@ class AppLookupPicker extends StatelessWidget {
   final bool enabled;
   final String? disabledHint;
 
+  /// Optional leading artwork rendered in a soft pink disc (reference style).
+  final IconData? icon;
+  final String? image;
+
   LookupItem? _resolve(List<LookupItem> items) {
     if (selected == null) return null;
     for (final LookupItem i in items) {
@@ -53,7 +98,10 @@ class AppLookupPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final ApiState<List<LookupItem>> state = controller.stateOf(lookupKey, parentId: parentId);
+      final ApiState<List<LookupItem>> state = controller.stateOf(
+        lookupKey,
+        parentId: parentId,
+      );
       final List<LookupItem> items = state.data ?? const <LookupItem>[];
       final LookupItem? current = _resolve(items);
       final Color hintColor = Theme.of(context).hintColor;
@@ -64,10 +112,11 @@ class AppLookupPicker extends StatelessWidget {
         errorText: errorText,
         disabled: !enabled,
         padding: const EdgeInsets.symmetric(vertical: 6),
+        leading: (icon != null || image != null)
+            ? FieldIconDisc(icon: icon, image: image)
+            : null,
         child: InkWell(
-          onTap: (!enabled)
-              ? null
-              : () => _open(context, items, state),
+          onTap: (!enabled) ? null : () => _open(context, items, state),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(
@@ -76,15 +125,20 @@ class AppLookupPicker extends StatelessWidget {
                   child: current != null
                       ? Text(current.name, style: AppTextStyles.body)
                       : (enabled
-                          ? BiText.inline(
-                              hint,
-                              textAlign: TextAlign.start,
-                              style: AppTextStyles.body.copyWith(color: hintColor),
-                            )
-                          : Text(
-                              disabledHint ?? 'Select the previous field first',
-                              style: AppTextStyles.body.copyWith(color: hintColor),
-                            )),
+                            ? BiText.inline(
+                                hint,
+                                textAlign: TextAlign.start,
+                                style: AppTextStyles.body.copyWith(
+                                  color: hintColor,
+                                ),
+                              )
+                            : Text(
+                                disabledHint ??
+                                    'Select the previous field first',
+                                style: AppTextStyles.body.copyWith(
+                                  color: hintColor,
+                                ),
+                              )),
                 ),
                 Icon(Icons.keyboard_arrow_down_rounded, color: hintColor),
               ],
@@ -124,6 +178,33 @@ class AppLookupPicker extends StatelessWidget {
   }
 }
 
+/// Opens the standard rounded searchable lookup-picker sheet for callers that
+/// render their own field chrome while retaining lookup loading and retry UI.
+Future<LookupItem?> showLookupPickerSheet(
+  BuildContext context, {
+  required String title,
+  required List<LookupItem> items,
+  int? selectedId,
+  bool loading = false,
+  VoidCallback? onRetry,
+}) {
+  return showModalBottomSheet<LookupItem>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (BuildContext ctx) => _PickerSheet(
+      title: title,
+      items: items,
+      selectedId: selectedId,
+      loading: loading,
+      onRetry: onRetry,
+    ),
+  );
+}
+
 /// A premium picker field backed by a plain [List<String>] of options — the
 /// string-list counterpart of [AppLookupPicker]. Opens the same rounded,
 /// searchable bottom sheet. When [allowCustom] is true, a user whose entry is
@@ -141,6 +222,8 @@ class AppStringPicker extends StatelessWidget {
     this.enabled = true,
     this.allowCustom = false,
     this.searchHint,
+    this.icon,
+    this.image,
   });
 
   final String label;
@@ -158,6 +241,10 @@ class AppStringPicker extends StatelessWidget {
   /// Optional hint shown inside the search box (defaults to "Search…").
   final String? searchHint;
 
+  /// Optional leading artwork rendered in a soft pink disc (reference style).
+  final IconData? icon;
+  final String? image;
+
   @override
   Widget build(BuildContext context) {
     final Color hintColor = Theme.of(context).hintColor;
@@ -168,6 +255,9 @@ class AppStringPicker extends StatelessWidget {
       errorText: errorText,
       disabled: !enabled,
       padding: const EdgeInsets.symmetric(vertical: 6),
+      leading: (icon != null || image != null)
+          ? FieldIconDisc(icon: icon, image: image)
+          : null,
       child: InkWell(
         onTap: enabled ? () => _open(context) : null,
         child: Padding(
@@ -211,6 +301,34 @@ class AppStringPicker extends StatelessWidget {
   }
 }
 
+/// Opens the standard rounded searchable string-picker sheet for callers that
+/// render their own field chrome (e.g. the Physical step's custom height card)
+/// but want the same selection experience as every other picker.
+Future<String?> showStringPickerSheet(
+  BuildContext context, {
+  required String title,
+  required List<String> options,
+  String? selected,
+  bool allowCustom = false,
+  String? searchHint,
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+    ),
+    builder: (BuildContext ctx) => _StringPickerSheet(
+      title: title,
+      options: options,
+      selected: selected,
+      allowCustom: allowCustom,
+      searchHint: searchHint,
+    ),
+  );
+}
+
 class _StringPickerSheet extends StatefulWidget {
   const _StringPickerSheet({
     required this.title,
@@ -243,9 +361,10 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
     final List<String> filtered = q.isEmpty
         ? widget.options
         : widget.options
-            .where((String o) => o.toLowerCase().contains(q.toLowerCase()))
-            .toList();
-    final bool showCustom = widget.allowCustom &&
+              .where((String o) => o.toLowerCase().contains(q.toLowerCase()))
+              .toList();
+    final bool showCustom =
+        widget.allowCustom &&
         q.isNotEmpty &&
         !widget.options.any((String o) => o.toLowerCase() == q.toLowerCase());
 
@@ -260,7 +379,9 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
       maxChildSize: 0.9,
       builder: (BuildContext ctx, ScrollController scroll) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             children: <Widget>[
               const SizedBox(height: AppSpacing.sm),
@@ -274,7 +395,11 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: BiText(widget.title, style: AppTextStyles.subtitle),
@@ -283,7 +408,11 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
               if (searchable)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                  ),
                   child: TextField(
                     autofocus: false,
                     onChanged: (String v) => setState(() => _query = v),
@@ -294,12 +423,17 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                     ),
                     decoration: InputDecoration(
                       isDense: true,
-                      hintText: widget.searchHint ??
-                          (widget.allowCustom ? 'Search or type your own…' : 'Search…'),
+                      hintText:
+                          widget.searchHint ??
+                          (widget.allowCustom
+                              ? 'Search or type your own…'
+                              : 'Search…'),
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      border: const OutlineInputBorder(
                         borderRadius: AppRadius.mdAll,
                         borderSide: BorderSide.none,
                       ),
@@ -312,8 +446,9 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                     ? Center(
                         child: Text(
                           'No matches found',
-                          style: AppTextStyles.body
-                              .copyWith(color: Theme.of(context).hintColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: Theme.of(context).hintColor,
+                          ),
                         ),
                       )
                     : ListView(
@@ -321,12 +456,15 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                         children: <Widget>[
                           if (showCustom)
                             ListTile(
-                              leading: const Icon(Icons.add_circle_outline_rounded,
-                                  color: AppColors.primary),
+                              leading: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: AppColors.primary,
+                              ),
                               title: Text(
                                 'Use “$q”',
-                                style: AppTextStyles.body
-                                    .copyWith(color: AppColors.primary),
+                                style: AppTextStyles.body.copyWith(
+                                  color: AppColors.primary,
+                                ),
                               ),
                               onTap: () => Navigator.of(context).pop(q),
                             ),
@@ -338,12 +476,16 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                                 o,
                                 style: AppTextStyles.body.copyWith(
                                   color: sel ? AppColors.primary : null,
-                                  fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
+                                  fontWeight: sel
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
                                 ),
                               ),
                               trailing: sel
-                                  ? const Icon(Icons.check_circle_rounded,
-                                      color: AppColors.primary)
+                                  ? const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: AppColors.primary,
+                                    )
                                   : null,
                             );
                           }),
@@ -403,7 +545,9 @@ class _PickerSheetState extends State<_PickerSheet> {
   }
 
   void _buildIndex() {
-    _searchIndex = <String>[for (final LookupItem i in widget.items) i.name.toLowerCase()];
+    _searchIndex = <String>[
+      for (final LookupItem i in widget.items) i.name.toLowerCase(),
+    ];
     _filtered = widget.items;
     _filteredFor = '';
   }
@@ -446,7 +590,9 @@ class _PickerSheetState extends State<_PickerSheet> {
       maxChildSize: 0.9,
       builder: (BuildContext ctx, ScrollController scroll) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             children: <Widget>[
               const SizedBox(height: AppSpacing.sm),
@@ -459,7 +605,12 @@ class _PickerSheetState extends State<_PickerSheet> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: BiText(widget.title, style: AppTextStyles.subtitle),
@@ -467,7 +618,12 @@ class _PickerSheetState extends State<_PickerSheet> {
               ),
               if (searchable)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                  ),
                   child: TextField(
                     autofocus: false,
                     onChanged: _onQueryChanged,
@@ -481,8 +637,10 @@ class _PickerSheetState extends State<_PickerSheet> {
                       hintText: 'Search…',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      border: OutlineInputBorder(
+                      fillColor: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      border: const OutlineInputBorder(
                         borderRadius: AppRadius.mdAll,
                         borderSide: BorderSide.none,
                       ),
@@ -492,43 +650,53 @@ class _PickerSheetState extends State<_PickerSheet> {
               const Divider(height: 1),
               Expanded(
                 child: widget.loading
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
                     // A search that matches nothing is not a load failure, so it
                     // must not offer "retry" — only a genuinely empty list does.
                     : noMatches
-                        ? Center(
-                            child: Text(
-                              'No matches for “$_query”',
-                              style: AppTextStyles.body
-                                  .copyWith(color: Theme.of(context).hintColor),
-                            ),
-                          )
-                        : filtered.isEmpty
-                        ? RetryWidget(
-                            onRetry: widget.onRetry ?? () {},
-                            message: 'No options found.',
-                          )
-                        : ListView.builder(
-                            controller: scroll,
-                            itemCount: filtered.length,
-                            itemBuilder: (BuildContext c, int i) {
-                              final LookupItem item = filtered[i];
-                              final bool sel = item.id == widget.selectedId;
-                              return ListTile(
-                                onTap: () => Navigator.of(context).pop(item),
-                                title: Text(
-                                  item.name,
-                                  style: AppTextStyles.body.copyWith(
-                                    color: sel ? AppColors.primary : null,
-                                    fontWeight: sel ? FontWeight.w700 : FontWeight.w400,
-                                  ),
-                                ),
-                                trailing: sel
-                                    ? const Icon(Icons.check_circle_rounded, color: AppColors.primary)
-                                    : null,
-                              );
-                            },
+                    ? Center(
+                        child: Text(
+                          'No matches for “$_query”',
+                          style: AppTextStyles.body.copyWith(
+                            color: Theme.of(context).hintColor,
                           ),
+                        ),
+                      )
+                    : filtered.isEmpty
+                    ? RetryWidget(
+                        onRetry: widget.onRetry ?? () {},
+                        message: 'No options found.',
+                      )
+                    : ListView.builder(
+                        controller: scroll,
+                        itemCount: filtered.length,
+                        itemBuilder: (BuildContext c, int i) {
+                          final LookupItem item = filtered[i];
+                          final bool sel = item.id == widget.selectedId;
+                          return ListTile(
+                            onTap: () => Navigator.of(context).pop(item),
+                            title: Text(
+                              item.name,
+                              style: AppTextStyles.body.copyWith(
+                                color: sel ? AppColors.primary : null,
+                                fontWeight: sel
+                                    ? FontWeight.w700
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                            trailing: sel
+                                ? const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: AppColors.primary,
+                                  )
+                                : null,
+                          );
+                        },
+                      ),
               ),
             ],
           ),

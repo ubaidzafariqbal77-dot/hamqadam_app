@@ -38,6 +38,9 @@ class AppColors {
   // Buttons, links and selected chips are pink; the words people read are ink.
   // This is the single most important hierarchy rule in the app.
   static const Color lightBackground = Color(0xFFFDFBFC); // soft warm white
+  static const Color roseCanvas = Color(0xFFF9E4EA); // registration canvas (reference)
+  static const Color roseCanvasDeep = Color(0xFFF6D7E0); // canvas gradient end
+  static const Color roseFieldBorder = Color(0xFFF5C6D6); // field hairline on white cards
   static const Color lightSurface = Color(0xFFFFFFFF); // cards
   static const Color lightSurfaceAlt = Color(0xFFF6F4F5); // subtle neutral section
   static const Color lightTextPrimary = Color(0xFF1C1B20); // headings & values (ink)
@@ -62,10 +65,10 @@ class AppColors {
   // ---- Field system (light) — clean white, neutral borders ------------------
   // Mandatory fields get a whisper of neutral fill; optional stay crisp white.
   // (Red is reserved for the error state.)
-  static const Color requiredFieldBackgroundLight = Color(0xFFF8F6F7); // subtle neutral
+  static const Color requiredFieldBackgroundLight = Color(0xFFFFFFFF); // crisp white pill (reference style)
   static const Color optionalFieldBackgroundLight = Color(0xFFFFFFFF); // crisp white
-  static const Color requiredFieldBorderLight = Color(0xFFE6E2E6);
-  static const Color optionalFieldBorderLight = Color(0xFFE6E2E6);
+  static const Color requiredFieldBorderLight = Color(0xFFF5C6D6); // soft pink hairline
+  static const Color optionalFieldBorderLight = Color(0xFFF5C6D6); // soft pink hairline
   static const Color fieldErrorBackgroundLight = Color(0xFFFDF1F0);
   static const Color fieldDisabledBackgroundLight = Color(0xFFF1EFF1); // greyed out, not pink
 

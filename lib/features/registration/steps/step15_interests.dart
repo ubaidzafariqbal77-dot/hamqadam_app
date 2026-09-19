@@ -91,6 +91,8 @@ class _Step15ViewState extends State<Step15View> {
       stepNumber: 15,
       totalSteps: 18,
       title: 'What are your interests?',
+      art: 'assets/registration/interest.png',
+      artIcon: Icons.interests_rounded,
       subtitle: 'Select up to ${RegOptions.maxInterests} interests to make your '
           'profile stand out!',
       busy: c.busy,

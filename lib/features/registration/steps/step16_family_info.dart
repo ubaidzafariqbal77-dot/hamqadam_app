@@ -79,6 +79,8 @@ class _Step16ViewState extends State<Step16View> {
       stepNumber: 16,
       totalSteps: 18,
       title: 'Family information',
+      art: 'assets/registration/family.png',
+      artIcon: Icons.family_restroom_rounded,
       subtitle: 'A little about your family (optional).',
       busy: c.busy,
       error: c.error,

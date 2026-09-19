@@ -102,6 +102,8 @@ class _Step04ViewState extends State<Step04View> {
       stepNumber: 4,
       totalSteps: 18,
       title: 'Location',
+      art: 'assets/images/step_location.png',
+      artIcon: Icons.location_on_rounded,
       subtitle: 'Where do you currently live?',
       busy: c.busy,
       error: c.error,
@@ -109,6 +111,7 @@ class _Step04ViewState extends State<Step04View> {
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
+      note: 'Tip: This helps us show nearby services and matches close to you.',
       children: <Widget>[
         Obx(() {
           final bool hasCountry = c.country.value != null;

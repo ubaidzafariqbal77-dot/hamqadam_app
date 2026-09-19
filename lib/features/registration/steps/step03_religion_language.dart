@@ -145,12 +145,16 @@ class _Step03ViewState extends State<Step03View> {
       stepNumber: 3,
       totalSteps: 18,
       title: 'Religion & language',
+      art: 'assets/images/step_faith.png',
+      artIcon: Icons.menu_book_rounded,
       subtitle: 'Your faith and mother tongue.',
       busy: c.busy,
       error: c.error,
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
+      note: 'Tip: Your answers help us personalize content in line with your '
+          'faith tradition.',
       children: <Widget>[
         Obx(
           () => AppLookupPicker(

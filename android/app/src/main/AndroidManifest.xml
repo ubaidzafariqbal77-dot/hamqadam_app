@@ -11,11 +11,13 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
-    <!-- ── Storage / Photos ────────────────────────────────────────────── -->
+    <!-- ── Storage / Photos ──────────────────────────────────────────────
+         WRITE_EXTERNAL_STORAGE is intentionally NOT declared: the app only
+         saves into app-specific directories and galleries are read through
+         the system Photo Picker, both of which need no storage permission. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
 
     <!-- ── Notifications (Android 13+) ────────────────────────────────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -23,15 +25,16 @@
     <!-- ── Call Ringing (full-screen intent over lock screen) ──────────── -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- ── Phone State (caller ID detection) ──────────────────────────── -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <!-- ── Bluetooth (Agora audio routing) ────────────────────────────── -->
+    <!-- ── Bluetooth (Agora audio routing) ─────────────────────────────
+         BLUETOOTH_SCAN is intentionally absent: routing audio to a paired
+         headset only needs BLUETOOTH_CONNECT; scanning discovers new
+         devices, which the app never does. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
 
     <!-- ── Wake Lock (keep device awake during calls) ─────────────────── -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>

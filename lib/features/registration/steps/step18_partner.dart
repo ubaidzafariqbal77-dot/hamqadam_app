@@ -14,6 +14,8 @@ import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
+import '../../../constants/app_colors.dart';
 
 /// Screen 18 — Partner preferences, the API's step 17
 /// (`POST /auth/register/step/17`).
@@ -246,7 +248,7 @@ class _Step18ViewState extends State<Step18View> {
       stepNumber: 18,
       totalSteps: 18,
       title: 'Partner preferences',
-      art: 'assets/registration/partner.png',
+      art: RegIcons.step18Partner,
       artIcon: Icons.favorite_rounded,
       subtitle: 'Describe your ideal match.',
       busy: c.busy,
@@ -294,6 +296,8 @@ class _Step18ViewState extends State<Step18View> {
                     options: c.heightLabels,
                     hint: 'Select',
                     onChanged: (String? v) => c.heightMinCm.value = c.cmFor(v),
+                    image: RegIcons.heightRulerAlt,
+                    icon: Icons.height_rounded,
                   ),
                 ),
               ),
@@ -306,6 +310,8 @@ class _Step18ViewState extends State<Step18View> {
                     options: c.heightLabels,
                     hint: 'Select',
                     onChanged: (String? v) => c.heightMaxCm.value = c.cmFor(v),
+                    image: RegIcons.heightRulerAlt,
+                    icon: Icons.height_rounded,
                   ),
                 ),
               ),
@@ -328,34 +334,67 @@ class _Step18ViewState extends State<Step18View> {
         );
       case 'religion':
         return Obx(
-          () => AppLookupPicker(
-            label: 'Preferred religion / sect',
-            lookupKey: LookupKeys.religions,
-            controller: c.lookup,
-            selected: c.religion.value,
-            onChanged: c.onReligion,
+          () => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AppLookupPicker(
+                label: 'Preferred religion / sect',
+                lookupKey: LookupKeys.religions,
+                controller: c.lookup,
+                selected: c.religion.value,
+                onChanged: c.onReligion,
+              ),
+              _popularRow(
+                items: c.lookup.itemsOf(LookupKeys.religions),
+                selected: c.religion.value,
+                onTap: (LookupItem i) =>
+                    c.religion.value = c.religion.value?.id == i.id ? null : i,
+              ),
+            ],
           ),
         );
       case 'caste':
         return Obx(
-          () => AppLookupPicker(
-            label: 'Preferred caste',
-            lookupKey: LookupKeys.castes,
-            controller: c.lookup,
-            selected: c.caste.value,
-            requirement: FieldRequirement.optional,
-            onChanged: (LookupItem? v) => c.caste.value = v,
+          () => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AppLookupPicker(
+                label: 'Preferred caste',
+                lookupKey: LookupKeys.castes,
+                controller: c.lookup,
+                selected: c.caste.value,
+                requirement: FieldRequirement.optional,
+                onChanged: (LookupItem? v) => c.caste.value = v,
+              ),
+              _popularRow(
+                items: c.lookup.itemsOf(LookupKeys.castes),
+                selected: c.caste.value,
+                onTap: (LookupItem i) =>
+                    c.caste.value = c.caste.value?.id == i.id ? null : i,
+              ),
+            ],
           ),
         );
       case 'language':
         return Obx(
-          () => AppLookupPicker(
-            label: 'Preferred mother tongue',
-            lookupKey: LookupKeys.languages,
-            controller: c.lookup,
-            selected: c.language.value,
-            requirement: FieldRequirement.optional,
-            onChanged: (LookupItem? v) => c.language.value = v,
+          () => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AppLookupPicker(
+                label: 'Preferred mother tongue',
+                lookupKey: LookupKeys.languages,
+                controller: c.lookup,
+                selected: c.language.value,
+                requirement: FieldRequirement.optional,
+                onChanged: (LookupItem? v) => c.language.value = v,
+              ),
+              _popularRow(
+                items: c.lookup.itemsOf(LookupKeys.languages),
+                selected: c.language.value,
+                onTap: (LookupItem i) =>
+                    c.language.value = c.language.value?.id == i.id ? null : i,
+              ),
+            ],
           ),
         );
       case 'location':
@@ -400,8 +439,17 @@ class _Step18ViewState extends State<Step18View> {
                   onChanged: (LookupItem? v) => c.city.value = v,
                 ),
               ),
+              Obx(
+                () => _popularRow(
+                  items: c.lookup.itemsOf(LookupKeys.cities),
+                  selected: c.city.value,
+                  onTap: (LookupItem i) =>
+                      c.city.value = c.city.value?.id == i.id ? null : i,
+                ),
+              ),
             ],
           ),
+          subtitle: 'Describe your ideal match.',
         );
       case 'education':
         return Obx(
@@ -517,18 +565,132 @@ class _Step18ViewState extends State<Step18View> {
   }
 
   /// A centered question label above the field(s).
-  Widget _wrap(String label, Widget body) {
+  /// Reference-style question heading: large serif-ink title centered, with
+  /// an optional muted subtitle ("Describe your ideal match.").
+  Widget _wrap(String label, Widget body, {String? subtitle}) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         BiText(
           label,
           textAlign: TextAlign.center,
-          style: AppTextStyles.subtitle.copyWith(fontSize: 17),
+          style: AppTextStyles.display.copyWith(
+            fontSize: 27,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: dark
+                ? AppColors.darkTextPrimary
+                : const Color(0xFF3A2E33),
+          ),
         ),
-        const SizedBox(height: 18),
+        if (subtitle != null) ...<Widget>[
+          const SizedBox(height: 8),
+          BiText(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 15,
+              color: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.color?.withValues(alpha: 0.75),
+            ),
+          ),
+        ],
+        const SizedBox(height: 22),
         body,
       ],
+    );
+  }
+
+  /// Popular quick-pick chips (reference: "Popular castes / cities / mother
+  /// tongues"). First few server options, one-tap to select or toggle off.
+  Widget _popularRow({
+    required List<LookupItem> items,
+    required LookupItem? selected,
+    required ValueChanged<LookupItem> onTap,
+    int limit = 6,
+  }) {
+    final List<LookupItem> picks = items.take(limit).toList();
+    if (picks.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          BiText(
+            'Popular',
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 13.5,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: picks
+                .map(
+                  (LookupItem i) => _PopularChip(
+                    label: i.name,
+                    selected: selected?.id == i.id,
+                    onTap: () => onTap(i),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One quick-pick chip in the "Popular" row (reference design): soft pink
+/// pill, solid brand fill when selected.
+class _PopularChip extends StatelessWidget {
+  const _PopularChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.primary
+              : dark
+              ? AppColors.darkSurface
+              : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary
+                : AppColors.primary.withValues(alpha: 0.28),
+          ),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.bodyStrong.copyWith(
+            fontSize: 13.5,
+            color: selected
+                ? Colors.white
+                : dark
+                ? AppColors.darkTextPrimary
+                : const Color(0xFF3A2E33),
+          ),
+        ),
+      ),
     );
   }
 }

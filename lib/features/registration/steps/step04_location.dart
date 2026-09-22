@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
@@ -102,8 +103,8 @@ class _Step04ViewState extends State<Step04View> {
       stepNumber: 4,
       totalSteps: 18,
       title: 'Location',
-      art: 'assets/images/step_location.png',
-      artIcon: Icons.location_on_rounded,
+      // art: RegIcons.step04Location,
+      // artIcon: Icons.location_on_rounded,
       subtitle: 'Where do you currently live?',
       busy: c.busy,
       error: c.error,

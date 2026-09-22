@@ -5,6 +5,7 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../constants/registration_options.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/app_picker_field.dart';
@@ -92,8 +93,9 @@ class _Step09ViewState extends State<Step09View> {
       stepNumber: 9,
       totalSteps: 18,
       title: 'Physical information',
-      art: 'assets/registration/physical-info/file_1.png',
-      artIcon: Icons.lightbulb_rounded,
+      // Reference has no illustration slot here — an empty art string renders
+      // nothing above the title.
+      art: '',
       subtitle: 'Your height and dietary preference.',
       busy: c.busy,
       error: c.error,
@@ -111,7 +113,7 @@ class _Step09ViewState extends State<Step09View> {
             options: c.heightLabels,
             hint: 'Select your height',
             onChanged: c.onHeight,
-            image: 'assets/registration/physical-info/file_2.png',
+            image: RegIcons.heightRuler,
             icon: Icons.height_rounded,
           ),
         ),

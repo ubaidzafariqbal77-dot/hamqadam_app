@@ -11,6 +11,7 @@ import '../../../core/utils/media_picker_helper.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 12 — Photos, the API's step 11
 /// (`POST /auth/register/step/11`, `multipart/form-data`).
@@ -96,7 +97,7 @@ class _Step12ViewState extends State<Step12View> {
       stepNumber: 12,
       totalSteps: 18,
       title: 'Upload photos',
-      art: 'assets/registration/information.png',
+      art: RegIcons.step12Photos,
       artIcon: Icons.photo_camera_outlined,
       subtitle: 'You need to upload at least 3 photos to continue. '
           'You can change them later.',

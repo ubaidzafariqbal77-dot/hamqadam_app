@@ -4,13 +4,11 @@ import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
-import '../../../constants/storage_keys.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../widgets/app_button.dart';
 import '../widgets/entry_dialog.dart';
@@ -81,16 +79,17 @@ class _OnboardingViewState extends State<OnboardingView> {
     super.dispose();
   }
 
-  Future<void> _markSeen() async {
-    final SharedPreferences prefs = Get.find<SharedPreferences>();
-    await prefs.setBool(StorageKeys.onboardingSeen, true);
-  }
+
 
   void _next() {
     if (_index >= _handoffIndex) {
       // Get Started lands on the first-look preview ("Proposals for you");
       // the login/create-account dialog opens from there.
-      _markSeen();
+      //
+      // The flag is deliberately NOT set here (nor on Skip): the member has
+      // only seen marketing pages — the onboarding replays on the next launch
+      // until they actually sign in or register. AuthController clears the
+      // flag again on logout, keeping that promise symmetrical.
       Get.offAllNamed<dynamic>(AppRoutes.welcomePreview);
     } else {
       _controller.nextPage(
@@ -101,7 +100,6 @@ class _OnboardingViewState extends State<OnboardingView> {
   }
 
   Future<void> _finishTo(String route) async {
-    await _markSeen();
     if (!mounted) return;
     Get.offAllNamed(route);
   }

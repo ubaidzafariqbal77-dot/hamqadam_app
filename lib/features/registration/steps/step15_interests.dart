@@ -14,6 +14,7 @@ import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 15 — Interests & hobbies, the API's step 14
 /// (`POST /auth/register/step/14` → `{"hobbies": ["Reading", …]}`, skippable).
@@ -91,7 +92,7 @@ class _Step15ViewState extends State<Step15View> {
       stepNumber: 15,
       totalSteps: 18,
       title: 'What are your interests?',
-      art: 'assets/registration/interest.png',
+      art: RegIcons.step15Interests,
       artIcon: Icons.interests_rounded,
       subtitle: 'Select up to ${RegOptions.maxInterests} interests to make your '
           'profile stand out!',

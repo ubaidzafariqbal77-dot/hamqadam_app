@@ -3,12 +3,10 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
-import '../../../constants/storage_keys.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/registration_controller.dart';
 import '../../../core/routes/app_routes.dart';
@@ -85,10 +83,12 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
     if (auth.hasToken || reg.buffer.hasDraftInProgress) {
       await reg.resume();
     } else {
-      // First launch → onboarding; afterwards go straight to login.
-      final SharedPreferences prefs = Get.find<SharedPreferences>();
-      final bool seenOnboarding = prefs.getBool(StorageKeys.onboardingSeen) ?? false;
-      Get.offAllNamed(seenOnboarding ? AppRoutes.login : AppRoutes.onboarding);
+      // Not signed in (and no draft): always the onboarding flow. The
+      // previous "seen" flag made restarts jump straight to login, which hid
+      // the welcome experience from anyone who had opened the app before but
+      // never actually signed in — so the flag is gone and onboarding is the
+      // fixed entry point until a token or draft exists.
+      Get.offAllNamed(AppRoutes.onboarding);
     }
   }
 

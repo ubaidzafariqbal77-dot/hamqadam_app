@@ -121,7 +121,9 @@ class StepScaffold extends StatelessWidget {
         AppSpacing.xl,
       ),
       children: <Widget>[
-        if (art != null) ...<Widget>[
+        // An empty string means "this reference screen has no image slot"
+        // (e.g. Physical information) — render nothing at all.
+        if (art != null && art!.isNotEmpty) ...<Widget>[
           StepArt(asset: art!, icon: artIcon),
           const SizedBox(height: AppSpacing.sm),
         ],

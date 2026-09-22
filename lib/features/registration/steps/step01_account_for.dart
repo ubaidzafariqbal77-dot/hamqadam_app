@@ -14,6 +14,7 @@ import '../../../core/api/api_response.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Step 1 — the opening questions of the local 18-step flow.
 ///
@@ -486,6 +487,16 @@ class _OptionRow extends StatelessWidget {
 
   String get _num => index.toString().padLeft(2, '0');
 
+  /// The painted badge artwork for rows 01–04 (reference discs). Extra rows
+  /// fall back to the gradient text inside the widget above.
+  String _badgeFor(int i) => switch (i) {
+    1 => RegIcons.badge01,
+    2 => RegIcons.badge02,
+    3 => RegIcons.badge03,
+    4 => RegIcons.badge04,
+    _ => '',
+  };
+
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
@@ -523,28 +534,38 @@ class _OptionRow extends StatelessWidget {
             ),
             child: Row(
               children: <Widget>[
-                // Numbered gradient circle (01, 02, 03…).
+                // Numbered gradient circle — the reference's painted badge
+                // artwork (badge01–04) when present, gradient text fallback.
                 Container(
                   width: 62,
                   height: 62,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: <Color>[
-                        AppColors.primary.withValues(alpha: 0.75),
-                        AppColors.primaryLight.withValues(alpha: 0.65),
-                      ],
-                    ),
-                  ),
-                  child: Text(
-                    _num,
-                    style: AppTextStyles.display.copyWith(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                  decoration: BoxDecoration(shape: BoxShape.circle),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    _badgeFor(index),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: <Color>[
+                            AppColors.primary.withValues(alpha: 0.75),
+                            AppColors.primaryLight.withValues(alpha: 0.65),
+                          ],
+                        ),
+                      ),
+                      child: Text(
+                        _num,
+                        style: AppTextStyles.display.copyWith(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ),

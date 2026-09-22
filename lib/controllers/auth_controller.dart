@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_strings.dart';
+import '../constants/storage_keys.dart';
 import '../core/routes/app_routes.dart';
 import '../core/services/permissions_service.dart';
 import '../core/services/push_token_service.dart';
@@ -189,7 +190,7 @@ class AuthController extends GetxController {
     } catch (e) {
       AppLogger.w('Logout API failed (ignored): $e');
     }
-    await _clearAndGoLogin();
+    await _clearAndGoOnboarding();
   }
 
   /// Logs out from every device/session.
@@ -199,14 +200,14 @@ class AuthController extends GetxController {
     } catch (e) {
       AppLogger.w('Logout-all API failed (ignored): $e');
     }
-    await _clearAndGoLogin();
+    await _clearAndGoOnboarding();
   }
 
   /// Deactivates the account then clears the session.
   Future<bool> deactivateAccount() async {
     try {
       await authRepository.deactivateAccount();
-      await _clearAndGoLogin();
+      await _clearAndGoOnboarding();
       return true;
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
@@ -276,16 +277,28 @@ class AuthController extends GetxController {
     manualReview.value = null;
   }
 
-  Future<void> _clearAndGoLogin() async {
+  /// Explicit logout / deactivation: session data is wiped, the "onboarding
+  /// seen" flag resets, and the member lands on the ONBOARDING flow — the
+  /// same first-look experience a fresh install gets. (A forced 401
+  /// re-authentication keeps the plain login shortcut in
+  /// [handleUnauthorized] — there the session died behind the app's back.)
+  Future<void> _clearAndGoOnboarding() async {
+    await _clearSessionData();
+    await _clearOnboardingSeen();
+    Get.offAllNamed(AppRoutes.onboarding);
+  }
+
+  /// Wipes everything a signed-in session owns. Fingerprint-login credentials
+  /// deliberately SURVIVE logout: the whole point for the member is signing
+  /// back in with a fingerprint after logging out. They are device-protected
+  /// (OS keystore/Keychain + a live biometric scan), so leaving them is safe —
+  /// and if the server later rejects them (password changed elsewhere),
+  /// LoginController drops them automatically so a dead fingerprint path can
+  /// never linger.
+  Future<void> _clearSessionData() async {
     if (Get.isRegistered<NotificationController>()) {
       await Get.find<NotificationController>().deletePushToken();
     }
-    // Fingerprint-login credentials deliberately SURVIVE logout: the whole
-    // point for the member is signing back in with a fingerprint after
-    // logging out. They are device-protected (OS keystore/Keychain + a live
-    // biometric scan), so leaving them is safe — and if the server later
-    // rejects them (password changed elsewhere), LoginController drops them
-    // automatically so a dead fingerprint path can never linger.
     await storage.clearSession();
     await currentUser.clear();
     _resetAuthenticatedServices();
@@ -297,6 +310,17 @@ class AuthController extends GetxController {
     }
     isAuthenticated.value = false;
     user.value = null;
-    Get.offAllNamed(AppRoutes.login);
+  }
+
+  /// Resets the "onboarding seen" flag so the next launch replays the full
+  /// onboarding instead of jumping straight to login (product decision:
+  /// logout = back to the welcome experience).
+  Future<void> _clearOnboardingSeen() async {
+    try {
+      final SharedPreferences prefs = Get.find<SharedPreferences>();
+      await prefs.remove(StorageKeys.onboardingSeen);
+    } catch (e) {
+      AppLogger.w('onboarding-seen reset failed (ignored): $e');
+    }
   }
 }

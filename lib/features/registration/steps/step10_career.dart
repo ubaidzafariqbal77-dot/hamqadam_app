@@ -14,6 +14,7 @@ import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Step 10 — `POST /auth/register/step/10`.
 ///
@@ -147,7 +148,7 @@ class _Step10ViewState extends State<Step10View> {
       stepNumber: 10,
       totalSteps: 18,
       title: 'Career & Income',
-      art: 'assets/registration/career-income/career_header.png',
+      art: RegIcons.step10Career,
       artIcon: Icons.work_outline_rounded,
       subtitle: 'Your work and annual income',
       busy: c.busy,
@@ -177,6 +178,7 @@ class _Step10ViewState extends State<Step10View> {
             children: <Widget>[
               _CareerOptionField(
                 label: 'Employment status',
+                labelIcon: Icons.work_outline_rounded,
                 value: ApiOptions.labelOf(
                   ApiOptions.employmentStatus,
                   c.employmentStatus.value,
@@ -195,6 +197,7 @@ class _Step10ViewState extends State<Step10View> {
                 Reveal(
                   child: _CareerLookupField(
                     label: 'Profession category',
+                    labelIcon: Icons.apartment_rounded,
                     lookupKey: LookupKeys.professionCategories,
                     controller: c.lookup,
                     selected: c.category.value,
@@ -207,6 +210,7 @@ class _Step10ViewState extends State<Step10View> {
                 Reveal(
                   child: _CareerLookupField(
                     label: 'Profession',
+                    labelIcon: Icons.school_outlined,
                     lookupKey: LookupKeys.professions,
                     controller: c.lookup,
                     parentId: c.category.value?.id,
@@ -263,9 +267,11 @@ class _CareerLookupField extends StatelessWidget {
     required this.onChanged,
     this.parentId,
     this.suggested = false,
+    this.labelIcon,
   });
 
   final String label;
+  final IconData? labelIcon;
   final String lookupKey;
   final LookupController controller;
   final LookupItem? selected;
@@ -293,6 +299,7 @@ class _CareerLookupField extends StatelessWidget {
 
       return _CareerFieldFrame(
         label: label,
+        labelIcon: labelIcon,
         value: current?.name,
         hint: 'Select',
         suggested: suggested,
@@ -322,9 +329,11 @@ class _CareerOptionField extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.labelIcon,
   });
 
   final String label;
+  final IconData? labelIcon;
   final String? value;
   final List<String> options;
   final ValueChanged<String?> onChanged;
@@ -333,6 +342,7 @@ class _CareerOptionField extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CareerFieldFrame(
       label: label,
+      labelIcon: labelIcon,
       value: value,
       hint: 'Select',
       onTap: () async {
@@ -356,9 +366,13 @@ class _CareerFieldFrame extends StatelessWidget {
     required this.onTap,
     this.suggested = false,
     this.showSelectionCheck = false,
+    this.labelIcon,
   });
 
   final String label;
+
+  /// Small pink icon shown before the label text (reference label rows).
+  final IconData? labelIcon;
   final String? value;
   final String hint;
   final VoidCallback onTap;
@@ -438,12 +452,20 @@ class _CareerFieldFrame extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          label,
-          style: AppTextStyles.bodyStrong.copyWith(
-            fontSize: 17,
-            color: labelColor,
-          ),
+        Row(
+          children: <Widget>[
+            if (labelIcon != null) ...<Widget>[
+              Icon(labelIcon, size: 19, color: labelColor),
+              const SizedBox(width: 7),
+            ],
+            Text(
+              label,
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 17,
+                color: labelColor,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.xs),
         if (suggested && hasValue)

@@ -237,3 +237,42 @@ Applied to the live source at `/Applications/XAMPP/xamppfiles/htdocs/hamqadam_li
   `chats.metadata` (JSON cast already existed); `ChatMessageResource` and the
   `ChatMessageSent` broadcast return it. The app sends
   `{duration: seconds, waveform: [ints]}` with each voice upload.
+
+---
+
+## Guest discover feed (2026-09-22) — `public/discover` 404→HTML bug
+
+Symptom from the app log on launch:
+
+```
+GET https://hamqadam.com/api/v1/public/discover → 200
+📦 response: <!DOCTYPE html> … 262 620 chars of the homepage
+```
+
+The endpoint **exists** in the backend repo (`PublicDiscoverController`,
+commit `56854a2` on `younis`, Sep 18) — but the FTP deploy workflow
+(`.github/workflows/deploy.yml`) only fires on `main`/`master` pushes, so the
+commit never reached production. The live server still ran pre-discover code,
+where unknown paths fall through the web middleware: `routes/web.php`'s
+`Route::get('/{slug}')` catch-all 302-redirects `/api/v1/public/discover` to
+the SPA homepage and dio followed it to a 200 with the homepage HTML. The
+app's envelope treated the string body as success, found no `profiles` key
+and silently showed its sample fallback cards — while dumping ~260 KB of HTML
+into the console on every launch.
+
+Fix, three sides:
+
+* **Deploy** (the real blocker): merge/push `younis` → `main` on the backend
+  repo (`github.com/jahanzaibali786/hamqadam_live`) so the FTP deploy runs
+  and the discover endpoint actually reaches production.
+* **App** (`lib/core/api/api_client.dart`): a String response body that starts
+  with `<!doctype html`/`<html` now throws `ServerException(502)` instead of
+  wrapping as success, and the response logger summarises text bodies instead
+  of printing them.
+* **Backend hardening** (committed to `younis` alongside this note):
+  * `routes/api_v1.php` gained a `Route::fallback` answering JSON 404 for
+    every unknown `/api/v1/*` path — a missing route can never again leak the
+    SPA's HTML into an API client, whatever the deploy state is.
+  * `PublicDiscoverController` now gates guest photos through
+    `show_profile_picture()` (avatar placeholder for hidden/unapproved
+    photos) instead of serving any uploaded photo path.

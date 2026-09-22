@@ -114,6 +114,7 @@ flutter:
     - assets/registration/
     - assets/registration/physical-info/
     - assets/registration/career-income/
+    - assets/latest_reg_icons/
     # The incoming-call ringtone, for both audio and video calls. The same file
     # is also at android/app/src/main/res/raw/ringtone.mp3, which is what
     # the `calls` notification channel rings with when the app is not open —

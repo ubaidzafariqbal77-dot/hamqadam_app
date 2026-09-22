@@ -8,6 +8,8 @@ import 'package:dio/dio.dart';
 
 import '../../constants/app_constants.dart';
 import '../../exceptions/app_exceptions.dart';
+
+// ServerException is thrown for HTML-instead-of-JSON responses.
 import '../../models/manual_review_state.dart';
 import '../network/network_info.dart';
 import '../storage/secure_storage_service.dart';
@@ -106,7 +108,18 @@ class ApiClient {
         },
         onResponse: (Response<dynamic> response, ResponseInterceptorHandler handler) {
           AppLogger.i('⬅️ ${response.statusCode} ${response.requestOptions.uri}');
-          AppLogger.body('response', response.data);
+          // Never dump an HTML document into the log: a misrouted SPA fallback
+          // once pushed ~260 KB of the homepage into the console on every
+          // launch, drowning the useful lines.
+          if (response.data is String) {
+            AppLogger.w(
+              '⬅️ ${response.statusCode} ${response.requestOptions.uri} returned '
+              'text instead of JSON (${(response.data as String).length} chars) — '
+              'route probably missing on the server.',
+            );
+          } else {
+            AppLogger.body('response', response.data);
+          }
           handler.next(response);
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
@@ -268,6 +281,22 @@ class ApiClient {
   }
 
   ApiEnvelope _envelope(dynamic body) {
+    // A wrong/removed backend route falls through Laravel's web middleware and
+    // the SPA fallback answers with the homepage HTML — often with HTTP 200
+    // after dio followed a 302. Treating that as success made callers read
+    // profile fields out of `<html>` and silently render fallback data. The
+    // JSON API only ever produces maps/lists/strings, so HTML here always
+    // means "hit the wrong route" and must surface as a server error.
+    if (body is String) {
+      final String trimmed = body.trimLeft().toLowerCase();
+      if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) {
+        throw const ServerException(
+          'API route missing — the server answered with an HTML page instead '
+          'of JSON. Deploy the matching backend patch.',
+          502,
+        );
+      }
+    }
     if (body is Map<String, dynamic>) {
       return ApiEnvelope(
         success: body['success'] == true || body['success'] == 1 || body['data'] != null,

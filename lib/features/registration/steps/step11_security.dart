@@ -8,6 +8,7 @@ import '../../../controllers/step_controller.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_password_field.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 11 — Account Security. Contributes `email_verify`, `password` and
 /// `password_confirmation` to the single `POST /auth/register/complete` payload.
@@ -79,7 +80,7 @@ class _Step11ViewState extends State<Step11View> {
       stepNumber: 11,
       totalSteps: 18,
       title: 'Account security',
-      art: 'assets/registration/password.png', 
+      art: RegIcons.step11Security, 
       artIcon: Icons.lock_outline_rounded,
       subtitle: 'Create a strong password to protect your account.',
       busy: c.busy,

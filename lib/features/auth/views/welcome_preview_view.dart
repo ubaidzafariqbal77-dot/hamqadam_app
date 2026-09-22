@@ -521,7 +521,10 @@ class _PreviewProfile {
     final String city = (raw['city'] ?? '').toString().trim();
     final String profession = (raw['profession'] ?? '').toString().trim();
     final List<String> metaParts = <String>[
-      if ((raw['age'] as num?)?.toInt() case final int age?) 'Age $age',
+      // Backend computes age from the birthday; test rows without a real one
+      // come through as 0 — hiding those keeps the card line clean.
+      if ((raw['age'] as num?)?.toInt() case final int age? when age > 0)
+        'Age $age',
       if (city.isNotEmpty) city,
       if (profession.isNotEmpty) profession,
     ];
@@ -567,7 +570,18 @@ class _WhatsAppBanner extends StatelessWidget {
             ),
             child: Row(
               children: <Widget>[
-                const Icon(Icons.chat_rounded, color: Colors.white, size: 26),
+                // The real WhatsApp glyph — same artwork as the reference.
+                Image.asset(
+                  'assets/icons/whatsapp.png',
+                  width: 26,
+                  height: 26,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.chat_rounded,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
@@ -579,6 +593,8 @@ class _WhatsAppBanner extends StatelessWidget {
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 1),
                       Text(
@@ -600,12 +616,29 @@ class _WhatsAppBanner extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text(
-                    'Chat on WhatsApp',
-                    style: AppTextStyles.badge.copyWith(
-                      color: const Color(0xFF25D366),
-                      fontWeight: FontWeight.w800,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Image.asset(
+                        'assets/icons/whatsapp.png',
+                        width: 14,
+                        height: 14,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.chat_rounded,
+                          color: Color(0xFF25D366),
+                          size: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Chat on WhatsApp',
+                        style: AppTextStyles.badge.copyWith(
+                          color: const Color(0xFF25D366),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

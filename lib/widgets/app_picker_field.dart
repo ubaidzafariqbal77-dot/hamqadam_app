@@ -8,7 +8,9 @@ import '../controllers/lookup_controller.dart';
 import '../core/api/api_response.dart';
 import '../models/lookup_item_model.dart';
 import 'bilingual_text.dart';
+import 'field_icon_assets.dart';
 import 'form_field_container.dart';
+import 'row_glyph.dart';
 import 'state_widgets.dart';
 
 /// A premium picker field backed by a [LookupController] entry: shows the
@@ -23,33 +25,9 @@ class FieldIconDisc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: dark
-            ? AppColors.primary.withValues(alpha: 0.16)
-            : const Color(0xFFF9DCE7),
-        shape: BoxShape.circle,
-      ),
-      padding: const EdgeInsets.all(10),
-      child: image != null
-          ? Image.asset(
-              image!,
-              fit: BoxFit.contain,
-              errorBuilder: (_, Object __, StackTrace? ___) => Icon(
-                icon ?? Icons.edit_note_rounded,
-                size: 24,
-                color: AppColors.primary,
-              ),
-            )
-          : Icon(
-              icon ?? Icons.edit_note_rounded,
-              size: 24,
-              color: AppColors.primary,
-            ),
-    );
+    // Shared with the other field types so every leading disc in the flow is
+    // drawn identically (soft pink circle, artwork centred inside).
+    return AssetOrIconDisc(icon: icon, image: image);
   }
 }
 
@@ -69,6 +47,7 @@ class AppLookupPicker extends StatelessWidget {
     this.disabledHint,
     this.icon,
     this.image,
+    this.itemImage,
   });
 
   final String label;
@@ -86,6 +65,10 @@ class AppLookupPicker extends StatelessWidget {
   /// Optional leading artwork rendered in a soft pink disc (reference style).
   final IconData? icon;
   final String? image;
+
+  /// Per-option artwork for the picker sheet rows (e.g. faith symbols next to
+  /// each religion). Receives the row's item; returning null shows no glyph.
+  final String? Function(LookupItem item)? itemImage;
 
   LookupItem? _resolve(List<LookupItem> items) {
     if (selected == null) return null;
@@ -166,6 +149,7 @@ class AppLookupPicker extends StatelessWidget {
         items: items,
         selectedId: selected?.id,
         loading: state.status == ApiStatus.loading,
+        itemImage: itemImage,
         onRetry: state.status == ApiStatus.loading
             ? null
             : () {
@@ -186,6 +170,7 @@ Future<LookupItem?> showLookupPickerSheet(
   required List<LookupItem> items,
   int? selectedId,
   bool loading = false,
+  String? Function(LookupItem item)? itemImage,
   VoidCallback? onRetry,
 }) {
   return showModalBottomSheet<LookupItem>(
@@ -200,6 +185,7 @@ Future<LookupItem?> showLookupPickerSheet(
       items: items,
       selectedId: selectedId,
       loading: loading,
+      itemImage: itemImage,
       onRetry: onRetry,
     ),
   );
@@ -506,6 +492,7 @@ class _PickerSheet extends StatefulWidget {
     required this.items,
     required this.selectedId,
     required this.loading,
+    this.itemImage,
     this.onRetry,
   });
 
@@ -513,6 +500,9 @@ class _PickerSheet extends StatefulWidget {
   final List<LookupItem> items;
   final int? selectedId;
   final bool loading;
+
+  /// Optional per-row artwork (e.g. the 3D faith symbols next to religions).
+  final String? Function(LookupItem item)? itemImage;
   final VoidCallback? onRetry;
 
   @override
@@ -677,8 +667,12 @@ class _PickerSheetState extends State<_PickerSheet> {
                         itemBuilder: (BuildContext c, int i) {
                           final LookupItem item = filtered[i];
                           final bool sel = item.id == widget.selectedId;
+                          final String? img = widget.itemImage?.call(item);
                           return ListTile(
                             onTap: () => Navigator.of(context).pop(item),
+                            leading: img == null
+                                ? null
+                                : RowGlyph(asset: img, selected: sel),
                             title: Text(
                               item.name,
                               style: AppTextStyles.body.copyWith(

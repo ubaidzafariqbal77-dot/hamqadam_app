@@ -12,6 +12,7 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/media_upload_card.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Step 14 — Identity verification. The member uploads the CNIC front, the CNIC
 /// back and a selfie — each either shot with the camera or picked from the
@@ -192,7 +193,7 @@ class _Step14ViewState extends State<Step14View> {
       stepNumber: 14,
       totalSteps: 18,
       title: 'Identity verification',
-      art: 'assets/images/step_verification.png',
+      art: RegIcons.step14Verification,
       artIcon: Icons.verified_user_outlined,
       subtitle: 'Verify your identity to earn a trusted badge.',
       busy: c.busy,

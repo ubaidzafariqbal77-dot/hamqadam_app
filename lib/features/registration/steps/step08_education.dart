@@ -5,6 +5,7 @@ import '../../../constants/api_options.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_picker_field.dart';
@@ -144,7 +145,7 @@ class _Step08ViewState extends State<Step08View> {
       stepNumber: 8,
       totalSteps: 18,
       title: 'Education',
-      art: 'assets/images/step_education.png',
+      art: RegIcons.step08Education,
       artIcon: Icons.school_rounded,
       subtitle: 'Your highest qualification.',
       busy: c.busy,

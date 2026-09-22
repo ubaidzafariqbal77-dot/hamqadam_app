@@ -19,6 +19,7 @@ class AppPhoneField extends StatelessWidget {
     this.textInputAction,
     this.serverError,
     this.hint = '03001234567',
+    this.prefixIcon,
   });
 
   final String label;
@@ -31,6 +32,9 @@ class AppPhoneField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final String? serverError;
   final String? hint;
+
+  /// Overrides the default phone glyph (e.g. the rose handset disc).
+  final Widget? prefixIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +55,8 @@ class AppPhoneField extends StatelessWidget {
         FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
         LengthLimitingTextInputFormatter(16),
       ],
-      prefixIcon: const Icon(Icons.phone_outlined, size: AppDimensions.iconMd),
+      prefixIcon: prefixIcon ??
+          const Icon(Icons.phone_outlined, size: AppDimensions.iconMd),
     );
   }
 }

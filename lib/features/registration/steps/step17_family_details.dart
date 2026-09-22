@@ -11,6 +11,7 @@ import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 17 — Family details, the API's step 16
 /// (`POST /auth/register/step/16`, skippable).
@@ -102,7 +103,7 @@ class _Step17ViewState extends State<Step17View> {
       stepNumber: 17,
       totalSteps: 18,
       title: 'Family details',
-      art: 'assets/registration/family.png',
+      art: RegIcons.step17FamilyDetails,
       artIcon: Icons.home_outlined,
       subtitle: 'A little more about your family (optional).',
       busy: c.busy,

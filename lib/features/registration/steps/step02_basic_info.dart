@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_dimensions.dart';
 import '../../../controllers/registration_payload.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../core/validators/app_validators.dart';
@@ -97,8 +99,8 @@ class _Step02ViewState extends State<Step02View> {
       stepNumber: 2,
       totalSteps: 18,
       title: 'Basic information',
-      art: 'assets/images/step_profile.png',
-      artIcon: Icons.person_outline_rounded,
+      // Reference change: no hero artwork on this step — content starts with
+      // the title, everything below stays as-is.
       subtitle: 'Tell us your name and date of birth.',
       busy: c.busy,
       error: c.error,
@@ -107,25 +109,64 @@ class _Step02ViewState extends State<Step02View> {
       onPrimary: c.submit,
       onBack: c.back,
       children: <Widget>[
-        AppTextFormField(
-          label: 'Full name',
-          controller: c.fullName,
-          focusNode: c.nameFocus,
-          hint: 'e.g. Ahmed Khan',
-          textCapitalization: TextCapitalization.words,
-          autofillHints: const <String>[AutofillHints.name],
-          textInputAction: TextInputAction.done,
-          validator: (String? v) => AppValidators.fullName(v),
+        // Reference design: the filled, valid name earns a green check in the
+        // field's trailing slot; empty/invalid shows nothing.
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: c.fullName,
+          builder: (BuildContext context, TextEditingValue v, _) {
+            final bool valid = AppValidators.fullName(v.text) == null;
+            return AppTextFormField(
+              label: 'Full name',
+              controller: c.fullName,
+              focusNode: c.nameFocus,
+              hint: 'e.g. Ahmed Khan',
+              textCapitalization: TextCapitalization.words,
+              autofillHints: const <String>[AutofillHints.name],
+              textInputAction: TextInputAction.done,
+              validator: (String? value) => AppValidators.fullName(value),
+              suffixIcon: valid
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 14),
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.green,
+                        size: AppDimensions.iconMd,
+                      ),
+                    )
+                  : null,
+            );
+          },
         ),
         Obx(
           () => c.showDob.value
               ? Reveal(
-                  child: AppDateField(
-                    label: 'Date of birth',
-                    value: c.dob.value,
-                    firstDate: DateTime(now.year - 90),
-                    lastDate: DateTime(now.year - 18, now.month, now.day),
-                    onChanged: (DateTime d) => c.dob.value = d,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      AppDateField(
+                        label: 'Date of birth',
+                        value: c.dob.value,
+                        firstDate: DateTime(now.year - 90),
+                        lastDate: DateTime(now.year - 18, now.month, now.day),
+                        onChanged: (DateTime d) => c.dob.value = d,
+                      ),
+                      // Reference helper line under the DOB field.
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6, left: 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'You must be 18 or older to continue.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              height: 1.3,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : const SizedBox.shrink(),

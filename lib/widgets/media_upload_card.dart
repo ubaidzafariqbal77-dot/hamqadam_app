@@ -79,7 +79,7 @@ class MediaUploadCard extends StatelessWidget {
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Icon(icon, size: 34, color: AppColors.primary),
+                      Icon(icon, size: 34, color: AppColors.regAccent),
                       const SizedBox(height: 6),
                       BiText(
                         'Tap to upload',
@@ -109,7 +109,7 @@ class _FileBadge extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 34, color: AppColors.primary),
+          Icon(icon, size: 34, color: AppColors.regAccent),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),

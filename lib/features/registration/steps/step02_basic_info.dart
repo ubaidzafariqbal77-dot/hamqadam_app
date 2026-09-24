@@ -116,6 +116,7 @@ class _Step02ViewState extends State<Step02View> {
           builder: (BuildContext context, TextEditingValue v, _) {
             final bool valid = AppValidators.fullName(v.text) == null;
             return AppTextFormField(
+              insetLabel: true,
               label: 'Full name',
               controller: c.fullName,
               focusNode: c.nameFocus,

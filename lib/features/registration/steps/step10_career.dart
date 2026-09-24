@@ -388,7 +388,7 @@ class _CareerFieldFrame extends StatelessWidget {
         : AppColors.roseFieldBorder;
     final Color labelColor = dark
         ? AppColors.darkTextSecondary
-        : AppColors.primary.withValues(alpha: 0.82);
+        : AppColors.regAccent.withValues(alpha: 0.82);
 
     final Widget field = Material(
       color: dark ? AppColors.darkSurface : Colors.white,
@@ -479,13 +479,13 @@ class _CareerFieldFrame extends StatelessWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
+                  color: AppColors.regAccent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
                 child: Text(
                   'Suggested',
                   style: AppTextStyles.bodyStrong.copyWith(
-                    color: AppColors.primary.withValues(alpha: 0.82),
+                    color: AppColors.regAccent.withValues(alpha: 0.82),
                   ),
                 ),
               ),
@@ -510,8 +510,8 @@ class _CareerTipBanner extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: dark
-            ? AppColors.primary.withValues(alpha: 0.14)
-            : AppColors.primary.withValues(alpha: 0.10),
+            ? AppColors.regAccent.withValues(alpha: 0.14)
+            : AppColors.regAccent.withValues(alpha: 0.10),
         borderRadius: AppRadius.mdAll,
       ),
       child: Row(
@@ -520,12 +520,12 @@ class _CareerTipBanner extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.14),
+              color: AppColors.regAccent.withValues(alpha: 0.14),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.lightbulb_outline_rounded,
-              color: AppColors.primary.withValues(alpha: 0.82),
+              color: AppColors.regAccent.withValues(alpha: 0.82),
               size: 26,
             ),
           ),
@@ -571,7 +571,7 @@ class _CareerQuickFilters extends StatelessWidget {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color labelColor = dark
         ? AppColors.darkTextSecondary
-        : AppColors.primary.withValues(alpha: 0.82);
+        : AppColors.regAccent.withValues(alpha: 0.82);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -620,7 +620,7 @@ class _CareerQuickFilterChip extends StatelessWidget {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: selected
-          ? AppColors.primary.withValues(alpha: 0.76)
+          ? AppColors.regAccent.withValues(alpha: 0.76)
           : (dark ? AppColors.darkSurface : Colors.white),
       borderRadius: AppRadius.mdAll,
       child: InkWell(
@@ -647,7 +647,7 @@ class _CareerQuickFilterChip extends StatelessWidget {
                       ? Colors.white
                       : (dark
                             ? AppColors.darkTextPrimary
-                            : AppColors.primary.withValues(alpha: 0.82)),
+                            : AppColors.regAccent.withValues(alpha: 0.82)),
                 ),
               ),
             ),
@@ -681,7 +681,7 @@ class _CareerTextField extends StatelessWidget {
         : AppColors.roseFieldBorder;
     final Color labelColor = dark
         ? AppColors.darkTextSecondary
-        : AppColors.primary.withValues(alpha: 0.82);
+        : AppColors.regAccent.withValues(alpha: 0.82);
 
     OutlineInputBorder outline(Color color, [double width = 1.3]) {
       return OutlineInputBorder(
@@ -705,7 +705,7 @@ class _CareerTextField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
-          cursorColor: AppColors.primary,
+          cursorColor: AppColors.regAccent,
           style: AppTextStyles.bodyStrong.copyWith(
             fontSize: 17,
             color: dark ? AppColors.darkInputText : AppColors.lightInputText,
@@ -723,7 +723,7 @@ class _CareerTextField extends StatelessWidget {
             ),
             border: outline(border),
             enabledBorder: outline(border),
-            focusedBorder: outline(AppColors.primary, 1.6),
+            focusedBorder: outline(AppColors.regAccent, 1.6),
           ),
         ),
       ],

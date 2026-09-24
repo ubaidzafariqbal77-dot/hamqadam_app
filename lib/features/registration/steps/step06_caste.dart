@@ -209,11 +209,11 @@ class _PopularChip extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: selected
                 ? const LinearGradient(
-                    colors: AppColors.brandGradient,
+                    colors: AppColors.regPrimaryGradient,
                   )
                 : null,
             color: selected
-                ? AppColors.primary
+                ? AppColors.regAccent
                 : dark
                 ? AppColors.darkSurface
                 : Colors.white,
@@ -225,7 +225,7 @@ class _PopularChip extends StatelessWidget {
             boxShadow: selected
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.32),
+                      color: AppColors.regAccent.withValues(alpha: 0.32),
                       blurRadius: 14,
                       offset: const Offset(0, 6),
                       spreadRadius: -2,

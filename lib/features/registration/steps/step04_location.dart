@@ -4,11 +4,11 @@ import 'package:get/get.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
-import '../../../constants/reg_icons.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
+import '../../../widgets/field_icon_assets.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
@@ -122,6 +122,8 @@ class _Step04ViewState extends State<Step04View> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               AppLookupDropdown(
+                // The reference gives every location field a leading icon disc.
+                icon: Icons.public_rounded,
                 label: 'Country',
                 lookupKey: LookupKeys.countries,
                 controller: c.lookup,
@@ -132,6 +134,7 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppLookupDropdown(
+                    icon: Icons.layers_rounded,
                     label: 'Province / State',
                     lookupKey: LookupKeys.states,
                     controller: c.lookup,
@@ -145,6 +148,7 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppLookupDropdown(
+                    icon: Icons.location_city_rounded,
                     label: 'City',
                     lookupKey: LookupKeys.cities,
                     controller: c.lookup,
@@ -158,6 +162,11 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppTextFormField(
+                    insetLabel: true,
+                    // The reference marks Area with a home-and-pin glyph.
+                    prefixIcon: const AssetOrIconDisc(
+                      icon: Icons.home_work_rounded,
+                    ),
                     label: 'Area / Neighbourhood',
                     controller: c.area,
                     hint: 'e.g. Gulberg, DHA Phase 5',

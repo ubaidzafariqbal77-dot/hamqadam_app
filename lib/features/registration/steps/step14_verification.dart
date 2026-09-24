@@ -122,7 +122,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_camera_rounded,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
                 title: Text('Take a photo', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: true),
@@ -130,7 +130,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_library_rounded,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
                 title: Text('Choose from gallery', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: false),
@@ -208,6 +208,7 @@ class _Step14ViewState extends State<Step14View> {
         // 1 — CNIC number, typed by the member. Always visible: it no longer
         // depends on a photo having been read.
         AppTextFormField(
+              insetLabel: true,
           label: 'CNIC number',
           controller: c.cnicCtrl,
           hint: 'XXXXX-XXXXXXX-X',

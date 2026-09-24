@@ -632,7 +632,7 @@ class _WhatsAppBanner extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        'Chat on WhatsApp',
+                        'WhatsApp',
                         style: AppTextStyles.badge.copyWith(
                           color: const Color(0xFF25D366),
                           fontWeight: FontWeight.w800,

@@ -60,7 +60,7 @@ class AppLookupMultiSelect extends StatelessWidget {
                             (LookupItem i) => Chip(
                               label: Text(i.name.isEmpty ? '#${i.id}' : i.name),
                               labelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
-                              backgroundColor: AppColors.primary,
+                              backgroundColor: AppColors.regAccent,
                               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               visualDensity: VisualDensity.compact,
                               onDeleted: () => onChanged(
@@ -72,7 +72,7 @@ class AppLookupMultiSelect extends StatelessWidget {
                           .toList(),
                     ),
             ),
-            const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary),
+            const Icon(Icons.add_circle_outline_rounded, color: AppColors.regAccent),
           ],
         ),
       ),
@@ -180,7 +180,7 @@ class AppLookupMultiSelect extends StatelessWidget {
                           return CheckboxListTile(
                             value: checked,
                             title: Text(item.name),
-                            activeColor: AppColors.primary,
+                            activeColor: AppColors.regAccent,
                             controlAffinity: ListTileControlAffinity.leading,
                             onChanged: (_) {
                               if (checked) {
@@ -200,7 +200,7 @@ class AppLookupMultiSelect extends StatelessWidget {
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.regAccent,
                         minimumSize: const Size.fromHeight(AppDimensions.buttonHeight),
                       ),
                       onPressed: () {

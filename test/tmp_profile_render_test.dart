@@ -1,5 +1,10 @@
 // TEMPORARY visual harness — renders ProfileView with a realistic
 // `GET /profile` payload so the layout can be inspected without a login.
+//
+// It used to render the dark theme; the app is light-only now (see
+// AppTheme), so the goldens were regenerated as `profile_light_*.png`.
+// Run `flutter test --update-goldens test/tmp_profile_render_test.dart`
+// after a design change instead of comparing against stale images.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -197,7 +202,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.dark,
+        theme: AppTheme.light,
         home: const Scaffold(body: ProfileView()),
       ),
     );
@@ -212,7 +217,7 @@ void main() {
 
     await expectLater(
       find.byType(ProfileView),
-      matchesGoldenFile('goldens/profile_dark_1.png'),
+      matchesGoldenFile('goldens/profile_light_1.png'),
     );
     for (int i = 2; i <= 5; i++) {
       await tester.drag(find.byType(ListView).first, const Offset(0, -1150));
@@ -220,7 +225,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(
         find.byType(ProfileView),
-        matchesGoldenFile('goldens/profile_dark_$i.png'),
+        matchesGoldenFile('goldens/profile_light_$i.png'),
       );
     }
   });

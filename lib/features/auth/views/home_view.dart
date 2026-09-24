@@ -7,7 +7,6 @@ import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/chat_controller.dart';
-import '../../../controllers/theme_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/services/biometric_auth_service.dart';
@@ -353,8 +352,6 @@ class _AppDrawer extends StatelessWidget {
                       _DrawerEntry(Icons.fingerprint_rounded, 'Fingerprint Login',
                           () => _fingerprintSettings(context)),
                       _DrawerEntry(Icons.support_agent_rounded, 'Help Center', _helpTileTap),
-                      _DrawerEntry(Icons.dark_mode_outlined, 'Appearance',
-                          () => _themePicker(context)),
                       _DrawerEntry(Icons.logout_rounded, 'Logout', () => _confirmLogout(context)),
                     ],
                   ),
@@ -795,49 +792,6 @@ class _AppDrawer extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  void _themePicker(BuildContext context) {
-    final ThemeController theme = Get.find<ThemeController>();
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (BuildContext ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.xs),
-              child: Text('Appearance', style: AppTextStyles.title),
-            ),
-            Obx(() => Column(
-                  children: <Widget>[
-                    _themeOption(ctx, theme, ThemeMode.light, 'Light', Icons.light_mode_rounded),
-                    _themeOption(ctx, theme, ThemeMode.dark, 'Dark', Icons.dark_mode_rounded),
-                    _themeOption(
-                        ctx, theme, ThemeMode.system, 'System default', Icons.brightness_auto_rounded),
-                  ],
-                )),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _themeOption(
-      BuildContext ctx, ThemeController theme, ThemeMode mode, String label, IconData icon) {
-    final bool selected = theme.mode.value == mode;
-    return ListTile(
-      leading: Icon(icon, color: selected ? AppColors.primary : null),
-      title: Text(label, style: AppTextStyles.body),
-      trailing: selected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
-      onTap: () {
-        theme.setMode(mode);
-        Navigator.of(ctx).pop();
-      },
     );
   }
 

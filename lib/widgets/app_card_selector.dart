@@ -48,6 +48,7 @@ class AppCardSelector extends StatelessWidget {
     required this.selected,
     required this.onSelect,
     this.label,
+    this.discSize = 64,
   });
 
   final List<CardOption> options;
@@ -56,6 +57,10 @@ class AppCardSelector extends StatelessWidget {
 
   /// Optional centered question label shown above the grid.
   final String? label;
+
+  /// Diameter of the soft disc holding each option's artwork (the Marital
+  /// status reference draws a noticeably larger disc than the other grids).
+  final double discSize;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +72,14 @@ class AppCardSelector extends StatelessWidget {
           child: BiText(
             label!,
             textAlign: TextAlign.center,
-            style: AppTextStyles.subtitle.copyWith(fontSize: 17),
+            // Same heading as the tile grids that share these screens, so the
+            // sub-question line does not change weight when a question switches
+            // between a disc grid and a tile grid.
+            style: AppTextStyles.subtitle.copyWith(
+              fontSize: 17.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.partnerSectionInk,
+            ),
           ),
         ),
       );
@@ -110,11 +122,35 @@ class AppCardSelector extends StatelessWidget {
     final Color labelColor =
         Theme.of(context).textTheme.bodyLarge?.color ??
         AppColors.lightTextPrimary;
-    final Color discColor = filledSelection
-        ? Colors.white.withValues(alpha: 0.28)
+    // A chosen card takes a soft dusty-rose wash, NOT the saturated button
+    // pink. That is how the references draw it, and it keeps a grid of options
+    // reading as text rather than as a row of buttons.
+    //
+    // Options whose artwork is an IMAGE get a white disc instead: the 3D assets
+    // are square JPEGs rendered on white, so a tinted disc showed a hard white
+    // square sitting inside a rose circle — most obvious on the chosen card,
+    // where the mismatch read as a missing background.
+    final Color discColor = o.image != null
+        ? (dark ? AppColors.darkSurfaceAlt : Colors.white)
+        : filledSelection
+        ? (dark
+              ? AppColors.primary.withValues(alpha: 0.30)
+              : AppColors.roseSelectedDisc)
         : dark
         ? AppColors.primary.withValues(alpha: 0.14)
-        : const Color(0xFFF9DCE7);
+        : AppColors.roseUnselectedDisc;
+
+    final Color selectedInk = dark
+        ? AppColors.darkTextPrimary
+        : AppColors.roseSelectedInk;
+
+    // The Marital-status reference draws every disc glyph in the same dusty
+    // rose as the canvas furniture, not in ink — and the chosen card's glyph
+    // goes white against its darker disc. Drawing them in `fieldIconGlyph`
+    // made the grid read as a row of brown stickers.
+    final Color discGlyph = isSelected
+        ? Colors.white
+        : (dark ? AppColors.primary : AppColors.regAccent);
 
     return Material(
       color: Colors.transparent,
@@ -124,22 +160,30 @@ class AppCardSelector extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
+          // Measured against the Marital status reference: its cards are 15.3%
+          // of the screen height, ours were 19.5% — a quarter too tall, which
+          // is why only two rows fitted instead of three. The disc and the
+          // vertical padding below carry that difference.
           padding: hasPhoto
               ? const EdgeInsets.fromLTRB(10, 12, 10, 16)
-              : const EdgeInsets.fromLTRB(16, 26, 16, 24),
+              : const EdgeInsets.fromLTRB(14, 18, 14, 18),
           decoration: BoxDecoration(
-            color: filledSelection ? AppColors.primary : base,
+            color: filledSelection
+                ? (dark ? AppColors.darkSurfaceAlt : AppColors.roseSelectedFill)
+                : base,
             borderRadius: BorderRadius.circular(cardRadius),
             border: Border.all(
-              color: isSelected ? AppColors.primary : lineColor,
-              width: 1.2,
+              color: isSelected
+                  ? (dark ? AppColors.primary : AppColors.roseSelectedBorder)
+                  : lineColor,
+              width: isSelected ? 1.6 : 1.2,
             ),
             boxShadow: isSelected
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.32),
-                      blurRadius: 20,
-                      spreadRadius: -4,
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      spreadRadius: -6,
                       offset: const Offset(0, 8),
                     ),
                   ]
@@ -227,7 +271,7 @@ class AppCardSelector extends StatelessWidget {
                   o.label,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 16.5,
+                    fontSize: 15.5,
                     color: isSelected ? AppColors.primaryDark : labelColor,
                   ),
                 ),
@@ -247,13 +291,15 @@ class AppCardSelector extends StatelessWidget {
                 // Options without artwork (e.g. diet) render as label-only cards.
                 if (o.image != null || o.icon != null) ...<Widget>[
                   Container(
-                    width: 86,
-                    height: 86,
+                    width: discSize,
+                    height: discSize,
                     decoration: BoxDecoration(
                       color: discColor,
                       shape: BoxShape.circle,
                     ),
-                    padding: const EdgeInsets.all(18),
+                    // The glyph scales with the disc; the padding keeps its
+                    // share of the circle constant across sizes.
+                    padding: EdgeInsets.all(discSize * 0.20),
                     child: o.image != null
                         ? Image.asset(
                             o.image!,
@@ -261,27 +307,26 @@ class AppCardSelector extends StatelessWidget {
                             errorBuilder: (_, Object __, StackTrace? ___) =>
                                 Icon(
                                   o.icon ?? Icons.person_rounded,
-                                  size: 34,
+                                  size: discSize * 0.42,
                                   color: AppColors.primary,
                                 ),
                           )
                         : Icon(
                             o.icon!,
-                            size: 34,
-                            color: isSelected
-                                ? Colors.white
-                                : AppColors.primary,
+                            size: discSize * 0.44,
+                            color: discGlyph,
                           ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 12),
                 ],
                 BiText(
                   o.label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   style: AppTextStyles.bodyStrong.copyWith(
-                    fontSize: 15.5,
-                    color: isSelected ? Colors.white : labelColor,
+                    fontSize: 14.5,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? selectedInk : labelColor,
                   ),
                 ),
                 if (o.description != null) ...<Widget>[
@@ -291,9 +336,9 @@ class AppCardSelector extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: AppTextStyles.caption.copyWith(
                       fontSize: 12.5,
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : labelColor.withValues(alpha: 0.6),
+                      color: (isSelected ? selectedInk : labelColor).withValues(
+                        alpha: 0.65,
+                      ),
                     ),
                   ),
                 ],

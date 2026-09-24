@@ -125,7 +125,7 @@ class _Step09ViewState extends State<Step09View> {
               style: AppTextStyles.display.copyWith(
                 fontSize: 25,
                 fontWeight: FontWeight.w800,
-                color: AppColors.primaryDark,
+                color: AppColors.regAccent,
               ),
             ),
             const SizedBox(height: 4),

@@ -245,7 +245,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        'HamQadam — A respectful path to marriage',
+                        'HamQadam — Rishtu Ki Dunya',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.body.copyWith(color: Colors.white70),
                       ),

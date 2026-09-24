@@ -17,7 +17,6 @@ import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/shortlist_controller.dart';
-import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
 import '../../core/services/app_lifecycle_service.dart';
 import '../../core/services/call_state_service.dart';
@@ -107,7 +106,6 @@ class AppDependencies {
     Get.put<RegistrationBuffer>(RegistrationBuffer(prefs), permanent: true);
     Get.put<ProfileCompletionService>(ProfileCompletionService(prefs), permanent: true);
     Get.put<CurrentUserService>(CurrentUserService(prefs), permanent: true);
-    Get.put<ThemeController>(ThemeController(prefs)..load(), permanent: true);
     Get.put<NetworkInfo>(NetworkInfo(), permanent: true);
     Get.put<MediaPickerHelper>(MediaPickerHelper(), permanent: true);
 

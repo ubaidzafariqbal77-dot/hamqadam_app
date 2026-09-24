@@ -208,6 +208,7 @@ class _Step05ViewState extends State<Step05View> {
         const SizedBox(height: 22),
         Reveal(
           child: AppPhoneField(
+            insetLabel: true,
             label: 'Mobile number',
             controller: c.phone,
             textInputAction: TextInputAction.next,
@@ -223,6 +224,7 @@ class _Step05ViewState extends State<Step05View> {
         Reveal(
             delayMs: 120,
             child: AppTextFormField(
+              insetLabel: true,
               label: 'Email address',
               controller: c.email,
               hint: 'you@example.com',
@@ -297,7 +299,7 @@ class _EmailVerification extends StatelessWidget {
                   child: Text(
                     c.resendIn.value > 0 ? 'Resend ${c.resendIn.value}s' : 'Resend',
                     style: AppTextStyles.label.copyWith(
-                      color: c.canResend ? AppColors.primary : Theme.of(context).disabledColor,
+                      color: c.canResend ? AppColors.regAccent : Theme.of(context).disabledColor,
                     ),
                   ),
                 ),

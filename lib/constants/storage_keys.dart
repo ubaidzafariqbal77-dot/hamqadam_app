@@ -21,6 +21,5 @@ class StorageKeys {
   static const String registrationDraftPrefix = 'hq_reg_draft_';
   static const String lastKnownNextStep = 'hq_reg_next_step';
   static const String lookupCachePrefix = 'hq_lookup_';
-  static const String themeMode = 'hq_theme_mode';
   static const String onboardingSeen = 'hq_onboarding_seen';
 }

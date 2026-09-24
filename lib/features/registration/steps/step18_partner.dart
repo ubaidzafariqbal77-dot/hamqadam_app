@@ -244,12 +244,31 @@ class _Step18ViewState extends State<Step18View> {
 
   @override
   Widget build(BuildContext context) {
+    // Obx wraps the whole scaffold, not just the body: twelve questions sit
+    // behind one heading, so the step title's colour and the bottom button's
+    // label are part of what changes as the member advances.
+    return Obx(() => _scaffold(context, Step18Controller.questions[c.qIndex.value]));
+  }
+
+  Widget _scaffold(BuildContext context, String key) {
     return StepScaffold(
       stepNumber: 18,
       totalSteps: 18,
       title: 'Partner preferences',
-      art: RegIcons.step18Partner,
-      artIcon: Icons.favorite_rounded,
+      // One design for all twelve sub-questions: the bare rose canvas, the
+      // bright pink step title and NO watercolour hero. The option questions
+      // carry their artwork in the tiles, and age/height draw theirs inside
+      // the body under the fields — a hero above the title made the option
+      // screens look like a different flow from the field ones.
+      //
+      // Flat rather than the floating white card: the Preferred-education
+      // reference draws its option tiles straight on the blush canvas, and the
+      // tiles are already white. Keeping the card would stack white on white
+      // and box the grid in. The same treatment runs across the whole step so
+      // the canvas does not change shape between sub-questions.
+      art: '',
+      flat: true,
+      titleColor: AppColors.accent,
       subtitle: 'Describe your ideal match.',
       busy: c.busy,
       error: c.error,
@@ -284,52 +303,30 @@ class _Step18ViewState extends State<Step18View> {
   Widget _question(String key) {
     switch (key) {
       case 'height':
-        return _wrap(
-          'Preferred height range',
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Obx(
-                  () => AppStringPicker(
-                    label: 'Min height',
-                    value: c.labelFor(c.heightMinCm.value),
-                    options: c.heightLabels,
-                    hint: 'Select',
-                    onChanged: (String? v) => c.heightMinCm.value = c.cmFor(v),
-                    image: RegIcons.heightRulerAlt,
-                    icon: Icons.height_rounded,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Obx(
-                  () => AppStringPicker(
-                    label: 'Max height',
-                    value: c.labelFor(c.heightMaxCm.value),
-                    options: c.heightLabels,
-                    hint: 'Select',
-                    onChanged: (String? v) => c.heightMaxCm.value = c.cmFor(v),
-                    image: RegIcons.heightRulerAlt,
-                    icon: Icons.height_rounded,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+        return _heightRange();
       case 'marital':
+        // Deliberately NOT the tile grid the other option questions use: the
+        // Marital-status reference draws these as tall cards with the glyph
+        // floating in a soft rose disc, and it is the same question the member
+        // already answered about themselves in step 07 — so the two screens
+        // must read as the same design.
         return Obx(
           () => AppCardSelector(
+            discSize: 88,
             label: 'Preferred marital status',
             options: c.lookup
                 .itemsOf(LookupKeys.maritalStatuses)
-                .map((LookupItem i) => CardOption(i.id, i.name))
+                .map(
+                  (LookupItem i) => CardOption(
+                    i.id,
+                    i.name,
+                    icon: RegIcons.maritalStatusGlyph(i.name),
+                  ),
+                )
                 .toList(),
             selected: c.maritalStatus.value,
-            onSelect: (CardOption o) {
-              c.maritalStatus.value = o.value as int;
-            },
+            onSelect: (CardOption o) =>
+                c.maritalStatus.value = o.value as int,
           ),
         );
       case 'religion':
@@ -337,18 +334,36 @@ class _Step18ViewState extends State<Step18View> {
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              AppLookupPicker(
+              // One design across the whole step: the same tall disc cards the
+              // Marital-status reference draws, with the 3D faith symbols in
+              // the disc and the full server list one tap below so anything the
+              // artwork does not cover is still reachable.
+              AppCardSelector(
+                discSize: 88,
                 label: 'Preferred religion / sect',
+                options: c.lookup
+                    .itemsOf(LookupKeys.religions)
+                    .take(6)
+                    .map(
+                      (LookupItem i) => CardOption(
+                        i,
+                        i.name,
+                        image: RegIcons.religionRowArt[i.id],
+                        icon: RegIcons.faithGlyph(i.name),
+                      ),
+                    )
+                    .toList(),
+                selected: c.religion.value,
+                onSelect: (CardOption o) =>
+                    c.religion.value = o.value as LookupItem,
+              ),
+              const SizedBox(height: 20),
+              AppLookupPicker(
+                label: 'Or pick from the full list',
                 lookupKey: LookupKeys.religions,
                 controller: c.lookup,
                 selected: c.religion.value,
                 onChanged: c.onReligion,
-              ),
-              _popularRow(
-                items: c.lookup.itemsOf(LookupKeys.religions),
-                selected: c.religion.value,
-                onTap: (LookupItem i) =>
-                    c.religion.value = c.religion.value?.id == i.id ? null : i,
               ),
             ],
           ),
@@ -454,8 +469,18 @@ class _Step18ViewState extends State<Step18View> {
       case 'education':
         return Obx(
           () => AppCardSelector(
+            discSize: 88,
             label: 'Preferred education',
-            options: RegOptions.partnerEducation.map((String s) => CardOption(s, s)).toList(),
+            options: RegOptions.partnerEducation
+                .map(
+                  (String s) => CardOption(
+                    s,
+                    s,
+                    image: RegIcons.partnerEducationArt[s],
+                    icon: RegIcons.educationGlyph(s),
+                  ),
+                )
+                .toList(),
             selected: c.education.value,
             onSelect: (CardOption o) {
               c.education.value = o.value as String;
@@ -466,8 +491,17 @@ class _Step18ViewState extends State<Step18View> {
       case 'profession':
         return Obx(
           () => AppCardSelector(
+            discSize: 88,
             label: 'Preferred profession',
-            options: RegOptions.partnerProfession.map((String s) => CardOption(s, s)).toList(),
+            options: RegOptions.partnerProfession
+                .map(
+                  (String s) => CardOption(
+                    s,
+                    s,
+                    icon: RegIcons.professionGlyph(s),
+                  ),
+                )
+                .toList(),
             selected: c.profession.value,
             onSelect: (CardOption o) {
               c.profession.value = o.value as String;
@@ -506,8 +540,17 @@ class _Step18ViewState extends State<Step18View> {
       case 'diet':
         return Obx(
           () => AppCardSelector(
+            discSize: 88,
             label: 'Preferred diet',
-            options: RegOptions.partnerDiet.map((String s) => CardOption(s, s)).toList(),
+            options: RegOptions.partnerDiet
+                .map(
+                  (String s) => CardOption(
+                    s,
+                    s,
+                    icon: RegIcons.dietGlyph(s),
+                  ),
+                )
+                .toList(),
             selected: c.diet.value,
             onSelect: (CardOption o) {
               c.diet.value = o.value as String;
@@ -518,8 +561,17 @@ class _Step18ViewState extends State<Step18View> {
       case 'managedBy':
         return Obx(
           () => AppCardSelector(
+            discSize: 88,
             label: 'Profile managed by',
-            options: RegOptions.profileManagedBy.map((String s) => CardOption(s, s)).toList(),
+            options: RegOptions.profileManagedBy
+                .map(
+                  (String s) => CardOption(
+                    s,
+                    s,
+                    icon: RegIcons.managedByGlyph(s),
+                  ),
+                )
+                .toList(),
             selected: c.managedBy.value,
             onSelect: (CardOption o) {
               c.managedBy.value = o.value as String;
@@ -528,6 +580,7 @@ class _Step18ViewState extends State<Step18View> {
           ),
         );
       case 'age':
+        return _ageRange();
       default:
         return _wrap(
           'Preferred age range',
@@ -564,6 +617,274 @@ class _Step18ViewState extends State<Step18View> {
     }
   }
 
+  /// The Preferred-height reference: dark section heading, left-labelled gray
+  /// field pair, then the couple + ruler artwork mid-screen with each chosen
+  /// height floating beside its figure and the pink range caption below.
+  Widget _heightRange() {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return Obx(() {
+      final int? hMin = c.heightMinCm.value;
+      final int? hMax = c.heightMaxCm.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          BiText(
+            'Preferred height range',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.displaySerif.copyWith(
+              fontSize: 22,
+              color: dark ? AppColors.darkTextPrimary : const Color(0xFF2B2230),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: _rangeField(
+                  'Min height',
+                  c.labelFor(hMin),
+                  dark,
+                  () => _pickHeight('Min height', hMin, c.heightMinCm),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _rangeField(
+                  'Max height',
+                  c.labelFor(hMax),
+                  dark,
+                  () => _pickHeight('Max height', hMax, c.heightMaxCm),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // The reference's couple + ruler artwork, mid-screen, with each
+          // chosen height floating beside its figure.
+          AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                Image.asset(
+                  RegIcons.partnerQuestionArt['height']!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, Object __, StackTrace? ___) =>
+                      const SizedBox.shrink(),
+                ),
+                if (hMin != null)
+                  Align(
+                    alignment: const Alignment(-0.47, -0.48),
+                    child: Text(
+                      '$hMin cm / ${_hShort(hMin)}',
+                      style: AppTextStyles.bodyStrong.copyWith(
+                        fontSize: 15,
+                        color: dark
+                            ? AppColors.primaryLight
+                            : AppColors.regAccent,
+                      ),
+                    ),
+                  ),
+                if (hMax != null)
+                  Align(
+                    alignment: const Alignment(0.34, -0.89),
+                    child: Text(
+                      '$hMax cm / ${_hShort(hMax)}',
+                      style: AppTextStyles.bodyStrong.copyWith(
+                        fontSize: 15,
+                        color: dark
+                            ? AppColors.primaryLight
+                            : AppColors.regAccent,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          BiText(
+            'Ideal range • '
+            '${hMin == null ? '—' : _hShort(hMin)} to '
+            '${hMax == null ? '—' : _hShort(hMax)} • Comfortable match',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 13.5,
+              color: dark ? AppColors.primaryLight : AppColors.regAccent,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  /// One gray field with its label sitting OUTSIDE, above-left — the age and
+  /// height references' layout (every other registration field insets the
+  /// label). [text] is the already-formatted value, or null for "Select".
+  Widget _rangeField(String label, String? text, bool dark, VoidCallback onTap) {
+    final Color ink =
+        dark ? AppColors.darkTextPrimary : const Color(0xFF2B2230);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        BiText(
+          label,
+          style: AppTextStyles.body.copyWith(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: ink,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onTap,
+            child: Container(
+              height: 76,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.centerLeft,
+              decoration: BoxDecoration(
+                // The reference's fields are flat neutral gray, not white
+                // with a pink hairline like the rest of the flow.
+                color: dark
+                    ? AppColors.darkSurface
+                    : const Color(0xFFF4F4F5),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: <Widget>[
+                  Expanded(
+                    child: text == null
+                        ? Text(
+                            'Select',
+                            style: AppTextStyles.body.copyWith(
+                              color: Theme.of(context).hintColor,
+                            ),
+                          )
+                        : Text(
+                            text,
+                            maxLines: 2,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 15.5,
+                              color: ink,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 22,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Opens the standard picker sheet for one end of the height range and
+  /// stores the result as centimetres.
+  Future<void> _pickHeight(String title, int? current, Rxn<int> target) async {
+    final String? picked = await showStringPickerSheet(
+      context,
+      title: title,
+      options: c.heightLabels,
+      selected: c.labelFor(current),
+    );
+    if (picked != null) target.value = c.cmFor(picked);
+  }
+
+  /// `5' 2" (157 cm)` → `5'2"`, the way the reference labels its figures.
+  String _hShort(int cm) {
+    final String? label = c.labelFor(cm);
+    if (label == null) return '$cm cm';
+    return label.split(' (').first.replaceAll(' ', '');
+  }
+
+  /// The Preferred-age reference — the same simple pattern as the height
+  /// screen: dark serif heading, outside-labelled gray fields, the clock
+  /// artwork underneath, and the pink range caption.
+  Widget _ageRange() {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return Obx(() {
+      final int? aMin = c.ageMin.value;
+      final int? aMax = c.ageMax.value;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          BiText(
+            'Preferred age range',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.displaySerif.copyWith(
+              fontSize: 22,
+              color: dark ? AppColors.darkTextPrimary : const Color(0xFF2B2230),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: _rangeField(
+                  'Min age',
+                  aMin?.toString(),
+                  dark,
+                  () => _pickAge('Min age', aMin, c.ageMin),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _rangeField(
+                  'Max age',
+                  aMax?.toString(),
+                  dark,
+                  () => _pickAge('Max age', aMax, c.ageMax),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          AspectRatio(
+            aspectRatio: 1,
+            child: Image.asset(
+              RegIcons.partnerQuestionArt['age']!,
+              fit: BoxFit.contain,
+              errorBuilder: (_, Object __, StackTrace? ___) =>
+                  const SizedBox.shrink(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          BiText(
+            'Ideal range • ${aMin ?? '—'} to ${aMax ?? '—'} years • '
+            'Comfortable match',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 13.5,
+              color: dark ? AppColors.primaryLight : AppColors.regAccent,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  /// Opens the shared picker sheet for one end of the range and stores the
+  /// picked age as an int.
+  Future<void> _pickAge(String title, int? current, Rxn<int> target) async {
+    final String? picked = await showStringPickerSheet(
+      context,
+      title: title,
+      options: RegOptions.ages,
+      selected: current?.toString(),
+    );
+    if (picked != null) target.value = int.tryParse(picked);
+  }
+
   /// A centered question label above the field(s).
   /// Reference-style question heading: large serif-ink title centered, with
   /// an optional muted subtitle ("Describe your ideal match.").
@@ -575,13 +896,10 @@ class _Step18ViewState extends State<Step18View> {
         BiText(
           label,
           textAlign: TextAlign.center,
-          style: AppTextStyles.display.copyWith(
-            fontSize: 27,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-            color: dark
-                ? AppColors.darkTextPrimary
-                : const Color(0xFF3A2E33),
+          // Playfair Display, matching the Partner preferences references.
+          style: AppTextStyles.displaySerif.copyWith(
+            fontSize: 25,
+            color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
           ),
         ),
         if (subtitle != null) ...<Widget>[
@@ -622,7 +940,7 @@ class _Step18ViewState extends State<Step18View> {
             'Popular',
             style: AppTextStyles.bodyStrong.copyWith(
               fontSize: 13.5,
-              color: AppColors.primary,
+              color: AppColors.regAccent,
             ),
           ),
           const SizedBox(height: 10),
@@ -668,15 +986,15 @@ class _PopularChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.primary
+              ? AppColors.regAccent
               : dark
               ? AppColors.darkSurface
               : Colors.white,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: selected
-                ? AppColors.primary
-                : AppColors.primary.withValues(alpha: 0.28),
+                ? AppColors.regAccent
+                : AppColors.regAccent.withValues(alpha: 0.28),
           ),
         ),
         child: Text(

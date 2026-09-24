@@ -44,26 +44,17 @@ class AppDateField extends StatelessWidget {
         ? AppColors.error
         : dark
         ? AppColors.requiredFieldBorderDark
-        : AppColors.primary;
+        : Theme.of(context).colorScheme.primary;
+    // Label inside the card above the date, like every other field in the
+    // registration flow (the references' Education field card).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8, left: 4),
-          child: BiText.inline(
-            label,
-            style: AppTextStyles.bodyStrong.copyWith(
-              fontSize: 14.5,
-              color: Theme.of(context).textTheme.bodyMedium?.color,
-            ),
-          ),
-        ),
         InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () => _pick(context),
           child: Container(
-            height: 54,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
             decoration: BoxDecoration(
               color: dark
                   ? AppColors.requiredFieldBackgroundDark
@@ -74,17 +65,35 @@ class AppDateField extends StatelessWidget {
             child: Row(
               children: <Widget>[
                 Expanded(
-                  child: Text(
-                    value == null ? hint : _fmt.format(value!),
-                    style: AppTextStyles.body.copyWith(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w600,
-                      color: value == null
-                          ? Theme.of(context).hintColor
-                          : (dark
-                                ? AppColors.darkInputText
-                                : AppColors.lightInputText),
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      BiText.inline(
+                        label,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.1,
+                          color: dark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.fieldLabelRose,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        value == null ? hint : _fmt.format(value!),
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w600,
+                          color: value == null
+                              ? Theme.of(context).hintColor
+                              : (dark
+                                    ? AppColors.darkInputText
+                                    : AppColors.lightInputText),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 // Trailing calendar glyph — the reference's pink calendar disc.
@@ -113,11 +122,8 @@ class AppDateField extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext ctx) => _WheelDateSheet(
-        initial: temp,
-        first: first,
-        last: last,
-      ),
+      builder: (BuildContext ctx) =>
+          _WheelDateSheet(initial: temp, first: first, last: last),
     );
     if (picked != null) onChanged(picked);
   }
@@ -148,8 +154,18 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
   late int _year = widget.initial.year;
 
   static const List<String> _months = <String>[
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
 
   int get _daysInMonth => DateTime(_year, _month + 1, 0).day;
@@ -170,8 +186,12 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color surface = dark ? AppColors.darkSurface : Colors.white;
-    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final Color muted = dark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final Color ink = dark
+        ? AppColors.darkTextPrimary
+        : AppColors.lightTextPrimary;
+    final Color muted = dark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
 
     return SafeArea(
       top: false,
@@ -202,7 +222,7 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                     child: Text(
                       'Cancel',
                       style: AppTextStyles.bodyStrong.copyWith(
-                        color: AppColors.primary,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
@@ -218,7 +238,7 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                     child: Text(
                       'Confirm',
                       style: AppTextStyles.bodyStrong.copyWith(
-                        color: AppColors.primary,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
@@ -230,9 +250,30 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: <Widget>[
-                  Expanded(child: Center(child: Text('Month', style: AppTextStyles.caption.copyWith(color: muted)))),
-                  Expanded(child: Center(child: Text('Day', style: AppTextStyles.caption.copyWith(color: muted)))),
-                  Expanded(child: Center(child: Text('Year', style: AppTextStyles.caption.copyWith(color: muted)))),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Month',
+                        style: AppTextStyles.caption.copyWith(color: muted),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Day',
+                        style: AppTextStyles.caption.copyWith(color: muted),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'Year',
+                        style: AppTextStyles.caption.copyWith(color: muted),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -248,7 +289,9 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: dark
-                          ? AppColors.primary.withValues(alpha: 0.18)
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.18)
                           : const Color(0xFFF7D3E0),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -259,7 +302,9 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                         child: _wheel(
                           child: CupertinoPicker(
                             key: const ValueKey<int>(1),
-                            scrollController: FixedExtentScrollController(initialItem: _month - 1),
+                            scrollController: FixedExtentScrollController(
+                              initialItem: _month - 1,
+                            ),
                             itemExtent: 44,
                             looping: true,
                             selectionOverlay: const SizedBox.shrink(),
@@ -272,7 +317,11 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                                 Center(
                                   child: Text(
                                     m,
-                                    style: _wheelStyle(_months[_month - 1] == m, ink, muted),
+                                    style: _wheelStyle(
+                                      _months[_month - 1] == m,
+                                      ink,
+                                      muted,
+                                    ),
                                   ),
                                 ),
                             ],
@@ -283,11 +332,14 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                         child: _wheel(
                           child: CupertinoPicker(
                             key: const ValueKey<int>(2),
-                            scrollController: FixedExtentScrollController(initialItem: _day - 1),
+                            scrollController: FixedExtentScrollController(
+                              initialItem: _day - 1,
+                            ),
                             itemExtent: 44,
                             looping: true,
                             selectionOverlay: const SizedBox.shrink(),
-                            onSelectedItemChanged: (int i) => setState(() => _day = i + 1),
+                            onSelectedItemChanged: (int i) =>
+                                setState(() => _day = i + 1),
                             children: <Widget>[
                               for (int d = 1; d <= 31; d++)
                                 Center(
@@ -305,7 +357,10 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                           child: CupertinoPicker(
                             key: const ValueKey<int>(3),
                             scrollController: FixedExtentScrollController(
-                              initialItem: (_year - widget.first.year).clamp(0, widget.last.year - widget.first.year),
+                              initialItem: (_year - widget.first.year).clamp(
+                                0,
+                                widget.last.year - widget.first.year,
+                              ),
                             ),
                             itemExtent: 44,
                             onSelectedItemChanged: (int i) => setState(() {
@@ -313,7 +368,11 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                               _clampDay();
                             }),
                             children: <Widget>[
-                              for (int y = widget.first.year; y <= widget.last.year; y++)
+                              for (
+                                int y = widget.first.year;
+                                y <= widget.last.year;
+                                y++
+                              )
                                 Center(
                                   child: Text(
                                     '$y',

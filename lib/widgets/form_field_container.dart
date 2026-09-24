@@ -113,38 +113,50 @@ class FormFieldContainer extends StatelessWidget {
     final Color borderColor = dark
         ? AppColors.requiredFieldBorderDark
         : (_hasError ? AppColors.error : AppColors.roseFieldBorder);
+    // Reference layout (Education screen): the label lives INSIDE the field
+    // card, in rose, directly above the value — with the icon disc to its left
+    // and the chevron on the right. Putting the label outside made every field
+    // two blocks tall and pushed short steps into a scroll.
+    final Widget labelled = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        BiText.inline(
+          label,
+          textAlign: TextAlign.start,
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            color: dark ? AppColors.darkTextSecondary : AppColors.fieldLabelRose,
+          ),
+        ),
+        const SizedBox(height: 2),
+        child,
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8, left: 4),
-          child: BiText.inline(
-            label,
-            textAlign: TextAlign.start,
-            style: AppTextStyles.bodyStrong.copyWith(
-              fontSize: 14.5,
-              color: textSecondary,
-            ),
-          ),
-        ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _hasError ? AppColors.error : borderColor,
               width: 1.3,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
           child: leading == null
-              ? child
+              ? labelled
               : Row(
                   children: <Widget>[
                     leading!,
                     const SizedBox(width: 12),
-                    Expanded(child: child),
+                    Expanded(child: labelled),
                   ],
                 ),
         ),

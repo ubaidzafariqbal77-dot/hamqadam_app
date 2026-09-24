@@ -169,7 +169,7 @@ class _Chip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
           constraints: BoxConstraints(minHeight: 48, maxWidth: maxWidth),
           decoration: BoxDecoration(
-            gradient: selected ? const LinearGradient(colors: AppColors.brandGradient) : null,
+            gradient: selected ? const LinearGradient(colors: AppColors.regPrimaryGradient) : null,
             color: selected
                 ? null
                 : (dark

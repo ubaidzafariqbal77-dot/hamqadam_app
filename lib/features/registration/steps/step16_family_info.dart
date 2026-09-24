@@ -95,6 +95,8 @@ class _Step16ViewState extends State<Step16View> {
         const SizedBox(height: 8),
         Obx(
           () => AppStringPicker(
+            // The reference gives each family row a leading icon disc.
+            icon: Icons.work_rounded,
             label: "Father's occupation",
             value: c.fatherOccupation.value,
             options: RegOptions.parentOccupations,
@@ -107,6 +109,7 @@ class _Step16ViewState extends State<Step16View> {
        const SizedBox(height: 8),
         Obx(
           () => AppStringPicker(
+            icon: Icons.work_rounded,
             label: "Mother's occupation",
             value: c.motherOccupation.value,
             options: RegOptions.parentOccupations,
@@ -119,6 +122,7 @@ class _Step16ViewState extends State<Step16View> {
        const SizedBox(height: 8),
         Obx(
           () => AppLookupDropdown(
+            icon: Icons.groups_rounded,
             label: 'Number of brothers',
             lookupKey: LookupKeys.siblings,
             controller: c.lookup,
@@ -130,6 +134,7 @@ class _Step16ViewState extends State<Step16View> {
         const SizedBox(height: 8),
         Obx(
           () => AppLookupDropdown(
+            icon: Icons.groups_rounded,
             label: 'Number of sisters',
             lookupKey: LookupKeys.siblings,
             controller: c.lookup,

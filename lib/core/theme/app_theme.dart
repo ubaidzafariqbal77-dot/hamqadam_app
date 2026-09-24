@@ -5,7 +5,14 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_dimensions.dart';
 import '../../constants/app_text_styles.dart';
 
-/// Premium light & dark themes for HamQadam, built on the #E85A8A brand colour.
+/// The app's single light theme for HamQadam, built on the #E85A8A brand
+/// colour.
+///
+/// There is deliberately no dark counterpart. The product is a light-only
+/// matrimonial app — a black canvas washes out the rose artwork the whole flow
+/// is designed around — so the theme is not built and no screen can switch to
+/// it. Every surface below is the light token; the dark palette in
+/// [AppColors] is what is left of the removed mode.
 ///
 /// Everything is centralised here: AppBar, bottom navigation, buttons, inputs,
 /// cards, dialogs, chips, switches, pickers, snackbars — so screens never need
@@ -13,28 +20,25 @@ import '../../constants/app_text_styles.dart';
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData get light => _build(Brightness.light);
-  static ThemeData get dark => _build(Brightness.dark);
+  static ThemeData get light => _build();
 
-  static ThemeData _build(Brightness brightness) {
-    final bool isDark = brightness == Brightness.dark;
-
-    final Color background = isDark ? AppColors.darkBackground : AppColors.lightBackground;
-    final Color surface = isDark ? AppColors.darkSurface : AppColors.lightSurface;
-    final Color surfaceAlt = isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt;
-    final Color textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final Color textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final Color border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final Color divider = isDark ? AppColors.darkDivider : AppColors.lightDivider;
+  static ThemeData _build() {
+    const Color background = AppColors.lightBackground;
+    const Color surface = AppColors.lightSurface;
+    const Color surfaceAlt = AppColors.lightSurfaceAlt;
+    const Color textPrimary = AppColors.lightTextPrimary;
+    const Color textSecondary = AppColors.lightTextSecondary;
+    const Color border = AppColors.lightBorder;
+    const Color divider = AppColors.lightDivider;
     // Hints/placeholders use quiet neutral ink instead of brand colour.
-    final Color hint = isDark ? AppColors.darkTextHint : AppColors.lightTextHint;
+    const Color hint = AppColors.lightTextHint;
 
-    final ColorScheme scheme = ColorScheme(
-      brightness: brightness,
+    const ColorScheme scheme = ColorScheme(
+      brightness: Brightness.light,
       primary: AppColors.primary,
       onPrimary: Colors.white,
-      primaryContainer: isDark ? AppColors.primaryDark : AppColors.goldLight,
-      onPrimaryContainer: isDark ? Colors.white : AppColors.primaryDark,
+      primaryContainer: AppColors.goldLight,
+      onPrimaryContainer: AppColors.primaryDark,
       secondary: AppColors.accent,
       onSecondary: Colors.white,
       tertiary: AppColors.gold,
@@ -53,15 +57,15 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      brightness: brightness,
+      brightness: Brightness.light,
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
       fontFamily: AppTextStyles.fontFamily,
       textTheme: textTheme,
       hintColor: hint,
-      iconTheme: IconThemeData(color: textPrimary),
+      iconTheme: const IconThemeData(color: textPrimary),
       splashFactory: InkRipple.splashFactory,
-      dividerTheme: DividerThemeData(color: divider, thickness: 1, space: 1),
+      dividerTheme: const DividerThemeData(color: divider, thickness: 1, space: 1),
 
       // ---- AppBar: brand background, white content -------------------------
       appBarTheme: AppBarTheme(
@@ -157,11 +161,11 @@ class AppTheme {
           horizontal: AppSpacing.md,
           vertical: AppSpacing.md,
         ),
-        border: OutlineInputBorder(
+        border: const OutlineInputBorder(
           borderRadius: AppRadius.mdAll,
           borderSide: BorderSide(color: border),
         ),
-        enabledBorder: OutlineInputBorder(
+        enabledBorder: const OutlineInputBorder(
           borderRadius: AppRadius.mdAll,
           borderSide: BorderSide(color: border),
         ),
@@ -178,10 +182,10 @@ class AppTheme {
       // ---- Selection controls: brand active state -------------------------
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) =>
-            s.contains(WidgetState.selected) ? Colors.white : (isDark ? Colors.grey.shade400 : Colors.white)),
+            Colors.white),
         trackColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) => s.contains(WidgetState.selected)
             ? AppColors.primary
-            : (isDark ? Colors.grey.shade700 : Colors.grey.shade300)),
+            : Colors.grey.shade300),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
@@ -202,20 +206,23 @@ class AppTheme {
         checkmarkColor: Colors.white,
         labelStyle: AppTextStyles.caption.copyWith(color: textPrimary),
         secondaryLabelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
-        side: BorderSide(color: border),
+        side: const BorderSide(color: border),
         shape: const StadiumBorder(),
       ),
 
       // ---- Surfaces --------------------------------------------------------
-      cardTheme: CardThemeData(
+      cardTheme: const CardThemeData(
         color: surface,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
       ),
-      listTileTheme: ListTileThemeData(iconColor: textSecondary, textColor: textPrimary),
+      listTileTheme: const ListTileThemeData(
+        iconColor: textSecondary,
+        textColor: textPrimary,
+      ),
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
@@ -224,16 +231,16 @@ class AppTheme {
         titleTextStyle: AppTextStyles.title.copyWith(color: textPrimary),
         contentTextStyle: AppTextStyles.body.copyWith(color: textSecondary),
       ),
-      bottomSheetTheme: BottomSheetThemeData(
+      bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.darkSurfaceAlt : const Color(0xFF2A1620),
+        backgroundColor: const Color(0xFF2A1620),
         contentTextStyle: AppTextStyles.body.copyWith(color: Colors.white),
         actionTextColor: AppColors.goldLight,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
@@ -249,13 +256,13 @@ class AppTheme {
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
         todayBackgroundColor: WidgetStatePropertyAll<Color>(AppColors.primary.withValues(alpha: 0.12)),
       ),
-      timePickerTheme: TimePickerThemeData(
+      timePickerTheme: const TimePickerThemeData(
         backgroundColor: surface,
         hourMinuteColor: surfaceAlt,
         dialHandColor: AppColors.primary,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
       ),
-      tabBarTheme: TabBarThemeData(
+      tabBarTheme: const TabBarThemeData(
         labelColor: AppColors.primary,
         unselectedLabelColor: textSecondary,
         indicatorColor: AppColors.primary,

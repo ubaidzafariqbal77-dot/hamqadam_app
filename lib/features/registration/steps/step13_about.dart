@@ -62,6 +62,7 @@ class _Step13ViewState extends State<Step13View> {
       onBack: c.back,
       children: <Widget>[
         AppTextFormField(
+              insetLabel: true,
           label: 'About yourself',
           controller: c.aboutMe,
           hint: 'Tell potential matches a little about who you are…',

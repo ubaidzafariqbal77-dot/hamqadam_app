@@ -20,6 +20,7 @@ class AppPhoneField extends StatelessWidget {
     this.serverError,
     this.hint = '03001234567',
     this.prefixIcon,
+    this.insetLabel = false,
   });
 
   final String label;
@@ -36,10 +37,14 @@ class AppPhoneField extends StatelessWidget {
   /// Overrides the default phone glyph (e.g. the rose handset disc).
   final Widget? prefixIcon;
 
+  /// Draw the label inside the field, above the number (registration style).
+  final bool insetLabel;
+
   @override
   Widget build(BuildContext context) {
     return AppTextFormField(
       label: label,
+      insetLabel: insetLabel,
       controller: controller,
       requirement: requirement,
       validator: validator,

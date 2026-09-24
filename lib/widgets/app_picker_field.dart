@@ -252,7 +252,17 @@ class AppStringPicker extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: hasValue
-                    ? Text(value!, style: AppTextStyles.body)
+                    // One line, always. Two of these sit side by side in the
+                    // partner height row, where a value like
+                    // `5' 1" (155 cm)` wrapped to three lines and left the two
+                    // fields different heights.
+                    ? Text(
+                        value!,
+                        style: AppTextStyles.body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      )
                     : BiText.inline(
                         hint,
                         textAlign: TextAlign.start,
@@ -442,14 +452,14 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                         children: <Widget>[
                           if (showCustom)
                             ListTile(
-                              leading: const Icon(
+                              leading: Icon(
                                 Icons.add_circle_outline_rounded,
-                                color: AppColors.primary,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                               title: Text(
                                 'Use “$q”',
                                 style: AppTextStyles.body.copyWith(
-                                  color: AppColors.primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                               onTap: () => Navigator.of(context).pop(q),
@@ -461,16 +471,16 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                               title: Text(
                                 o,
                                 style: AppTextStyles.body.copyWith(
-                                  color: sel ? AppColors.primary : null,
+                                  color: sel ? Theme.of(context).colorScheme.primary : null,
                                   fontWeight: sel
                                       ? FontWeight.w700
                                       : FontWeight.w400,
                                 ),
                               ),
                               trailing: sel
-                                  ? const Icon(
+                                  ? Icon(
                                       Icons.check_circle_rounded,
-                                      color: AppColors.primary,
+                                      color: Theme.of(context).colorScheme.primary,
                                     )
                                   : null,
                             );
@@ -640,9 +650,9 @@ class _PickerSheetState extends State<_PickerSheet> {
               const Divider(height: 1),
               Expanded(
                 child: widget.loading
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       )
                     // A search that matches nothing is not a load failure, so it
@@ -676,16 +686,16 @@ class _PickerSheetState extends State<_PickerSheet> {
                             title: Text(
                               item.name,
                               style: AppTextStyles.body.copyWith(
-                                color: sel ? AppColors.primary : null,
+                                color: sel ? Theme.of(context).colorScheme.primary : null,
                                 fontWeight: sel
                                     ? FontWeight.w700
                                     : FontWeight.w400,
                               ),
                             ),
                             trailing: sel
-                                ? const Icon(
+                                ? Icon(
                                     Icons.check_circle_rounded,
-                                    color: AppColors.primary,
+                                    color: Theme.of(context).colorScheme.primary,
                                   )
                                 : null,
                           );

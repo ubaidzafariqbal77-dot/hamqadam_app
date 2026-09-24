@@ -216,6 +216,9 @@ class _Step01ViewState extends State<Step01View> {
       case 'gender':
         return _wrap(
           'Gender',
+          // The reference sets this one heading in rose (#874453) rather than
+          // the flow's usual dark plum.
+          titleColor: AppColors.roseTitleRose,
           subtitle: 'Select your gender identity',
           _GenderCardRow(
             options: ApiOptions.gender,
@@ -305,7 +308,7 @@ class _Step01ViewState extends State<Step01View> {
               label: BiText.inline(
                 'Retry',
                 style: AppTextStyles.bodyStrong.copyWith(
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
               ),
             ),
@@ -331,13 +334,12 @@ class _Step01ViewState extends State<Step01View> {
         BiText(
           title,
           textAlign: TextAlign.center,
-          style: AppTextStyles.display.copyWith(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
+          // Playfair Display, matching every step heading in the references.
+          style: AppTextStyles.displaySerif.copyWith(
+            fontSize: 27,
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppColors.darkTextPrimary
-                : const Color(0xFF2B2230),
+                : AppColors.roseTitleInk,
           ),
         ),
         if (subtitle != null) ...<Widget>[
@@ -382,20 +384,24 @@ class _Step01ViewState extends State<Step01View> {
 
   /// A centered question label above the selector — reference-style large
   /// serif-feel ink title with a soft muted subtitle.
-  Widget _wrap(String label, Widget selector, {String? subtitle}) {
+  Widget _wrap(
+    String label,
+    Widget selector, {
+    String? subtitle,
+    Color? titleColor,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         BiText(
           label,
           textAlign: TextAlign.center,
-          style: AppTextStyles.display.copyWith(
-            fontSize: 30,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
+          // Playfair Display, matching every step heading in the references.
+          style: AppTextStyles.displaySerif.copyWith(
+            fontSize: 27,
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppColors.darkTextPrimary
-                : const Color(0xFF3A2E33),
+                : (titleColor ?? AppColors.roseTitleInk),
           ),
         ),
         if (subtitle != null) ...<Widget>[
@@ -518,14 +524,14 @@ class _OptionRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: isSelected
-                    ? AppColors.primary
+                    ? AppColors.regAccent
                     : Colors.white.withValues(alpha: 0.8),
                 width: isSelected ? 1.8 : 1.2,
               ),
               boxShadow: <BoxShadow>[
                 BoxShadow(
                   color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.20)
+                      ? AppColors.regAccent.withValues(alpha: 0.20)
                       : const Color(0xFFB4487B).withValues(alpha: 0.06),
                   blurRadius: isSelected ? 18 : 12,
                   offset: const Offset(0, 6),
@@ -553,8 +559,8 @@ class _OptionRow extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: <Color>[
-                            AppColors.primary.withValues(alpha: 0.75),
-                            AppColors.primaryLight.withValues(alpha: 0.65),
+                            AppColors.regAccent.withValues(alpha: 0.75),
+                            AppColors.regAccentSoft.withValues(alpha: 0.65),
                           ],
                         ),
                       ),
@@ -588,7 +594,7 @@ class _OptionRow extends StatelessWidget {
                     child: Icon(
                       Icons.check_circle_rounded,
                       size: 24,
-                      color: AppColors.primary,
+                      color: AppColors.regAccent,
                     ),
                   ),
               ],
@@ -634,13 +640,13 @@ class _GenderCard extends StatelessWidget {
           color: dark ? AppColors.darkSurface : const Color(0xFFFDF6F8),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.roseFieldBorder,
+            color: isSelected ? AppColors.regAccent : AppColors.roseFieldBorder,
             width: isSelected ? 2 : 1.2,
           ),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: isSelected
-                  ? AppColors.primary.withValues(alpha: 0.20)
+                  ? AppColors.regAccent.withValues(alpha: 0.20)
                   : const Color(0xFFB4487B).withValues(alpha: 0.07),
               blurRadius: isSelected ? 18 : 10,
               offset: const Offset(0, 6),
@@ -653,7 +659,7 @@ class _GenderCard extends StatelessWidget {
             Icon(
               _symbol,
               size: 38,
-              color: AppColors.primary.withValues(alpha: 0.9),
+              color: AppColors.regAccent.withValues(alpha: 0.9),
             ),
             const SizedBox(height: 16),
             // Floral-wreath portrait inside a soft pink disc.
@@ -662,7 +668,7 @@ class _GenderCard extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: AppColors.regAccent.withValues(alpha: 0.08),
                 ),
                 padding: const EdgeInsets.all(8),
                 child: ClipOval(
@@ -672,7 +678,7 @@ class _GenderCard extends StatelessWidget {
                     errorBuilder: (_, __, ___) => Icon(
                       _isFemale ? Icons.woman_rounded : Icons.man_rounded,
                       size: 56,
-                      color: AppColors.primary.withValues(alpha: 0.6),
+                      color: AppColors.regAccent.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -683,19 +689,23 @@ class _GenderCard extends StatelessWidget {
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.display.copyWith(
+              style: AppTextStyles.displaySerif.copyWith(
                 fontSize: 27,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF93314E),
+                color: AppColors.roseTitleRose,
               ),
             ),
             const SizedBox(height: 6),
             Text(
               'Typically identifies as ${name.toLowerCase()}',
               textAlign: TextAlign.center,
-              maxLines: 1,
+              // Two lines, not one: at the card's width the sentence was
+              // ellipsing to "Typically identifies …" on every phone, which is
+              // not what the reference shows and says nothing to the reader.
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.caption.copyWith(
+                fontSize: 12,
+                height: 1.35,
                 color: AppColors.lightTextSecondary,
               ),
             ),
@@ -733,7 +743,7 @@ class _AccountForImageGrid extends StatelessWidget {
     'sister',
     'friend',
     'relative',
-    'counselor',
+    'guardian',
   ];
 
   String? _artFor(String name) {
@@ -815,13 +825,13 @@ class _AccountForCard extends StatelessWidget {
           color: dark ? AppColors.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.roseFieldBorder,
+            color: isSelected ? AppColors.regAccent : AppColors.roseFieldBorder,
             width: isSelected ? 2 : 1.2,
           ),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: isSelected
-                  ? AppColors.primary.withValues(alpha: 0.22)
+                  ? AppColors.regAccent.withValues(alpha: 0.22)
                   : const Color(0xFFB4487B).withValues(alpha: 0.08),
               blurRadius: isSelected ? 16 : 10,
               offset: const Offset(0, 4),
@@ -838,11 +848,11 @@ class _AccountForCard extends StatelessWidget {
                 Image.asset(asset!, fit: BoxFit.cover)
               else
                 Container(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: AppColors.regAccent.withValues(alpha: 0.08),
                   child: Icon(
                     fallbackIcon,
                     size: 40,
-                    color: AppColors.primary.withValues(alpha: 0.6),
+                    color: AppColors.regAccent.withValues(alpha: 0.6),
                   ),
                 ),
               // Frosted label strip: FULL width, pinned to the bottom edge —
@@ -882,7 +892,7 @@ class _AccountForCard extends StatelessWidget {
                     padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary,
+                      color: AppColors.regAccent,
                     ),
                     child: const Icon(
                       Icons.check_rounded,

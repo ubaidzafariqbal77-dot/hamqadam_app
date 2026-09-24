@@ -245,7 +245,7 @@ class _PwStrength {
     final (String, Color) verdict = switch (score) {
       0 || 1 => ('Weak', const Color(0xFFD64541)),
       2 => ('Medium', const Color(0xFFC98A19)),
-      _ => ('Strong', AppColors.primary),
+      _ => ('Strong', AppColors.regAccent),
     };
     return _PwStrength(percent, verdict.$1, verdict.$2, hasLen, hasSymOrDigit, hasMixed);
   }

@@ -167,16 +167,18 @@ class _PhotoCell extends StatelessWidget {
         onTap: disabled ? null : onTap,
         child: Stack(
           children: <Widget>[
-            DottedContainer(hasMedia: hasMedia, child: hasMedia ? Image.file(File(media!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity) : const Center(child: Icon(Icons.add_rounded, size: 30, color: AppColors.primary))),
+            DottedContainer(hasMedia: hasMedia, child: hasMedia ? Image.file(File(media!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity) : const Center(child: Icon(Icons.add_rounded, size: 30, color: AppColors.regAccent))),
             if (isMain)
               Positioned(
                 left: 0,
                 bottom: 0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: hasMedia ? Colors.black87 : AppColors.primary,
-                    borderRadius: const BorderRadius.only(
+                  decoration: const BoxDecoration(
+                    // Brand pink either way: on a photo the badge used to go
+                    // black, the one non-rose chip in the whole flow.
+                    color: AppColors.regAccent,
+                    borderRadius: BorderRadius.only(
                       topRight: Radius.circular(AppRadius.md),
                       bottomLeft: Radius.circular(AppRadius.md),
                     ),

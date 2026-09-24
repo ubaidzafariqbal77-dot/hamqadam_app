@@ -38,8 +38,12 @@ class AppColors {
   // Buttons, links and selected chips are pink; the words people read are ink.
   // This is the single most important hierarchy rule in the app.
   static const Color lightBackground = Color(0xFFFDFBFC); // soft warm white
-  static const Color roseCanvas = Color(0xFFF9E4EA); // registration canvas (reference)
-  static const Color roseCanvasDeep = Color(0xFFF6D7E0); // canvas gradient end
+  // Registration canvas, sampled from the references (#FFF3F3 / #F7EEEF /
+  // #FBEFEF across screens): a very light warm blush that barely graduates,
+  // not the deeper pink this used to be — which is what made our screens read
+  // hotter than the designs.
+  static const Color roseCanvas = Color(0xFFFDF4F4); // registration canvas (reference)
+  static const Color roseCanvasDeep = Color(0xFFF7EAEB); // canvas gradient end
   static const Color roseFieldBorder = Color(0xFFF5C6D6); // field hairline on white cards
   static const Color lightSurface = Color(0xFFFFFFFF); // cards
   static const Color lightSurfaceAlt = Color(0xFFF6F4F5); // subtle neutral section
@@ -50,6 +54,86 @@ class AppColors {
   static const Color lightBorder = Color(0xFFE6E2E6); // field & card borders (neutral hairline)
   static const Color lightBorder2 = Color(0xFFE6E2E6);
   static const Color lightDivider = Color(0xFFECE9EC); // dividers
+
+  // ---- Registration selection state (sampled from the design references) ----
+  // The references do NOT fill a chosen card with the saturated button pink:
+  // the card takes a soft dusty-rose wash and its label stays dark ink, so a
+  // grid of options still reads as text rather than as a row of buttons.
+  // Sampled off the Marital status and Preferred education screens.
+  // Re-sampled at full resolution off the Marital status reference.
+  static const Color roseSelectedFill = Color(0xFFEAB7BC); // chosen card wash
+  static const Color roseSelectedBorder = Color(0xFFDFA3AA); // chosen card edge
+  static const Color roseSelectedInk = Color(0xFF291017); // label on a chosen card
+  static const Color roseSelectedDisc = Color(0xFFF0D0D5); // icon disc on a chosen card
+  static const Color roseUnselectedDisc = Color(0xFFF7E3E5); // disc on an unchosen card
+
+  // ---- Partner-preferences icon tiles (sampled from the reference mockup) ---
+  // Unlike the dusty-rose wash above, a chosen tile here takes a PINK gradient
+  // that deepens toward the bottom-right under a clear pink edge, and its label
+  // turns pink rather than staying ink. Sampled off the Preferred-education
+  // reference ("Any" tile).
+  static const List<Color> partnerSelectedGradient = <Color>[
+    Color(0xFFFDE7F1),
+    Color(0xFFF4B6D2),
+  ];
+  static const Color partnerSelectedBorder = Color(0xFFDE8CB6); // chosen tile edge
+  static const Color partnerSelectedInk = Color(0xFFD6538C); // label on a chosen tile
+  static const Color partnerTileBorder = Color(0xFFF2E3E9); // unchosen tile hairline
+  static const Color partnerTileInk = Color(0xFF3E3A46); // unchosen tile label
+  static const Color partnerSectionInk = Color(0xFF3E3A46); // "Preferred education" heading
+
+  /// Ink for the Playfair step headings.
+  ///
+  /// Sampled off the references: most screens set the heading in a dark,
+  /// slightly warm plum (Education #4A2D36, Caste #281711, Location #1F1E1E),
+  /// so that is the default.
+  static const Color roseTitleInk = Color(0xFF3E2732);
+
+  /// The rose heading a few screens use instead — Gender (#874453),
+  /// Interests (#9F5B67) and Family information (#A25C67) in the references.
+  /// Passed explicitly via `StepScaffold.titleColor` on those screens only.
+  static const Color roseTitleRose = Color(0xFF8C4552);
+
+  // ---- Reference alert banner (Gender screen) -------------------------------
+  // The references do not use a red error strip: the prompt is a soft pink card
+  // with a gold "i" disc, a bold rose headline and a lighter second line.
+  static const Color noticeBg = Color(0xFFFBE9E9);
+  static const Color noticeInk = Color(0xFF632634);
+  static const Color noticeIconDisc = Color(0xFFFBD5D2);
+  static const Color noticeIconRing = Color(0xFFD9B36A);
+
+  // ---- Registration chrome (reference-sampled) ------------------------------
+  // The designs do NOT use the saturated brand pink inside the registration
+  // flow: the primary button, the progress fill and the back chevron are all a
+  // muted dusty rose (sampled #DC8193 … #C78690). Scoped to this flow so the
+  // rest of the app keeps [brandGradient].
+  static const Color regAccent = Color(0xFFD98B9B);
+  static const Color regAccentSoft = Color(0xFFEBBFC7);
+  static const List<Color> regPrimaryGradient = <Color>[
+    Color(0xFFE9A8B5),
+    Color(0xFFDC8E9C),
+    Color(0xFFCE8492),
+  ];
+
+  // ---- Tip / "Did you know?" card (reference-sampled) -----------------------
+  static const Color tipBg = Color(0xFFFCE8E9);
+  static const Color tipTitleInk = Color(0xFF793542);
+  static const Color tipBodyInk = Color(0xFF5B353A);
+  static const Color tipDisc = Color(0xFFFBE7E8);
+  static const Color tipGlyph = Color(0xFF89654B); // gold-brown outline bulb
+  static const Color tipGoldBorder = Color(0xFFD9B36A);
+
+  /// Rose the reference prints field labels in, inside the field card above
+  /// the value (sampled from the Education screen).
+  static const Color fieldLabelRose = Color(0xFF855966);
+
+  /// The field's leading icon disc and glyph, sampled from the Education
+  /// reference: a dusty rose circle with a dark warm outline mark.
+  static const Color fieldIconDisc = Color(0xFFEAC9D0);
+  static const Color fieldIconGlyph = Color(0xFF6B4741);
+
+  /// Warm off-white the reference cards use instead of pure white.
+  static const Color cardWarmWhite = Color(0xFFFDF9F8);
 
   // ---- Dark scheme — dark base, light neutral text --------------------------
   static const Color darkBackground = Color(0xFF141317); // near-black neutral

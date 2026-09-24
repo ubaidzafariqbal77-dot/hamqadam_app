@@ -42,7 +42,7 @@ class MailGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color c = color ?? AppColors.primary;
+    final Color c = color ?? Theme.of(context).colorScheme.primary;
     return SizedBox(
       width: size,
       height: size,
@@ -94,7 +94,7 @@ class PhoneGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color c = color ?? AppColors.primary;
+    final Color c = color ?? Theme.of(context).colorScheme.primary;
     return SizedBox(
       width: size,
       height: size,
@@ -165,9 +165,12 @@ class AssetOrIconDisc extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
+        // Disc and glyph sampled off the Education reference: a dusty rose
+        // circle (#EAC9D0) with a dark, warm outline glyph — not the saturated
+        // button pink, which made every field look like a call to action.
         color: dark
-            ? AppColors.primary.withValues(alpha: 0.16)
-            : const Color(0xFFF9DCE7),
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.16)
+            : AppColors.fieldIconDisc,
         shape: BoxShape.circle,
       ),
       padding: EdgeInsets.all(size * 0.22),
@@ -177,7 +180,7 @@ class AssetOrIconDisc extends StatelessWidget {
               : Icon(
                   icon ?? Icons.edit_note_rounded,
                   size: size * 0.56,
-                  color: AppColors.primary,
+                  color: dark ? Theme.of(context).colorScheme.primary : AppColors.fieldIconGlyph,
                 )),
     );
   }

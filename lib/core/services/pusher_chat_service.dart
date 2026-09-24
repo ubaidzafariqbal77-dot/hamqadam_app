@@ -182,6 +182,12 @@ class PusherChatService {
   void Function(Map<String, dynamic> data)? onThreadTyping;
   void Function(Map<String, dynamic> data)? onThreadUpdated;
 
+  /// `message-reaction` — somebody reacted to / un-reacted from a message.
+  /// Routed separately from [onThreadMessage] because the payload carries a
+  /// `message_id`, which the message parser would happily mistake for a new,
+  /// empty message.
+  void Function(Map<String, dynamic> data)? onThreadReaction;
+
   /// Help Center messages, delivered on `private-help-chat.{threadId}` while
   /// the Help conversation is open (and on the user channel otherwise).
   void Function(Map<String, dynamic> data)? onHelpChatMessage;
@@ -837,6 +843,8 @@ class PusherChatService {
     } else if (channel.contains('chat-thread')) {
       if (evName.contains('typing')) {
         _safely(() => onThreadTyping?.call(data), evName);
+      } else if (evName.contains('reaction')) {
+        _safely(() => onThreadReaction?.call(data), evName);
       } else if (evName.contains('block') ||
           evName.contains('unblock') ||
           evName.contains('clear') ||

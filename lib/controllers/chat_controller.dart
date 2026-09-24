@@ -68,6 +68,14 @@ class ChatController extends GetxController {
   final Rx<ApiState<List<ChatThread>>> threadsState =
       const ApiState<List<ChatThread>>.initial().obs;
 
+  /// The member's archived conversations (`GET /chat/threads?archived=1`).
+  ///
+  /// Kept apart from [threadsState] because archiving is per side: the API puts
+  /// a thread in exactly one of the two lists for the person looking at it.
+  final Rx<ApiState<List<ChatThread>>> archivedThreadsState =
+      const ApiState<List<ChatThread>>.initial().obs;
+  bool _loadingArchived = false;
+
   /// Search query filtering the local thread list.
   final RxString searchQuery = ''.obs;
   final TextEditingController searchController = TextEditingController();
@@ -132,6 +140,9 @@ class ChatController extends GetxController {
   final Rxn<ChatMessage> replyingTo = Rxn<ChatMessage>();
   final RxBool isSending = false.obs;
   final RxList<String> pendingAttachments = <String>[].obs;
+
+  /// A chat export is being built (the sheet shows a spinner while it is).
+  final RxBool isExportingChat = false.obs;
 
   final TextEditingController messageInputController = TextEditingController();
 
@@ -239,6 +250,12 @@ class ChatController extends GetxController {
     _pusher.onUserEvent = _handleUserEvent;
 
     _pusher.onThreadMessage = _handleThreadEvent;
+
+    // Emoji reactions arrive as their own `message-reaction` broadcast. They
+    // must NOT go through the message handler: the payload carries a
+    // `message_id`, so the generic parser used to turn each reaction into an
+    // empty phantom bubble.
+    _pusher.onThreadReaction = _handleThreadReaction;
 
     _pusher.onThreadTyping = (Map<String, dynamic> data) {
       // Defensive parse: the backend has sent this key as both an int and a
@@ -1348,6 +1365,256 @@ class ChatController extends GetxController {
     }
   }
 
+  // --------------------------------------------------------------------------
+  // Archive / Mute
+  // --------------------------------------------------------------------------
+
+  /// Fetches the member's archived conversations.
+  Future<void> loadArchivedThreads({bool silent = false}) async {
+    if (myUserId <= 0) {
+      if (!silent) {
+        archivedThreadsState.value =
+            const ApiState<List<ChatThread>>.empty(message: 'No archived chats.');
+      }
+      return;
+    }
+    if (_loadingArchived) return;
+    _loadingArchived = true;
+    if (!silent && (archivedThreadsState.value.data?.isEmpty ?? true)) {
+      archivedThreadsState.value = const ApiState<List<ChatThread>>.loading();
+    }
+    try {
+      final List<ChatThread> list = await _repo.fetchThreads(archived: true);
+      archivedThreadsState.value = list.isEmpty
+          ? const ApiState<List<ChatThread>>.empty(message: 'No archived chats.')
+          : ApiState<List<ChatThread>>.success(list);
+    } catch (e) {
+      if (!silent) {
+        archivedThreadsState.value = ApiState<List<ChatThread>>.serverError(e.toString());
+      }
+    } finally {
+      _loadingArchived = false;
+    }
+  }
+
+  /// Moves a conversation between the inbox and the Archived tab.
+  ///
+  /// The thread is dropped from its old list straight away — the two lists are
+  /// separate server-side, so leaving it visible until the next refresh would
+  /// show the same chat in both places.
+  Future<void> archiveThread(ChatThread thread, {required bool archived}) async {
+    if (thread.id <= 0) return;
+    try {
+      await _repo.archiveThread(thread.id, archived: archived);
+      _removeThreadLocally(thread.id);
+      if (activeThread.value?.id == thread.id) {
+        activeThread.value = activeThread.value!.copyWith(isArchived: archived);
+      }
+      AppSnackbar.success(archived ? 'Chat archived.' : 'Chat moved back to inbox.');
+      await loadThreads(silent: true);
+      await loadArchivedThreads(silent: true);
+    } catch (e) {
+      AppSnackbar.error('Could not archive this chat: $e');
+    }
+  }
+
+  /// Silences (or un-silences) notifications for one conversation. Messages
+  /// keep arriving — the server only skips its push/tray step.
+  Future<void> toggleMuteThread(ChatThread thread) async {
+    if (thread.id <= 0) return;
+    final bool next = !thread.isMuted;
+    try {
+      await _repo.muteThread(thread.id, muted: next);
+      _patchThreadLocally(thread.id, isMuted: next);
+      if (activeThread.value?.id == thread.id) {
+        activeThread.value = activeThread.value!.copyWith(isMuted: next);
+      }
+      AppSnackbar.info(next
+          ? 'Notifications muted for this chat.'
+          : 'Notifications turned back on.');
+    } catch (e) {
+      AppSnackbar.error('Could not change notifications: $e');
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Emoji reactions
+  // --------------------------------------------------------------------------
+
+  /// Sets, swaps or clears my emoji reaction on a message.
+  ///
+  /// [emoji] null (or the emoji I already had) clears it, matching the server's
+  /// toggle. The server's response replaces the local row so the counts are
+  /// always its own, not a guess.
+  Future<void> reactToMessage(ChatMessage message, String? emoji) async {
+    if (message.id <= 0) return;
+    try {
+      final ChatMessage? updated = await _repo.reactToMessage(message.id, emoji);
+      if (updated != null) {
+        _replaceMessage(updated);
+      } else {
+        _applyReactionLocally(message.id, myUserId, emoji);
+      }
+    } catch (e) {
+      AppSnackbar.error('Could not save that reaction: $e');
+    }
+  }
+
+  /// A `message-reaction` broadcast from the other member.
+  void _handleThreadReaction(Map<String, dynamic> data) {
+    final int? messageId =
+        _asInt(data['message_id'] ?? data['chat_id'] ?? data['id']);
+    final int userId = _asInt(data['user_id'] ?? data['sender_id']) ?? 0;
+    if (messageId == null || messageId <= 0 || userId <= 0) return;
+    if (userId == myUserId) return; // already applied from my own POST
+
+    final dynamic rawEmoji = data['emoji'];
+    _applyReactionLocally(
+      messageId,
+      userId,
+      rawEmoji is String && rawEmoji.isNotEmpty ? rawEmoji : null,
+      userName: data['user_name'] as String?,
+    );
+  }
+
+  /// Applies one member's reaction to the open conversation, moving them out of
+  /// whatever emoji bucket they were in first — a member only ever holds one
+  /// reaction per message, which is what the server's unique key enforces.
+  void _applyReactionLocally(
+    int messageId,
+    int userId,
+    String? emoji, {
+    String? userName,
+  }) {
+    final int index = messages.indexWhere((ChatMessage m) => m.id == messageId);
+    if (index < 0) return;
+    final ChatMessage message = messages[index];
+
+    final List<ChatReaction> next = <ChatReaction>[];
+    for (final ChatReaction reaction in message.reactions) {
+      final List<int> ids = <int>[];
+      final List<String> names = <String>[];
+      for (int i = 0; i < reaction.userIds.length; i++) {
+        if (reaction.userIds[i] == userId) continue;
+        ids.add(reaction.userIds[i]);
+        if (i < reaction.users.length) names.add(reaction.users[i]);
+      }
+      if (ids.length == reaction.count) {
+        next.add(reaction);
+        continue;
+      }
+      if (ids.isEmpty) continue; // that was the only reaction in the bucket
+      next.add(ChatReaction(
+        emoji: reaction.emoji,
+        count: ids.length,
+        mine: reaction.mine && userId != myUserId,
+        users: names,
+        userIds: ids,
+      ));
+    }
+
+    if (emoji != null && emoji.isNotEmpty) {
+      final int at = next.indexWhere((ChatReaction r) => r.emoji == emoji);
+      if (at >= 0) {
+        final ChatReaction bucket = next[at];
+        next[at] = ChatReaction(
+          emoji: bucket.emoji,
+          count: bucket.count + 1,
+          mine: bucket.mine || userId == myUserId,
+          users: <String>[...bucket.users, if (userName != null) userName],
+          userIds: <int>[...bucket.userIds, userId],
+        );
+      } else {
+        next.add(ChatReaction(
+          emoji: emoji,
+          count: 1,
+          mine: userId == myUserId,
+          users: <String>[if (userName != null) userName],
+          userIds: <int>[userId],
+        ));
+      }
+    }
+
+    messages[index] = message.copyWith(reactions: next);
+  }
+
+  /// Swaps a message for the server's fresh copy (used after a reaction POST).
+  void _replaceMessage(ChatMessage fresh) {
+    final int index = messages.indexWhere((ChatMessage m) =>
+        m.id == fresh.id ||
+        (fresh.localId != null && m.localId == fresh.localId));
+    if (index < 0) return;
+    messages[index] = fresh.copyWith(
+      delivery: MessageDelivery.sent,
+      localId: messages[index].localId,
+      localAttachmentPaths: messages[index].localAttachmentPaths,
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Backup / export
+  // --------------------------------------------------------------------------
+
+  /// `GET /chat/threads/{thread}/export` — the full JSON backup the export
+  /// sheet writes to a file. Returns null (after telling the member) on failure.
+  Future<Map<String, dynamic>?> fetchChatExport() async {
+    final ChatThread? thread = activeThread.value;
+    if (thread == null || thread.id <= 0) return null;
+    if (isExportingChat.value) return null;
+    isExportingChat.value = true;
+    try {
+      return await _repo.exportThread(thread.id);
+    } catch (e) {
+      AppSnackbar.error('Export failed: $e');
+      return null;
+    } finally {
+      isExportingChat.value = false;
+    }
+  }
+
+  /// Drops a thread from both inbox and archive lists — used after archiving so
+  /// the row leaves the list it just left, without waiting for a refetch.
+  void _removeThreadLocally(int threadId) {
+    final List<ChatThread>? inbox = threadsState.value.data;
+    if (inbox != null) {
+      final List<ChatThread> filtered =
+          inbox.where((ChatThread t) => t.id != threadId).toList();
+      if (filtered.length != inbox.length) {
+        threadsState.value = filtered.isEmpty
+            ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
+            : ApiState<List<ChatThread>>.success(filtered);
+      }
+    }
+    final List<ChatThread>? archived = archivedThreadsState.value.data;
+    if (archived != null) {
+      final List<ChatThread> filtered =
+          archived.where((ChatThread t) => t.id != threadId).toList();
+      if (filtered.length != archived.length) {
+        archivedThreadsState.value = filtered.isEmpty
+            ? const ApiState<List<ChatThread>>.empty(message: 'No archived chats.')
+            : ApiState<List<ChatThread>>.success(filtered);
+      }
+    }
+  }
+
+  /// Flips one flag on one thread in both cached lists.
+  void _patchThreadLocally(int threadId, {bool? isMuted, bool? isArchived}) {
+    ChatThread patch(ChatThread t) => t.id == threadId
+        ? t.copyWith(isMuted: isMuted, isArchived: isArchived)
+        : t;
+
+    final List<ChatThread>? inbox = threadsState.value.data;
+    if (inbox != null) {
+      threadsState.value =
+          ApiState<List<ChatThread>>.success(inbox.map(patch).toList());
+    }
+    final List<ChatThread>? archived = archivedThreadsState.value.data;
+    if (archived != null) {
+      archivedThreadsState.value =
+          ApiState<List<ChatThread>>.success(archived.map(patch).toList());
+    }
+  }
+
   /// Clears this member's session state — called on logout so the next member
   /// does not inherit the previous one's inbox.
   void reset() {
@@ -1360,6 +1627,8 @@ class ChatController extends GetxController {
     _fallbackTimer = null;
     _fallbackPeriod = null;
     threadsState.value = const ApiState<List<ChatThread>>.initial();
+    archivedThreadsState.value = const ApiState<List<ChatThread>>.initial();
+    isExportingChat.value = false;
     activeThread.value = null;
     messages.clear();
     pendingAttachments.clear();

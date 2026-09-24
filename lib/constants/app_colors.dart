@@ -82,6 +82,33 @@ class AppColors {
   static const Color partnerTileInk = Color(0xFF3E3A46); // unchosen tile label
   static const Color partnerSectionInk = Color(0xFF3E3A46); // "Preferred education" heading
 
+  // ---- Chat conversations ("Chat Conversations" reference) ----------------
+  // The chat list is drawn on a blush canvas, NOT the brand-gradient header the
+  // rest of the shell uses: white cards float on a warm pink wash, an unread
+  // conversation is marked by a rose bar down the card's left edge, and the
+  // count badge is the one saturated pink element on the screen.
+  static const Color chatCanvasTop = Color(0xFFFEF8FA); // canvas, top
+  static const Color chatCanvasBottom = Color(0xFFFBE6EC); // canvas, bottom
+  static const Color chatCardFill = Color(0xFFFEFCFD); // conversation card
+  static const Color chatCardBorder = Color(0xFFF6E2E9); // card hairline
+  static const Color chatTimeInk = Color(0xFFBE8B9B); // "10:24 AM"
+  static const Color chatPreviewInk = Color(0xFF5A4550); // last-message line
+  static const Color chatDottedLine = Color(0xFFEBC8D3); // dotted separator
+
+  /// Rose bar down the left edge of an unread conversation.
+  static const List<Color> chatAccentBar = <Color>[
+    Color(0xFFF7C6D5),
+    Color(0xFFE79EB5),
+  ];
+
+  /// The selected Chats/Calls pill.
+  static const List<Color> chatPillGradient = <Color>[
+    Color(0xFFF6C4D2),
+    Color(0xFFE8A2B7),
+  ];
+  static const Color chatPillInk = Color(0xFF7C3A4C); // label on the rose pill
+  static const Color chatPillIdleInk = Color(0xFF9C8792); // label on a white pill
+
   /// Ink for the Playfair step headings.
   ///
   /// Sampled off the references: most screens set the heading in a dark,

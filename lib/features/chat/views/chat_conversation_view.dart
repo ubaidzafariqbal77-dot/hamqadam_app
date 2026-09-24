@@ -18,6 +18,8 @@ import '../../../core/routes/app_routes.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import '../widgets/chat_export_sheet.dart';
+import '../widgets/chat_reaction_bar.dart';
 import '../widgets/chat_report_dialog.dart';
 
 
@@ -321,6 +323,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       onReply: () => _controller.setReplyTo(msg),
                       onDelete: () => _controller.deleteMessageForMe(msg.id),
                       onRetry: () => _controller.retryMessage(msg),
+                      // null clears the reaction, which is how tapping the same
+                      // emoji twice behaves on the server.
+                      onReact: (String? emoji) =>
+                          _controller.reactToMessage(msg, emoji),
                     );
 
                   },
@@ -541,6 +547,21 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         ],
       ),
       actions: <Widget>[
+        // A muted conversation says so in the bar, since the only other sign is
+        // the absence of notifications.
+        Obx(() {
+          if (_controller.activeThread.value?.isMuted != true) {
+            return const SizedBox.shrink();
+          }
+          return const Padding(
+            padding: EdgeInsets.only(right: 2),
+            child: Icon(
+              Icons.notifications_off_rounded,
+              size: 18,
+              color: AppColors.chatTimeInk,
+            ),
+          );
+        }),
         IconButton(
           icon: const Icon(Icons.call_rounded, color: AppColors.primary, size: 22),
           tooltip: 'Voice Call',
@@ -567,6 +588,15 @@ class _ChatConversationViewState extends State<ChatConversationView> {
               case 'report':
                 ChatReportDialog.show(context, widget.thread);
                 break;
+              case 'archive':
+                _controller.archiveThread(widget.thread, archived: true);
+                break;
+              case 'mute':
+                _controller.toggleMuteThread(widget.thread);
+                break;
+              case 'export':
+                ChatExportSheet.show(context);
+                break;
             }
           },
           itemBuilder: (BuildContext ctx) => <PopupMenuEntry<String>>[
@@ -582,6 +612,45 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                   ],
                 );
               }),
+            ),
+            const PopupMenuItem<String>(
+              value: 'archive',
+              child: Row(
+                children: <Widget>[
+                  Icon(Icons.archive_outlined, size: 18),
+                  SizedBox(width: 10),
+                  Text('Archive Chat'),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'mute',
+              child: Obx(() {
+                final bool muted =
+                    _controller.activeThread.value?.isMuted == true;
+                return Row(
+                  children: <Widget>[
+                    Icon(
+                      muted
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_off_outlined,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(muted ? 'Unmute Notifications' : 'Mute Notifications'),
+                  ],
+                );
+              }),
+            ),
+            const PopupMenuItem<String>(
+              value: 'export',
+              child: Row(
+                children: <Widget>[
+                  Icon(Icons.download_rounded, size: 18),
+                  SizedBox(width: 10),
+                  Text('Export Chat'),
+                ],
+              ),
             ),
             const PopupMenuItem<String>(
               value: 'clear',
@@ -989,6 +1058,7 @@ class _MessageBubble extends StatelessWidget {
     required this.onReply,
     required this.onDelete,
     required this.onRetry,
+    required this.onReact,
     this.participantName,
     this.participantPhoto,
   });
@@ -998,11 +1068,23 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onReply;
   final VoidCallback onDelete;
 
+  /// Sets or clears my emoji reaction ([null] clears it).
+  final ValueChanged<String?> onReact;
+
   /// Re-sends a message whose POST failed. Only reachable from a failed bubble.
   final VoidCallback onRetry;
   final String? participantName;
   final String? participantPhoto;
 
+
+  /// The emoji I already picked on this message, if any — the picker marks it
+  /// and offers "remove" instead.
+  String? get _myReaction {
+    for (final ChatReaction reaction in message.reactions) {
+      if (reaction.mine) return reaction.emoji;
+    }
+    return null;
+  }
 
   void _showContextMenu(BuildContext context) {
     showModalBottomSheet<void>(
@@ -1012,6 +1094,28 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // Reactions first: a long-press is the gesture people reach for to
+            // react, so the row is the top of the sheet rather than a submenu.
+            Padding(
+              padding: const EdgeInsets.only(
+                top: AppSpacing.sm,
+                bottom: AppSpacing.xs,
+              ),
+              child: ChatReactionPicker(
+                mine: _myReaction,
+                onPick: (String emoji) {
+                  Navigator.pop(ctx);
+                  onReact(_myReaction == emoji ? null : emoji);
+                },
+                onClear: _myReaction == null
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        onReact(null);
+                      },
+              ),
+            ),
+            const Divider(height: 1),
             ListTile(
               leading: const Icon(Icons.reply_rounded, color: AppColors.primary),
               title: const Text('Reply'),
@@ -1082,10 +1186,15 @@ class _MessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: () => _showContextMenu(context),
-        onTap: message.isFailed ? onRetry : null,
-        child: Container(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: <Widget>[
+          GestureDetector(
+            onLongPress: () => _showContextMenu(context),
+            onTap: message.isFailed ? onRetry : null,
+            child: Container(
           margin: const EdgeInsets.symmetric(vertical: 3),
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
           decoration: BoxDecoration(
@@ -1309,6 +1418,16 @@ class _MessageBubble extends StatelessWidget {
           ),
         ),
       ),
+            // Reactions sit under the bubble's own edge, outside the bubble
+            // itself so a wrapped emoji row can never clip the message.
+            MessageReactionRow(
+              reactions: message.reactions,
+              alignEnd: isMine,
+              onTap: (ChatReaction reaction) =>
+                  onReact(reaction.mine ? null : reaction.emoji),
+            ),
+          ],
+        ),
     );
   }
 }

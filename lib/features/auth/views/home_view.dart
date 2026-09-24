@@ -110,27 +110,34 @@ class _HomeViewState extends State<HomeView> {
     final _TabItem tab = _tabs[_index];
     return Scaffold(
       extendBody: true,
-      appBar: PremiumAppBar(
-        title: tab.label,
-        subtitle: tab.subtitle,
-        actions: _index == 0
-            ? <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.tune_rounded, color: Colors.white),
-                  tooltip: 'Filter Profiles',
-                  onPressed: () => SearchFilterBottomSheet.show(context),
-                ),
-              ]
-            : _index == 3
-                ? <Widget>[
-                    IconButton(
-                      icon: const Icon(Icons.remove_red_eye_outlined, color: Colors.white),
-                      tooltip: 'Profile Views',
-                      onPressed: () => Get.to<void>(() => const ProfileViewsView()),
-                    ),
-                  ]
-                : null,
-      ),
+      // The Chat tab draws its own reference header (a large serif "Chat
+      // Conversations" title on the blush canvas), so the shell's gradient bar
+      // is suppressed there and the inbox supplies the drawer control instead.
+      appBar: _index == 2
+          ? null
+          : PremiumAppBar(
+              title: tab.label,
+              subtitle: tab.subtitle,
+              actions: _index == 0
+                  ? <Widget>[
+                      IconButton(
+                        icon: const Icon(Icons.tune_rounded, color: Colors.white),
+                        tooltip: 'Filter Profiles',
+                        onPressed: () => SearchFilterBottomSheet.show(context),
+                      ),
+                    ]
+                  : _index == 3
+                      ? <Widget>[
+                          IconButton(
+                            icon: const Icon(Icons.remove_red_eye_outlined,
+                                color: Colors.white),
+                            tooltip: 'Profile Views',
+                            onPressed: () =>
+                                Get.to<void>(() => const ProfileViewsView()),
+                          ),
+                        ]
+                      : null,
+            ),
       drawer: _AppDrawer(auth: _auth, currentTab: _index),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),

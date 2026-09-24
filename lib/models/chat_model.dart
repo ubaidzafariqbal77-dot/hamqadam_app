@@ -97,6 +97,56 @@ class ChatAttachment {
   }
 }
 
+/// One emoji reaction on a message, already grouped by the API.
+///
+/// The server collapses every reaction row into per-emoji buckets, so the
+/// bubble only has to render `emoji × count` plus whether *I* am one of them
+/// ([mine]) to decide the highlighted style.
+class ChatReaction {
+  const ChatReaction({
+    required this.emoji,
+    required this.count,
+    this.mine = false,
+    this.users = const <String>[],
+    this.userIds = const <int>[],
+  });
+
+  final String emoji;
+  final int count;
+
+  /// True when the signed-in member is one of the people who reacted — tapping
+  /// the same emoji again clears it server-side.
+  final bool mine;
+
+  /// Display names of the reactors, for the "who reacted" tooltip. Parallel to
+  /// [userIds] (same index = same person).
+  final List<String> users;
+
+  /// Ids of the reactors. A realtime reaction names the person who reacted but
+  /// not the emoji they dropped, so the local patch needs the ids to take that
+  /// member out of whatever bucket they were in before.
+  final List<int> userIds;
+
+  factory ChatReaction.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawUsers = json['users'] as List<dynamic>? ?? <dynamic>[];
+    final List<Map<String, dynamic>> people =
+        rawUsers.whereType<Map<String, dynamic>>().toList();
+    return ChatReaction(
+      emoji: json['emoji'] as String? ?? '',
+      count: json['count'] as int? ?? 0,
+      mine: json['mine'] as bool? ?? false,
+      users: people
+          .map((Map<String, dynamic> u) => u['name'] as String? ?? '')
+          .where((String name) => name.isNotEmpty)
+          .toList(),
+      userIds: people
+          .map((Map<String, dynamic> u) => u['id'] as int? ?? 0)
+          .where((int id) => id > 0)
+          .toList(),
+    );
+  }
+}
+
 /// A single chat message within a thread.
 /// How far one of *our own* messages has got.
 ///
@@ -137,6 +187,7 @@ class ChatMessage {
     this.seen = false,
     this.metadata,
     this.expiresAt,
+    this.reactions = const <ChatReaction>[],
   });
 
   final int id;
@@ -181,6 +232,9 @@ class ChatMessage {
   /// When this disappearing message will vanish from the thread (null =
   /// keep forever). The server hides+deletes rows past this moment.
   final DateTime? expiresAt;
+
+  /// Emoji reactions on this message, grouped per emoji by the API.
+  final List<ChatReaction> reactions;
 
   /// True once the disappearing deadline has passed on-device — the bubble
   /// renders as a tombstone until the next fetch removes it.
@@ -266,6 +320,9 @@ class ChatMessage {
     DateTime? readAt,
     bool? seen,
     Map<String, dynamic>? metadata,
+    List<ChatReaction>? reactions,
+    String? localId,
+    List<String>? localAttachmentPaths,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -281,12 +338,14 @@ class ChatMessage {
       senderName: senderName,
       senderPhoto: senderPhoto,
       delivery: delivery ?? this.delivery,
-      localId: localId,
-      localAttachmentPaths: localAttachmentPaths,
+      localId: localId ?? this.localId,
+      localAttachmentPaths: localAttachmentPaths ?? this.localAttachmentPaths,
       deliveredAt: deliveredAt ?? this.deliveredAt,
       readAt: readAt ?? this.readAt,
       seen: seen ?? this.seen,
       metadata: metadata ?? this.metadata,
+      expiresAt: expiresAt,
+      reactions: reactions ?? this.reactions,
     );
   }
 
@@ -332,6 +391,10 @@ class ChatMessage {
       metadata: json['metadata'] is Map<String, dynamic>
           ? json['metadata'] as Map<String, dynamic>
           : null,
+      reactions: (json['reactions'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatReaction.fromJson)
+          .toList(),
     );
   }
 }
@@ -397,6 +460,8 @@ class ChatThread {
     this.lastMessage,
     this.lastMessageAt,
     this.disappearAfter = 0,
+    this.isArchived = false,
+    this.isMuted = false,
   });
 
   final int id;
@@ -415,6 +480,13 @@ class ChatThread {
   /// Remembered disappearing-message TTL for this thread (seconds; 0 = off).
   /// New messages default to it; the composer's timer chip reflects it.
   final int disappearAfter;
+
+  /// Archived into the Archived tab for *this* member only — archive is per
+  /// side, so the other person keeps seeing the chat in their inbox.
+  final bool isArchived;
+
+  /// Notifications silenced for this member only; messages keep arriving.
+  final bool isMuted;
 
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
@@ -455,6 +527,8 @@ class ChatThread {
     ChatMessage? lastMessage,
     DateTime? lastMessageAt,
     int? disappearAfter,
+    bool? isArchived,
+    bool? isMuted,
   }) {
     return ChatThread(
       id: id ?? this.id,
@@ -470,6 +544,8 @@ class ChatThread {
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
       disappearAfter: disappearAfter ?? this.disappearAfter,
+      isArchived: isArchived ?? this.isArchived,
+      isMuted: isMuted ?? this.isMuted,
     );
   }
 
@@ -522,6 +598,8 @@ class ChatThread {
           ? DateTime.tryParse(json['last_message_at'] as String)
           : (json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null),
       disappearAfter: json['disappear_after'] as int? ?? 0,
+      isArchived: json['archived'] as bool? ?? false,
+      isMuted: json['muted'] as bool? ?? false,
     );
   }
 }

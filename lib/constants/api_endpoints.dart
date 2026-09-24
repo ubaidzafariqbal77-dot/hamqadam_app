@@ -242,6 +242,21 @@ class ApiEndpoints {
   /// Delete a single message (for the current user only).
   static String chatDeleteMessage(int messageId) => '/chat/messages/$messageId';
 
+  /// `POST /chat/threads/{thread}/archive` — body `{archived: true|false}`.
+  /// Per side: archiving hides the chat from MY inbox only.
+  static String chatArchive(int threadId) => '/chat/threads/$threadId/archive';
+
+  /// `POST /chat/threads/{thread}/mute` — body `{muted: true|false}`.
+  /// Per side: silences push/tray notifications for me only.
+  static String chatMute(int threadId) => '/chat/threads/$threadId/mute';
+
+  /// `GET /chat/threads/{thread}/export` — full JSON backup of the chat.
+  static String chatExport(int threadId) => '/chat/threads/$threadId/export';
+
+  /// `POST /chat/messages/{message}/reaction` — body `{emoji: '❤️'}`.
+  /// Sending the same emoji again (or null) clears the reaction.
+  static String chatMessageReaction(int messageId) => '/chat/messages/$messageId/reaction';
+
   // ---- Payments & Subscriptions ---------------------------------------------
   /// List of available membership plans (`GET /payments/plans`).
   static const String paymentPlans = '/payments/plans';

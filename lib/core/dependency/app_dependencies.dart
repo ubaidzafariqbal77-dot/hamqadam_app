@@ -43,6 +43,7 @@ import '../../repositories/shortlist_repository.dart';
 import '../../repositories/auth_extra_repository.dart';
 import '../../repositories/proposal_extra_repository.dart';
 import '../../repositories/search_extra_repository.dart';
+import '../../repositories/discover_extra_repository.dart';
 import '../../repositories/notification_extra_repository.dart';
 import '../../repositories/match_repository.dart';
 import '../../repositories/safety_repository.dart';
@@ -55,6 +56,7 @@ import '../../repositories/verification_repository.dart';
 import '../../controllers/match_controller.dart';
 import '../../controllers/safety_controller.dart';
 import '../../controllers/search_extra_controller.dart';
+import '../../controllers/swipe_controller.dart';
 import '../../controllers/proposal_extra_controller.dart';
 import '../../controllers/notification_extra_controller.dart';
 import '../../controllers/ai_helper_controller.dart';
@@ -139,6 +141,7 @@ class AppDependencies {
     Get.put<MatchRepository>(MatchRepository(apiClient), permanent: true);
     Get.put<SafetyRepository>(SafetyRepository(apiClient), permanent: true);
     Get.put<SearchExtraRepository>(SearchExtraRepository(apiClient), permanent: true);
+    Get.put<DiscoverExtraRepository>(DiscoverExtraRepository(apiClient), permanent: true);
     Get.put<ProposalExtraRepository>(ProposalExtraRepository(apiClient), permanent: true);
     Get.put<NotificationExtraRepository>(NotificationExtraRepository(apiClient), permanent: true);
     Get.put<AiHelperRepository>(AiHelperRepository(apiClient), permanent: true);
@@ -338,7 +341,17 @@ class AppDependencies {
     Get.put<AuthExtraController>(AuthExtraController(Get.find<AuthExtraRepository>()), permanent: true);
 
     Get.lazyPut<MatchController>(() => MatchController(Get.find<MatchRepository>()), fenix: true);
-    Get.lazyPut<SearchExtraController>(() => SearchExtraController(Get.find<SearchExtraRepository>()), fenix: true);
+    Get.lazyPut<SearchExtraController>(
+      () => SearchExtraController(
+        Get.find<SearchExtraRepository>(),
+        Get.find<DiscoverExtraRepository>(),
+      ),
+      fenix: true,
+    );
+    Get.lazyPut<SwipeController>(
+      () => SwipeController(Get.find<DiscoverExtraRepository>()),
+      fenix: true,
+    );
     Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
     Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
     Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);

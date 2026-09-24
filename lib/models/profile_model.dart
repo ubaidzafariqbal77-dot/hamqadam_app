@@ -477,6 +477,8 @@ class ProfilePrivacy {
     this.showPhone = false,
     this.showLocation = false,
     this.allowProfileViewNotifications = false,
+    this.doNotDisturb = false,
+    this.invisibleMode = false,
   });
 
   final bool showPhoto;
@@ -487,6 +489,13 @@ class ProfilePrivacy {
   final bool showLocation;
   final bool allowProfileViewNotifications;
 
+  /// Pauses incoming proposals/interests. Enforced server-side; the server now
+  /// echoes it back so the switch reflects what is actually stored.
+  final bool doNotDisturb;
+
+  /// Takes the member out of search, Discover and recommendations entirely.
+  final bool invisibleMode;
+
   factory ProfilePrivacy.fromJson(Map<String, dynamic> json) {
     return ProfilePrivacy(
       showPhoto: _asBool(json['show_photo']),
@@ -496,6 +505,8 @@ class ProfilePrivacy {
       showPhone: _asBool(json['show_phone']),
       showLocation: _asBool(json['show_location']),
       allowProfileViewNotifications: _asBool(json['allow_profile_view_notifications']),
+      doNotDisturb: _asBool(json['do_not_disturb']),
+      invisibleMode: _asBool(json['invisible_mode']),
     );
   }
 }

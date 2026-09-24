@@ -49,6 +49,13 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late bool _verifiedOnly;
   late bool _photoOnly;
   late bool _nearby;
+  // The four flags the API has supported all along and the sheet never
+  // exposed: who is new, who I have not opened yet, mutual interests and who
+  // is online. Without these the endpoints were unreachable from the app.
+  late bool _excludeViewed;
+  late bool _newProfiles;
+  late bool _mutualMatch;
+  late bool _onlineNow;
   late String? _selectedSort;
   /// Carried through untouched so applying the sheet cannot drop the
   /// opposite-gender rule. There is no control that edits it.
@@ -72,6 +79,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _verifiedOnly = f.verifiedOnly;
     _photoOnly = f.photoOnly;
     _nearby = f.nearby;
+    _excludeViewed = f.excludeViewed;
+    _newProfiles = f.newProfiles;
+    _mutualMatch = f.mutualMatch;
+    _onlineNow = f.onlineNow;
     _selectedSort = f.sort;
     _selectedGender = f.gender;
     _maritalStatusId = f.maritalStatusId;
@@ -101,6 +112,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       _verifiedOnly = false;
       _photoOnly = false;
       _nearby = false;
+      _excludeViewed = false;
+      _newProfiles = false;
+      _mutualMatch = false;
+      _onlineNow = false;
       _selectedSort = null;
       // `_selectedGender` deliberately survives a reset — it is the
       // opposite-gender rule, not one of the filters being cleared.
@@ -126,6 +141,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       photoOnly: _photoOnly,
       compatibilityMin: _minCompatibility.round() > 0 ? _minCompatibility.round() : null,
       nearby: _nearby,
+      excludeViewed: _excludeViewed,
+      newProfiles: _newProfiles,
+      mutualMatch: _mutualMatch,
+      onlineNow: _onlineNow,
       // Only sorts the API validates: newest | compatibility | recently_active.
       // `latest`/`age_asc`/`age_desc` used to 422 the whole request, killing
       // the search the moment one of them was applied.
@@ -348,6 +367,42 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     iconColor: AppColors.success,
                     value: _nearby,
                     onChanged: (bool v) => setState(() => _nearby = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Exclude Previously Viewed',
+                    subtitle: 'Skip every profile you have already opened',
+                    icon: Icons.visibility_off_rounded,
+                    iconColor: AppColors.regAccent,
+                    value: _excludeViewed,
+                    onChanged: (bool v) => setState(() => _excludeViewed = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'New Profiles',
+                    subtitle: 'Only members who joined in the last 14 days',
+                    icon: Icons.fiber_new_rounded,
+                    iconColor: AppColors.primary,
+                    value: _newProfiles,
+                    onChanged: (bool v) => setState(() => _newProfiles = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Mutual Matches Only',
+                    subtitle: 'Only members whose interest was accepted both ways',
+                    icon: Icons.favorite_rounded,
+                    iconColor: AppColors.error,
+                    value: _mutualMatch,
+                    onChanged: (bool v) => setState(() => _mutualMatch = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Online Now',
+                    subtitle: 'Only members active in the last few minutes',
+                    icon: Icons.bolt_rounded,
+                    iconColor: AppColors.success,
+                    value: _onlineNow,
+                    onChanged: (bool v) => setState(() => _onlineNow = v),
                   ),
                   const SizedBox(height: AppSpacing.lg),
 

@@ -18,6 +18,7 @@ import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../chat/views/chat_conversation_view.dart';
 import '../../notifications/views/notifications_view.dart';
+import '../widgets/discover_shortcuts.dart';
 import '../widgets/public_profile_detail_sheet.dart';
 import '../widgets/report_profile_dialog.dart';
 import '../widgets/trust_verification_sheet.dart';
@@ -50,6 +51,10 @@ class DiscoverView extends StatelessWidget {
         children: <Widget>[
           // Top Search & Filter Bar
           _SearchBarHeader(controller: controller),
+          // The filter module's own screens: swiping, interests, new arrivals,
+          // history and recently viewed — one tap away, always visible.
+          const DiscoverShortcuts(),
+          const SizedBox(height: AppSpacing.xs),
           // Active Filter Chips (if any filters applied)
           _ActiveFilterChips(controller: controller),
           // AI Filtered toggle — narrows the feed to the matchmaking model's

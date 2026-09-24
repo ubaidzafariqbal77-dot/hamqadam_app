@@ -37,7 +37,12 @@ import '../../features/chat/views/incoming_call_screen.dart';
 import '../../features/content/views/expert_questions_view.dart';
 import '../../features/content/views/forums_view.dart';
 import '../../features/content/views/webinars_view.dart';
+import '../../features/discover/views/interest_matches_view.dart';
+import '../../features/discover/views/new_profiles_view.dart';
+import '../../features/discover/views/recently_viewed_view.dart';
 import '../../features/discover/views/saved_searches_view.dart';
+import '../../features/discover/views/search_history_view.dart';
+import '../../features/discover/views/swipe_matching_view.dart';
 import '../../features/family/views/family_view.dart';
 import 'app_routes.dart';
 
@@ -113,5 +118,12 @@ class AppPages {
     _page(AppRoutes.expertQuestions, () => const ExpertQuestionsView()),
     _page(AppRoutes.forums, () => const ForumsView()),
     _page(AppRoutes.savedSearches, () => const SavedSearchesView()),
+
+    // Discover filter module.
+    _page(AppRoutes.swipeMatching, () => const SwipeMatchingView()),
+    _page(AppRoutes.interestMatches, () => const InterestMatchesView()),
+    _page(AppRoutes.newProfiles, () => const NewProfilesView()),
+    _page(AppRoutes.recentlyViewed, () => const RecentlyViewedView()),
+    _page(AppRoutes.searchHistory, () => const SearchHistoryView()),
   ];
 }

@@ -23,6 +23,8 @@ class SearchProfileModel {
     this.compatibilityPercentage,
     this.lastActiveAt,
     this.createdAt,
+    this.interestScore,
+    this.sharedInterests = const <String>[],
   });
 
   final int id;
@@ -45,6 +47,14 @@ class SearchProfileModel {
   final int? compatibilityPercentage;
   final DateTime? lastActiveAt;
   final DateTime? createdAt;
+
+  /// Interest-Based Recommendations only (`GET /matches/interest-based`): how
+  /// much of the viewer's own interests this member shares, 0-100.
+  final int? interestScore;
+
+  /// The words behind [interestScore] ("reading", "travel", …) so a card can
+  /// say WHY it was recommended instead of showing a bare number.
+  final List<String> sharedInterests;
 
   String get displayName => (name ?? '').trim().isEmpty ? 'HamQadam Member' : name!.trim();
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : 'H';
@@ -104,6 +114,11 @@ class SearchProfileModel {
       verifiedAt: _asDate(verification['verified_at']),
       lastActiveAt: _asDate(json['last_active_at']),
       createdAt: _asDate(json['created_at']),
+      interestScore: _asIntOrNull(json['interest_score']),
+      sharedInterests: (json['shared_interests'] as List<dynamic>? ?? <dynamic>[])
+          .map((dynamic e) => '$e')
+          .where((String e) => e.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -228,6 +243,10 @@ class SearchFilterModel {
     this.cityId,
     this.searchQuery,
     this.partnerPreferenceFilter = false,
+    this.excludeViewed = false,
+    this.newProfiles = false,
+    this.mutualMatch = false,
+    this.onlineNow = false,
   });
 
   final int? ageMin;
@@ -246,6 +265,20 @@ class SearchFilterModel {
   final int? cityId;
   final String? searchQuery;
   final bool partnerPreferenceFilter;
+
+  /// Hide members this account has already opened. The API owns the list (its
+  /// own `profile-views`), so the flag is the whole implementation here.
+  final bool excludeViewed;
+
+  /// Only members who joined recently (`new_profiles` → 14 days,
+  /// `new_this_week` → 7).
+  final bool newProfiles;
+
+  /// Only members whose interest with this account was accepted both ways.
+  final bool mutualMatch;
+
+  /// Only members active in the last few minutes.
+  final bool onlineNow;
 
   /// Counts the active filter criteria (excluding search text and page).
   int get activeFilterCount {
@@ -266,6 +299,10 @@ class SearchFilterModel {
     if (countryId != null) count++;
     if (stateId != null) count++;
     if (cityId != null) count++;
+    if (excludeViewed) count++;
+    if (newProfiles) count++;
+    if (mutualMatch) count++;
+    if (onlineNow) count++;
     return count;
   }
 
@@ -292,6 +329,10 @@ class SearchFilterModel {
     if (countryId != null) params['country_id'] = countryId;
     if (stateId != null) params['state_id'] = stateId;
     if (cityId != null) params['city_id'] = cityId;
+    if (excludeViewed) params['exclude_viewed'] = 1;
+    if (newProfiles) params['new_profiles'] = 1;
+    if (mutualMatch) params['mutual_match'] = 1;
+    if (onlineNow) params['online_now'] = 1;
     if (searchQuery != null && searchQuery!.trim().isNotEmpty) {
       params['search'] = searchQuery!.trim();
     }
@@ -322,6 +363,10 @@ class SearchFilterModel {
     int? cityId,
     String? searchQuery,
     bool? partnerPreferenceFilter,
+    bool? excludeViewed,
+    bool? newProfiles,
+    bool? mutualMatch,
+    bool? onlineNow,
     bool clearAgeMin = false,
     bool clearAgeMax = false,
     bool clearCompatibilityMin = false,
@@ -352,6 +397,10 @@ class SearchFilterModel {
       cityId: clearCity ? null : (cityId ?? this.cityId),
       searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
       partnerPreferenceFilter: partnerPreferenceFilter ?? this.partnerPreferenceFilter,
+      excludeViewed: excludeViewed ?? this.excludeViewed,
+      newProfiles: newProfiles ?? this.newProfiles,
+      mutualMatch: mutualMatch ?? this.mutualMatch,
+      onlineNow: onlineNow ?? this.onlineNow,
     );
   }
 

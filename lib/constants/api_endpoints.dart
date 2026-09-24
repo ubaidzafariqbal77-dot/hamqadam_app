@@ -205,6 +205,27 @@ class ApiEndpoints {
   static const String matchesFeedback = '/matches/feedback';
   static const String matchesRecalculate = '/matches/recalculate';
 
+  // ---- Discover filters / matching ------------------------------------------
+  /// `GET /matches/interest-based` — recommendations ranked by shared
+  /// hobbies/interests/values, each with `interest_score` + `shared_interests`.
+  static const String matchesInterestBased = '/matches/interest-based';
+
+  /// `GET /matches/swipe-deck` — the Swipe Matching stack.
+  static const String matchesSwipeDeck = '/matches/swipe-deck';
+
+  /// `POST /matches/swipe` — records one like/pass, answers `is_match`.
+  static const String matchesSwipe = '/matches/swipe';
+
+  /// `DELETE /matches/swipe/last` — puts the last card back.
+  static const String matchesSwipeUndo = '/matches/swipe/last';
+
+  /// `GET /matches/swipe-summary` — like/pass/match counters.
+  static const String matchesSwipeSummary = '/matches/swipe-summary';
+
+  /// `DELETE /search/history/{id}` — removes one entry. (Clearing the whole
+  /// history is a DELETE on [searchHistory] itself.)
+  static String searchHistoryDelete(int id) => '/search/history/$id';
+
   // ---- Chat -----------------------------------------------------------------
   /// List all conversation threads for the authenticated user.
   static const String chatThreads = '/chat/threads';

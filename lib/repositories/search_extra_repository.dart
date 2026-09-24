@@ -18,12 +18,17 @@ class SearchExtraRepository {
   }
 
   /// `POST /search/saved` — save a search filter.
+  ///
+  /// The API validates a nested `filters` object (`filters.age_min`,
+  /// `filters.exclude_viewed`, …); sending the keys flattened was answered
+  /// with `422 The filters field is required.` — every "Save this search"
+  /// from the app has been failing silently until now.
   Future<void> saveSearch({required String name, required Map<String, dynamic> filters}) async {
     await _client.post(
       ApiEndpoints.searchSaved,
       body: <String, dynamic>{
         'name': name,
-        ...filters,
+        'filters': filters,
       },
     );
   }
@@ -76,6 +81,16 @@ class SearchExtraRepository {
       stateId: saved['state_id'] as int?,
       cityId: saved['city_id'] as int?,
       searchQuery: saved['search'] as String?,
+      // The Discover-only switches have to survive a save/re-apply round trip
+      // too, or re-applying "Never viewed + New profiles" would silently drop
+      // exactly the two filters that made the search worth saving.
+      excludeViewed: saved['exclude_viewed'] == true || saved['exclude_viewed'] == 1,
+      newProfiles: saved['new_profiles'] == true || saved['new_profiles'] == 1,
+      mutualMatch: saved['mutual_match'] == true || saved['mutual_match'] == 1,
+      onlineNow: saved['online_now'] == true || saved['online_now'] == 1,
+      partnerPreferenceFilter: saved['partner_preference'] == true ||
+          saved['partner_preference'] == 1 ||
+          saved['partner_preference'] == 'true',
     );
   }
 }

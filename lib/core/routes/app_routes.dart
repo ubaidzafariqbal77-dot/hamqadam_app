@@ -83,6 +83,22 @@ class AppRoutes {
   // ---- Saved searches ---------------------------------------------------
   static const String savedSearches = '/search/saved/view';
 
+  // ---- Discover filter module -------------------------------------------
+  /// Swipe Matching — like/pass deck (`GET /matches/swipe-deck`).
+  static const String swipeMatching = '/discover/swipe';
+
+  /// Interest-Based Recommendations (`GET /matches/interest-based`).
+  static const String interestMatches = '/discover/interest-based';
+
+  /// New Profiles (`GET /search/profiles?new_profiles=1`).
+  static const String newProfiles = '/discover/new-profiles';
+
+  /// Recently Viewed Profiles (`GET /profile-views`).
+  static const String recentlyViewed = '/discover/recently-viewed';
+
+  /// Search History (`GET /search/history`), with clear + re-apply.
+  static const String searchHistory = '/search/history/view';
+
   /// step number (1-based) -> route.
   static const List<String> stepRoutes = <String>[
     accountFor, // 1

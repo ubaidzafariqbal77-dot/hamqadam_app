@@ -65,12 +65,9 @@ class ProfileController extends GetxController {
   final RxBool mutating = false.obs;
   final RxnString actionError = RxnString();
 
-  /// Current privacy switches, derived from the loaded profile.
-  ///
-  /// NOTE: `do_not_disturb` and `invisible_mode` are accepted by the update
-  /// endpoint but are NOT echoed by the read resource, so they always read
-  /// false here. Keep the local value after a successful save rather than
-  /// re-reading it.
+  /// Current privacy switches, derived from the loaded profile — every one of
+  /// them, including Do Not Disturb and Invisible Mode, which the API now
+  /// echoes back on the same `privacy` block that PATCH writes.
   PrivacySettingsModel get privacySettings {
     final ProfilePrivacy? p = profile?.privacy;
     if (p == null) return const PrivacySettingsModel();
@@ -82,8 +79,15 @@ class ProfileController extends GetxController {
       showPhone: p.showPhone,
       showLocation: p.showLocation,
       allowProfileViewNotifications: p.allowProfileViewNotifications,
+      doNotDisturb: p.doNotDisturb,
+      invisibleMode: p.invisibleMode,
     );
   }
+
+  /// Convenience for the focus switches, so a screen can show their real state
+  /// without rebuilding the whole model.
+  bool get isInvisible => privacySettings.invisibleMode;
+  bool get isDoNotDisturb => privacySettings.doNotDisturb;
 
   /// `PATCH /profile/privacy`. Sends only what changed. Returns null on
   /// success, or a message to show.

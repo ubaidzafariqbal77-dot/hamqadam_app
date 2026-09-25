@@ -7,6 +7,11 @@ import '../constants/app_text_styles.dart';
 
 /// Premium gradient AppBar with a softly rounded bottom edge, elegant shadow
 /// and white content. Drop-in for `Scaffold.appBar`.
+///
+/// The gradient is the registration flow's muted dusty rose
+/// ([AppColors.regPrimaryGradient]), not the saturated brand pink — every
+/// screen the app opens (drawer, tabs, profile) reads as one family with the
+/// signup screens.
 class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
   const PremiumAppBar({
     super.key,
@@ -43,14 +48,14 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: AppColors.brandGradient,
+            colors: AppColors.regPrimaryGradient,
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Color(0x33D63F73), // primaryDark @ 20%
+              color: Color(0x33CE8492), // regPrimaryGradient end @ 20%
               blurRadius: 18,
               offset: Offset(0, 6),
               spreadRadius: -2,

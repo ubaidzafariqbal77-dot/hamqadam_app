@@ -33,7 +33,7 @@ class _WebinarsViewState extends State<WebinarsView> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Webinars', subtitle: 'Live sessions with relationship experts'),
       body: Obx(() {
         final ApiState<ContentPage<Map<String, dynamic>>> state = _controller.webinarsState.value;
@@ -41,7 +41,7 @@ class _WebinarsViewState extends State<WebinarsView> {
         switch (state.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: _controller.loadWebinars);
           case ApiStatus.unauthorized:
@@ -56,7 +56,7 @@ class _WebinarsViewState extends State<WebinarsView> {
           case ApiStatus.success:
             final List<Map<String, dynamic>> items = state.data?.items ?? <Map<String, dynamic>>[];
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadWebinars(),
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -110,7 +110,7 @@ class _WebinarCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: <Color>[AppColors.primary.withValues(alpha: 0.12), AppColors.primary.withValues(alpha: 0.03)],
+                colors: <Color>[AppColors.regAccent.withValues(alpha: 0.12), AppColors.regAccent.withValues(alpha: 0.03)],
               ),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(AppRadius.lg),
@@ -123,10 +123,10 @@ class _WebinarCard extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
+                    color: AppColors.regAccent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.videocam_rounded, color: AppColors.primary, size: 22),
+                  child: const Icon(Icons.videocam_rounded, color: AppColors.regAccent, size: 22),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -139,7 +139,7 @@ class _WebinarCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           DateFormat('EEE, d MMM • h:mm a').format(when),
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                          style: AppTextStyles.caption.copyWith(color: AppColors.regAccent, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ],
@@ -172,7 +172,7 @@ class _WebinarCard extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: registered ? AppColors.success : AppColors.primary,
+                        backgroundColor: registered ? AppColors.success : AppColors.regAccent,
                         padding: const EdgeInsets.symmetric(vertical: 11),
                         shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
                       ),

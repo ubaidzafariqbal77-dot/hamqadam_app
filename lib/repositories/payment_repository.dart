@@ -76,6 +76,36 @@ class PaymentRepository {
     return CouponValidationResult.fromJson(res.dataMap, success: res.success);
   }
 
+  /// `GET /payments/gateways` — gateways the admin has switched on, with the
+  /// server's own `available` flag per method.
+  Future<List<PaymentGatewayInfo>> fetchGateways() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.paymentGateways);
+    final dynamic raw = res.dataMap['gateways'];
+    if (raw is! List) return const <PaymentGatewayInfo>[];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(PaymentGatewayInfo.fromJson)
+        .toList();
+  }
+
+  /// `GET /payments/checkout/{payment}/status` — real-time payment status.
+  ///
+  /// [checkoutToken] is the one-time token from checkout; the endpoint accepts
+  /// it as `checkout_token` and rejects a mismatched one.
+  Future<CheckoutStatusResult> fetchCheckoutStatus(
+    int paymentId, {
+    String? checkoutToken,
+  }) async {
+    final Map<String, dynamic>? query = (checkoutToken ?? '').isEmpty
+        ? null
+        : <String, dynamic>{'checkout_token': checkoutToken};
+    final ApiEnvelope res = await _client.get(
+      ApiEndpoints.paymentCheckoutStatus(paymentId),
+      query: query,
+    );
+    return CheckoutStatusResult.fromJson(res.dataMap);
+  }
+
   /// `GET /payments/coins/pricing` — Admin-configured per-coin charge.
   Future<CoinPricing> fetchCoinPricing() async {
     final ApiEnvelope res = await _client.get(ApiEndpoints.paymentCoinPricing);

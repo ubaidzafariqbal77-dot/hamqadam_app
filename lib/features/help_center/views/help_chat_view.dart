@@ -80,7 +80,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                 _attachmentOption(
                   icon: Icons.photo_library_rounded,
                   label: 'Gallery',
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickImage();
@@ -140,7 +140,7 @@ class _HelpChatViewState extends State<HelpChatView> {
     return Scaffold(
       appBar: AppBar(
         elevation: 1,
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.roseCanvas,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           tooltip: 'Back',
@@ -160,10 +160,10 @@ class _HelpChatViewState extends State<HelpChatView> {
           children: <Widget>[
             CircleAvatar(
               radius: 19,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+              backgroundColor: AppColors.regAccent.withValues(alpha: 0.15),
               child: const Icon(
                 Icons.support_agent_rounded,
-                color: AppColors.primary,
+                color: AppColors.regAccent,
                 size: 22,
               ),
             ),
@@ -226,7 +226,7 @@ class _HelpChatViewState extends State<HelpChatView> {
               final List<HelpChatMessage> list = _controller.messages;
 
               if (status == ApiStatus.loading && list.isEmpty) {
-                return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
               }
 
               if (list.isEmpty) {
@@ -240,7 +240,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
-                              colors: AppColors.brandGradient,
+                              colors: AppColors.regPrimaryGradient,
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -275,7 +275,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                         child: SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.regAccent),
                         ),
                       ),
                     );
@@ -320,7 +320,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                             width: 60,
                             height: 60,
                             color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-                            child: const Icon(Icons.insert_drive_file_rounded, color: AppColors.primary, size: 28),
+                            child: const Icon(Icons.insert_drive_file_rounded, color: AppColors.regAccent, size: 28),
                           ),
                         ),
                       ),
@@ -368,7 +368,7 @@ class _HelpChatViewState extends State<HelpChatView> {
           children: <Widget>[
             if (!disabled)
               IconButton(
-                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
+                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.regAccent, size: 26),
                 tooltip: 'Attach Photo',
                 onPressed: _showAttachmentOptions,
               ),
@@ -409,7 +409,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                   margin: const EdgeInsets.only(bottom: 2),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.regPrimaryGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -456,7 +456,7 @@ class _HelpMessageBubble extends StatelessWidget {
     final String timeStr = DateFormat('d MMM, h:mm a').format(message.createdAt);
 
     final Color bubbleBg = isMine
-        ? AppColors.primary
+        ? AppColors.regAccent
         : (isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface);              return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -494,7 +494,7 @@ class _HelpMessageBubble extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: AppColors.regAccent,
                     ),
                   ),
                 ),
@@ -529,7 +529,7 @@ class _HelpMessageBubble extends StatelessWidget {
                               width: 140,
                               height: 140,
                               color: Colors.black.withValues(alpha: 0.12),
-                              child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.primary),
+                              child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.regAccent),
                             ),
                           ),
                         );
@@ -543,7 +543,7 @@ class _HelpMessageBubble extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            Icon(Icons.insert_drive_file_rounded, size: 18, color: isMine ? Colors.white : AppColors.primary),
+                            Icon(Icons.insert_drive_file_rounded, size: 18, color: isMine ? Colors.white : AppColors.regAccent),
                             const SizedBox(width: 6),
                             Text(
                               a.originalName.isNotEmpty ? a.originalName : 'Attachment',
@@ -577,7 +577,7 @@ class _HelpMessageBubble extends StatelessWidget {
                                 fit: BoxFit.cover,
                                 errorBuilder: (BuildContext _, Object __, StackTrace? ___) => Container(
                                   color: Colors.black.withValues(alpha: 0.12),
-                                  child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.primary),
+                                  child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.regAccent),
                                 ),
                               ),
                               Container(

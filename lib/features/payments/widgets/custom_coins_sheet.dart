@@ -8,6 +8,7 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/payment_controller.dart';
 import '../../../models/payment_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import 'payment_flow.dart';
 
 /// Modal bottom sheet for buying custom coins: shows the admin-configured
 /// per-coin price, takes an integer coin count, and checks out through the
@@ -127,7 +128,7 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.regPrimaryGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -198,9 +199,9 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
                       color: isActive ? Colors.white : null,
                       fontSize: 12.5,
                     ),
-                    backgroundColor: isActive ? AppColors.primary : null,
+                    backgroundColor: isActive ? AppColors.regAccent : null,
                     side: BorderSide(
-                      color: isActive ? AppColors.primary : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      color: isActive ? AppColors.regAccent : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
                     ),
                     onPressed: () {
                       _coinsInput.text = '$amount';
@@ -216,9 +217,9 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.06),
+                  color: AppColors.regAccent.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                  border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -232,7 +233,7 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
                         '${_controller.coinPricing.value.currency} ${_total.toStringAsFixed(2)}',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
-                          color: AppColors.primary,
+                          color: AppColors.regAccent,
                         ),
                       );
                     }),
@@ -302,7 +303,7 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
                   width: double.infinity,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.regAccent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -348,12 +349,12 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
         decoration: BoxDecoration(
           border: Border.all(
             color: isSelected
-                ? AppColors.primary
+                ? AppColors.regAccent
                 : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(AppRadius.sm),
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : null,
+          color: isSelected ? AppColors.regAccent.withValues(alpha: 0.05) : null,
         ),
         child: Row(
           children: <Widget>[
@@ -378,7 +379,7 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
             ),
             Icon(
               isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.primary : theme.hintColor,
+              color: isSelected ? AppColors.regAccent : theme.hintColor,
               size: 20,
             ),
           ],
@@ -394,10 +395,16 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
       return;
     }
 
-    final String? phone = _phoneInput.text.trim().isNotEmpty ? _phoneInput.text.trim() : null;
+    final bool wallet =
+        _selectedGateway == 'easypaisa' || _selectedGateway == 'jazzcash';
+    final String phone = _phoneInput.text.trim();
 
-    if ((_selectedGateway == 'easypaisa' || _selectedGateway == 'jazzcash') && (phone == null || phone.isEmpty)) {
+    if (wallet && phone.isEmpty) {
       AppSnackbar.error('Please enter your mobile account number.');
+      return;
+    }
+    if (wallet && !_validWalletNumber(phone)) {
+      AppSnackbar.error('Enter a valid mobile number, e.g. 03001234567.');
       return;
     }
 
@@ -410,58 +417,28 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
     );
 
     if (!mounted || result == null) return;
+
+    if (result.unavailableReason != null) {
+      AppSnackbar.error(result.unavailableReason!);
+      return;
+    }
+
+    // Hand off to the app-level context: the sheet closes and the hosted card
+    // page / confirmation dialogs must outlive it.
+    final BuildContext host = Get.context ?? context;
     Navigator.of(context).pop();
-    _showCheckoutSuccessDialog(context, result);
+    await PaymentFlow.start(host, result, onPaid: _refreshAfterPayment);
   }
 
-  void _showCheckoutSuccessDialog(BuildContext context, CheckoutResult res) {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(
-          children: <Widget>[
-            const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
-            const SizedBox(width: 8),
-            const Text('Payment Initiated'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(res.message ?? 'Your payment request has been received.'),
-            if (res.invoiceNumber != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                'Invoice: ${res.invoiceNumber}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-            ],
-            if (res.instructions != null && res.instructions!.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  res.instructions!,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: <Widget>[
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  /// Called once the server says the coins were paid for.
+  void _refreshAfterPayment() {
+    _controller.loadCurrentPackage(silent: true);
+    _controller.loadHistory(silent: true);
+  }
+
+  /// Pakistani mobile numbers in any of the shapes people type them.
+  static bool _validWalletNumber(String value) {
+    final String digits = value.replaceAll(RegExp(r'[\s\-()]'), '');
+    return RegExp(r'^(?:\+92|0092|92|0)?3\d{9}$').hasMatch(digits);
   }
 }

@@ -39,7 +39,7 @@ class InterestsView extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: embedded ? null : _ownAppBar(c),
-        backgroundColor: embedded ? Colors.transparent : null,
+        backgroundColor: embedded ? Colors.transparent : AppColors.roseCanvas,
         body: Column(
           children: <Widget>[
             const _CoinWalletCard(),
@@ -106,7 +106,7 @@ class _CoinWalletCard extends StatelessWidget {
     return Obx(() {
       final InterestCoinBalance b = c.coinBalance.value;
       final bool low = !b.canSend;
-      final Color tone = low ? AppColors.warning : AppColors.primary;
+      final Color tone = low ? AppColors.warning : AppColors.regAccent;
 
       return Container(
         margin: const EdgeInsets.fromLTRB(
@@ -236,7 +236,7 @@ class _InterestList extends StatelessWidget {
               _FilterRow(controller: controller, received: received),
               Expanded(
                 child: RefreshIndicator(
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                   onRefresh: reload,
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(
@@ -474,7 +474,7 @@ class _InterestTile extends StatelessWidget {
                   borderRadius: AppRadius.smAll,
                   border: Border(
                     left: BorderSide(
-                      color: AppColors.primary.withValues(alpha: 0.5),
+                      color: AppColors.regAccent.withValues(alpha: 0.5),
                       width: 2.5,
                     ),
                   ),

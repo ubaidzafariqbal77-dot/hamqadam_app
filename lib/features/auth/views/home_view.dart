@@ -109,6 +109,7 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     final _TabItem tab = _tabs[_index];
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       extendBody: true,
       // The Chat tab draws its own reference header (a large serif "Chat
       // Conversations" title on the blush canvas), so the shell's gradient bar
@@ -216,7 +217,7 @@ class _TabBody extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.xl),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: AppColors.brandGradient,
+                  colors: AppColors.regPrimaryGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -271,15 +272,9 @@ class _AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final bool dark = theme.brightness == Brightness.dark;
-    final Color cardColor = dark ? AppColors.darkSurface : AppColors.lightSurface;
-    final Color hairline =
-        (dark ? AppColors.darkBorder : AppColors.lightDivider).withValues(alpha: 0.7);
-
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: AppColors.roseCanvas,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.horizontal(right: Radius.circular(AppRadius.xl)),
       ),
@@ -290,13 +285,10 @@ class _AppDrawer extends StatelessWidget {
             _header(context),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                padding: const EdgeInsets.fromLTRB(18, AppSpacing.md, 18, AppSpacing.sm),
                 children: <Widget>[
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'MEMBERSHIP & PAYMENTS',
                     entries: <_DrawerEntry>[
                       _DrawerEntry(Icons.workspace_premium_outlined, 'Membership Plans',
@@ -310,8 +302,6 @@ class _AppDrawer extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'MY ACTIVITY',
                     entries: <_DrawerEntry>[
                       _DrawerEntry(Icons.mail_outline_rounded, 'Proposals / Rishtay',
@@ -331,8 +321,6 @@ class _AppDrawer extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'FAMILY & COMMUNITY',
                     entries: <_DrawerEntry>[
                       _DrawerEntry(Icons.family_restroom_rounded, 'Family & Wali Mode',
@@ -348,8 +336,6 @@ class _AppDrawer extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'ACCOUNT',
                     entries: <_DrawerEntry>[
                       _DrawerEntry(Icons.edit_outlined, 'Edit Profile',
@@ -365,7 +351,7 @@ class _AppDrawer extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  _moreRow(context, cardColor),
+                  _moreRow(context),
                 ],
               ),
             ),
@@ -373,7 +359,7 @@ class _AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Text(
                 '${AppStrings.appName} • v1.0.0',
-                style: AppTextStyles.caption.copyWith(color: theme.hintColor),
+                style: AppTextStyles.caption.copyWith(color: AppColors.lightTextHint),
               ),
             ),
           ],
@@ -391,11 +377,11 @@ class _AppDrawer extends StatelessWidget {
         AppSpacing.lg,
         AppSpacing.lg,
         AppSpacing.lg,
-        AppSpacing.xl,
+        AppSpacing.lg,
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -403,6 +389,14 @@ class _AppDrawer extends StatelessWidget {
           bottomLeft: Radius.circular(AppRadius.xl),
           bottomRight: Radius.circular(AppRadius.xl),
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0x33CE8492), // regPrimaryGradient end @ 20%
+            blurRadius: 20,
+            offset: Offset(0, 8),
+            spreadRadius: -4,
+          ),
+        ],
       ),
       child: Obx(() {
         final String name = auth.user.value?.fullName.trim().isNotEmpty == true
@@ -413,14 +407,14 @@ class _AppDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+                        Border.all(color: Colors.white.withValues(alpha: 0.65), width: 2),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.15),
@@ -431,15 +425,69 @@ class _AppDrawer extends StatelessWidget {
                     ],
                   ),
                   child: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    radius: 27,
+                    backgroundColor: Colors.white.withValues(alpha: 0.22),
                     child: Text(
                       name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                      style: AppTextStyles.title.copyWith(color: Colors.white),
+                      style: AppTextStyles.displaySerif.copyWith(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.displaySerif.copyWith(
+                            color: Colors.white,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (email.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.caption
+                                .copyWith(color: Colors.white.withValues(alpha: 0.88)),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: <Widget>[
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -467,28 +515,48 @@ class _AppDrawer extends StatelessWidget {
                     ],
                   ),
                 ),
+                const Spacer(),
+                // Straight back to the Profile tab in the bottom bar — the
+                // drawer's own "Edit Profile" tile opens the editor instead.
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      HomeView.goToTab(3);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.person_outline_rounded, color: Colors.white, size: 14),
+                          SizedBox(width: 6),
+                          Text(
+                            'View profile',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.title.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (email.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 2),
-              Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption
-                    .copyWith(color: Colors.white.withValues(alpha: 0.85)),
-              ),
-            ],
           ],
         );
       }),
@@ -499,73 +567,99 @@ class _AppDrawer extends StatelessWidget {
 
   Widget _group(
     BuildContext context, {
-    required Color cardColor,
-    required Color hairline,
     required String label,
     required List<_DrawerEntry> entries,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: hairline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 2),
-            child: Text(
-              label,
-              style: AppTextStyles.caption.copyWith(
-                color: Theme.of(context).hintColor,
-                fontWeight: FontWeight.w800,
-                fontSize: 10.5,
-                letterSpacing: 1.4,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        // Caps label above the card, in the rose the registration screens print
+        // their field labels in.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.xs, 0, AppSpacing.xs, 7),
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.fieldLabelRose,
+              fontWeight: FontWeight.w800,
+              fontSize: 10.5,
+              letterSpacing: 1.4,
             ),
           ),
-          for (int i = 0; i < entries.length; i++) ...<Widget>[
-            if (i > 0)
-              Divider(height: 1, thickness: 0.6, indent: 54, color: hairline),
-            _tile(context, entries[i]),
-          ],
-          const SizedBox(height: AppSpacing.xs),
-        ],
-      ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.lightSurface,
+            borderRadius: AppRadius.xlAll,
+            border:
+                Border.all(color: AppColors.roseFieldBorder.withValues(alpha: 0.85)),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x1AB4487B), // rose @ 10%, the recipe's card shadow
+                blurRadius: 30,
+                offset: Offset(0, 10),
+                spreadRadius: -6,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (int i = 0; i < entries.length; i++) ...<Widget>[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 0.6,
+                    indent: 60,
+                    color: AppColors.roseFieldBorder.withValues(alpha: 0.55),
+                  ),
+                _tile(context, entries[i]),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _tile(BuildContext context, _DrawerEntry e) {
-    const Color iconColor = AppColors.primary;
+    // Logout is the one destructive row: it keeps the error tint so it never
+    // reads like the daily actions above it.
+    final bool danger = e.label == 'Logout';
+    final Color glyph = danger ? AppColors.error : AppColors.fieldIconGlyph;
+    final Color disc =
+        danger ? AppColors.error.withValues(alpha: 0.09) : AppColors.fieldIconDisc;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: AppRadius.mdAll,
+        borderRadius: AppRadius.lgAll,
         onTap: () {
           Navigator.of(context).pop();
           e.onTap();
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 11),
           child: Row(
             children: <Widget>[
+              // The registration field's dusty-rose icon disc.
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.10),
-                  borderRadius: AppRadius.smAll,
+                  shape: BoxShape.circle,
+                  color: disc,
                 ),
-                child: Icon(e.icon, color: iconColor, size: AppDimensions.iconSm + 2),
+                child: Icon(e.icon, color: glyph, size: AppDimensions.iconSm + 2),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
                   e.label,
-                  style: AppTextStyles.bodyStrong,
+                  style: AppTextStyles.bodyStrong
+                      .copyWith(color: AppColors.lightTextPrimary),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor, size: 20),
+              Icon(Icons.chevron_right_rounded,
+                  color: AppColors.regAccentSoft, size: 20),
             ],
           ),
         ),
@@ -575,35 +669,48 @@ class _AppDrawer extends StatelessWidget {
 
   /// Session utilities tucked into one quiet row so the destructive ones stay
   /// out of the tap-path of daily actions.
-  Widget _moreRow(BuildContext context, Color cardColor) {
+  Widget _moreRow(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: 0.6),
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(
-          color: (Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkBorder
-                  : AppColors.lightDivider)
-              .withValues(alpha: 0.7),
-        ),
+        color: AppColors.lightSurface,
+        borderRadius: AppRadius.xlAll,
+        border: Border.all(color: AppColors.roseFieldBorder.withValues(alpha: 0.85)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1AB4487B),
+            blurRadius: 30,
+            offset: Offset(0, 10),
+            spreadRadius: -6,
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: AppRadius.lgAll,
+          borderRadius: AppRadius.xlAll,
           onTap: () => _sessionMenu(context),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 12),
             child: Row(
               children: <Widget>[
-                Icon(Icons.settings_suggest_outlined,
-                    size: 20, color: Theme.of(context).hintColor),
-                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.fieldIconDisc,
+                  ),
+                  child: const Icon(Icons.settings_suggest_outlined,
+                      size: AppDimensions.iconSm + 2,
+                      color: AppColors.fieldIconGlyph),
+                ),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: Text('Session & account settings', style: AppTextStyles.caption),
+                  child: Text('Session & account settings',
+                      style: AppTextStyles.bodyStrong
+                          .copyWith(color: AppColors.lightTextPrimary)),
                 ),
                 Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 20, color: Theme.of(context).hintColor),
+                    size: 20, color: AppColors.regAccentSoft),
               ],
             ),
           ),
@@ -749,10 +856,10 @@ class _AppDrawer extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary.withValues(alpha: 0.10),
+                      color: AppColors.regAccent.withValues(alpha: 0.12),
                     ),
                     child: const Icon(Icons.fingerprint_rounded,
-                        color: AppColors.primary, size: 26),
+                        color: AppColors.regAccent, size: 26),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
@@ -840,7 +947,8 @@ class _AppDrawer extends StatelessWidget {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text(AppStrings.cancel)),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: danger ? AppColors.error : AppColors.primary),
+            style: TextButton.styleFrom(
+                foregroundColor: danger ? AppColors.error : AppColors.regAccent),
             child: Text(confirmLabel),
           ),
         ],

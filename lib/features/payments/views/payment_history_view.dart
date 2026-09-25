@@ -49,6 +49,7 @@ class _PaymentHistoryViewState extends State<PaymentHistoryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Payment History',
         subtitle: 'Invoices & transactions',
@@ -95,7 +96,7 @@ class _PaymentHistoryViewState extends State<PaymentHistoryView> {
             }
 
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadHistory(silent: true),
               child: ListView.separated(
                 controller: _scrollController,
@@ -109,7 +110,7 @@ class _PaymentHistoryViewState extends State<PaymentHistoryView> {
                       child: Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.primary,
+                          color: AppColors.regAccent,
                         ),
                       ),
                     );
@@ -208,7 +209,7 @@ class _TransactionCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         item.paymentMethod.replaceAll('_', ' ').toUpperCase(),
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.regAccent),
                       ),
                     ],
                   ),
@@ -219,7 +220,7 @@ class _TransactionCard extends StatelessWidget {
                         style: AppTextStyles.bodyStrong.copyWith(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: paid ? AppColors.primary : Colors.amber.shade800,
+                          color: paid ? AppColors.regAccent : Colors.amber.shade800,
                         ),
                       ),
                       const SizedBox(width: 4),

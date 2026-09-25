@@ -25,6 +25,10 @@ class PaymentController extends GetxController {
   final Rx<ApiState<PaymentHistoryPage>> historyState =
       const ApiState<PaymentHistoryPage>.initial().obs;
 
+  /// Payment methods as the server reports them (`GET /payments/gateways`).
+  final Rx<ApiState<List<PaymentGatewayInfo>>> gatewaysState =
+      const ApiState<List<PaymentGatewayInfo>>.initial().obs;
+
   // Selected plan for checkout modal
   final Rxn<PaymentPlanModel> selectedPlan = Rxn<PaymentPlanModel>();
 
@@ -57,6 +61,7 @@ class PaymentController extends GetxController {
     if (_hasToken) {
       loadCurrentPackage();
       loadPlans();
+      loadGateways();
     }
   }
 
@@ -65,6 +70,7 @@ class PaymentController extends GetxController {
     currentPackageState.value = const ApiState<CurrentPackageData>.initial();
     usageState.value = const ApiState<PaymentUsagePage>.initial();
     historyState.value = const ApiState<PaymentHistoryPage>.initial();
+    gatewaysState.value = const ApiState<List<PaymentGatewayInfo>>.initial();
     selectedPlan.value = null;
     couponResult.value = null;
   }
@@ -222,7 +228,55 @@ class PaymentController extends GetxController {
     }
   }
 
-  // ---- 5. Coupon & Checkout ------------------------------------------------
+  // ---- 5. Payment methods ---------------------------------------------------
+
+  /// Loads the admin-configured gateways. Silent by default: the checkout
+  /// sheet falls back to the built-in three while this is in flight or when
+  /// the endpoint is unreachable.
+  Future<void> loadGateways({bool silent = true}) async {
+    if (!_hasToken) return;
+    if (!silent) {
+      gatewaysState.value = const ApiState<List<PaymentGatewayInfo>>.loading();
+    }
+    try {
+      final List<PaymentGatewayInfo> list = await _repo.fetchGateways();
+      gatewaysState.value = list.isEmpty
+          ? const ApiState<List<PaymentGatewayInfo>>.empty(
+              message: 'No payment methods are available right now.')
+          : ApiState<List<PaymentGatewayInfo>>.success(list);
+    } on AppException catch (e) {
+      if (!silent) {
+        gatewaysState.value =
+            ApiState<List<PaymentGatewayInfo>>.fromException(e);
+      }
+    } catch (e) {
+      if (!silent) {
+        gatewaysState.value =
+            ApiState<List<PaymentGatewayInfo>>.serverError(e.toString());
+      }
+    }
+  }
+
+  /// One status check — the sheets poll this while a card payment is open.
+  ///
+  /// Deliberately quiet: the poller calls it every three seconds and a snackbar
+  /// per tick would bury the member when the network blips. Callers surface
+  /// their own feedback.
+  Future<CheckoutStatusResult?> fetchCheckoutStatus(
+    int paymentId, {
+    String? checkoutToken,
+  }) async {
+    try {
+      return await _repo.fetchCheckoutStatus(
+        paymentId,
+        checkoutToken: checkoutToken,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---- 6. Coupon & Checkout ------------------------------------------------
 
   /// Validates promo coupon for the selected package (`POST /payments/coupons/validate`).
   Future<void> validateCoupon(int packageId, String code) async {

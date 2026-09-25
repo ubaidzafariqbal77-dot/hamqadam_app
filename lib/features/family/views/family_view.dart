@@ -37,10 +37,10 @@ class _FamilyViewState extends State<FamilyView> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Family & Wali Mode'),
       body: RefreshIndicator(
-        color: AppColors.primary,
+        color: AppColors.regAccent,
         onRefresh: () async {
           await Future.wait(<Future<void>>[
             _controller.loadGuardians(),
@@ -112,19 +112,19 @@ class _WaliModeCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: <Color>[AppColors.primary.withValues(alpha: 0.10), AppColors.primary.withValues(alpha: 0.04)],
+          colors: <Color>[AppColors.regAccent.withValues(alpha: 0.10), AppColors.regAccent.withValues(alpha: 0.04)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.18)),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.18)),
       ),
       child: Row(
         children: <Widget>[
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+            decoration: const BoxDecoration(color: AppColors.regAccent, shape: BoxShape.circle),
             child: const Icon(Icons.family_restroom_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
@@ -146,7 +146,7 @@ class _WaliModeCard extends StatelessWidget {
           const SizedBox(width: 8),
           Obx(() => Switch.adaptive(
                 value: controller.waliModeEnabled.value,
-                activeColor: AppColors.primary,
+                activeColor: AppColors.regAccent,
                 onChanged: controller.toggleWaliMode,
               )),
         ],
@@ -190,7 +190,7 @@ class _SectionCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Icon(icon, size: 18, color: AppColors.primary),
+                Icon(icon, size: 18, color: AppColors.regAccent),
                 const SizedBox(width: 8),
                 Expanded(child: Text(title, style: AppTextStyles.bodyStrong.copyWith(fontSize: 13.5))),
                 if (action != null) action!,
@@ -246,13 +246,13 @@ class _ApprovalRequestsSection extends StatelessWidget {
               children: <Widget>[
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: AppColors.regAccent.withValues(alpha: 0.12),
                   backgroundImage: (profile['photo'] ?? guardian['photo']) != null
                       ? NetworkImage((profile['photo'] ?? guardian['photo'])!.toString())
                       : null,
                   child: (profile['photo'] ?? guardian['photo']) == null
                       ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))
+                          style: const TextStyle(color: AppColors.regAccent, fontWeight: FontWeight.bold))
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -383,11 +383,11 @@ class _GuardiansSection extends StatelessWidget {
               children: <Widget>[
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: AppColors.regAccent.withValues(alpha: 0.12),
                   backgroundImage: guardian['photo'] != null ? NetworkImage(guardian['photo'].toString()) : null,
                   child: guardian['photo'] == null
                       ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))
+                          style: const TextStyle(color: AppColors.regAccent, fontWeight: FontWeight.bold))
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -470,11 +470,11 @@ class _ManagedProfilesSection extends StatelessWidget {
               children: <Widget>[
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  backgroundColor: AppColors.regAccent.withValues(alpha: 0.12),
                   backgroundImage: profile['photo'] != null ? NetworkImage(profile['photo'].toString()) : null,
                   child: profile['photo'] == null
                       ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))
+                          style: const TextStyle(color: AppColors.regAccent, fontWeight: FontWeight.bold))
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -534,14 +534,14 @@ class _DigestStat extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.06),
+          color: AppColors.regAccent.withValues(alpha: 0.06),
           borderRadius: AppRadius.mdAll,
         ),
         child: Column(
           children: <Widget>[
-            Icon(icon, size: 20, color: AppColors.primary),
+            Icon(icon, size: 20, color: AppColors.regAccent),
             const SizedBox(height: 6),
-            Text('$value', style: AppTextStyles.bodyStrong.copyWith(fontSize: 18, color: AppColors.primary)),
+            Text('$value', style: AppTextStyles.bodyStrong.copyWith(fontSize: 18, color: AppColors.regAccent)),
             Text(label, style: AppTextStyles.caption.copyWith(fontSize: 10.5)),
           ],
         ),
@@ -647,7 +647,7 @@ class _InviteGuardianSheetState extends State<_InviteGuardianSheet> {
               width: double.infinity,
               child: Obx(() => ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.regAccent,
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
                     ),

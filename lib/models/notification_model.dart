@@ -25,6 +25,39 @@ class NotificationModel {
 
   bool get isRead => readAt != null;
 
+  /// Chat notifications ("Ubaid DEV: message preview") live in the inbox —
+  /// the list keeps activity notifications only.
+  bool get isChatMessage {
+    final String t = type.toLowerCase();
+    return t.contains('message') || t.contains('chat');
+  }
+
+  NotificationModel copyWith({
+    int? id,
+    String? type,
+    String? title,
+    String? message,
+    String? deepLink,
+    int? notifyBy,
+    int? infoId,
+    Map<String, dynamic>? payload,
+    DateTime? readAt,
+    DateTime? createdAt,
+  }) {
+    return NotificationModel(
+      id: id ?? this.id,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      message: message ?? this.message,
+      deepLink: deepLink ?? this.deepLink,
+      notifyBy: notifyBy ?? this.notifyBy,
+      infoId: infoId ?? this.infoId,
+      payload: payload ?? this.payload,
+      readAt: readAt ?? this.readAt,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json['id'] ?? 0,

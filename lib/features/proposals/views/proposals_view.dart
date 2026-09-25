@@ -57,6 +57,7 @@ class _ProposalsViewState extends State<ProposalsView> with SingleTickerProvider
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Proposals / Rishtay',
         subtitle: 'Formal marriage connections',
@@ -317,14 +318,14 @@ class _ProposalCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.05),
+                color: AppColors.regAccent.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.12)),
+                border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.12)),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Icon(Icons.format_quote_rounded, size: 16, color: AppColors.primary),
+                  const Icon(Icons.format_quote_rounded, size: 16, color: AppColors.regAccent),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -555,11 +556,11 @@ class _ProposalCard extends StatelessWidget {
 
   Widget _fallbackAvatar(String initial) {
     return Container(
-      color: AppColors.primary.withValues(alpha: 0.12),
+      color: AppColors.regAccent.withValues(alpha: 0.12),
       child: Center(
         child: Text(
           initial,
-          style: AppTextStyles.subtitle.copyWith(color: AppColors.primary, fontSize: 20),
+          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 20),
         ),
       ),
     );

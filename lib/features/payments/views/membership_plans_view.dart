@@ -38,6 +38,7 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Membership Plans',
         subtitle: 'Upgrade your subscription',
@@ -53,7 +54,7 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
         ],
       ),
       body: RefreshIndicator(
-        color: AppColors.primary,
+        color: AppColors.regAccent,
         onRefresh: () async {
           await Future.wait(<Future<void>>[
             _controller.loadCurrentPackage(silent: true),
@@ -75,7 +76,7 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                      child: CircularProgressIndicator(color: AppColors.regAccent),
                     ),
                   );
                 }
@@ -91,8 +92,8 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
+                    foregroundColor: AppColors.regAccent,
+                    side: const BorderSide(color: AppColors.regAccent),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadius.md),
@@ -120,7 +121,7 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
                   return const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                      child: CircularProgressIndicator(color: AppColors.primary),
+                      child: CircularProgressIndicator(color: AppColors.regAccent),
                     ),
                   );
                 }
@@ -188,14 +189,14 @@ class _CurrentPackageCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.25),
+            color: AppColors.regAccent.withValues(alpha: 0.25),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -368,7 +369,7 @@ class _PlanCard extends StatelessWidget {
                 style: AppTextStyles.bodyStrong.copyWith(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
               ),
             ],
@@ -386,7 +387,7 @@ class _PlanCard extends StatelessWidget {
           // Feature grid
           _featureRow(Icons.monetization_on_rounded, '${plan.features.coins} Coins', AppColors.gold),
           const SizedBox(height: 6),
-          _featureRow(Icons.favorite_rounded, '${plan.features.messagingInterests} Express Interests', AppColors.primary),
+          _featureRow(Icons.favorite_rounded, '${plan.features.messagingInterests} Express Interests', AppColors.regAccent),
           const SizedBox(height: 6),
           _featureRow(Icons.photo_camera_rounded, '${plan.features.photoGallery} Photo Gallery', Colors.blue),
           const SizedBox(height: 6),
@@ -411,7 +412,7 @@ class _PlanCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.regAccent,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
                 ),
@@ -486,7 +487,7 @@ class _PlanCard extends StatelessWidget {
       case 'platinum':
         return Colors.deepPurple;
       default:
-        return AppColors.primary;
+        return AppColors.regAccent;
     }
   }
 }

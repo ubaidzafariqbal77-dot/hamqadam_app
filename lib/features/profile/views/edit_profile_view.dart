@@ -56,6 +56,7 @@ class _EditProfileViewState extends State<EditProfileView> {
   Widget build(BuildContext context) {
     final DateTime now = DateTime.now();
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Edit Profile', subtitle: 'Update your details'),
       body: Form(
         key: c.formKey,
@@ -808,14 +809,14 @@ class _Section extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10)),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: dark ? 0.18 : 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(icon, size: AppDimensions.iconMd, color: AppColors.primary),
+              Icon(icon, size: AppDimensions.iconMd, color: AppColors.regAccent),
               const SizedBox(width: AppSpacing.xs),
               Text(title, style: AppTextStyles.subtitle),
             ],
@@ -838,9 +839,9 @@ class _LangChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.10),
+        color: AppColors.regAccent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.30)),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.30)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -850,7 +851,7 @@ class _LangChip extends StatelessWidget {
           InkWell(
             onTap: onRemove,
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: const Icon(Icons.close_rounded, size: 15, color: AppColors.primary),
+            child: const Icon(Icons.close_rounded, size: 15, color: AppColors.regAccent),
           ),
         ],
       ),

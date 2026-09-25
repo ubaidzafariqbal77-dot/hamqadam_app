@@ -48,6 +48,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Coin Usage',
         subtitle: 'Feature-wise coin breakdown',
@@ -95,7 +96,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
             }
 
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadUsage(silent: true),
               child: ListView.builder(
                 controller: _scrollController,
@@ -114,7 +115,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                         child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.regAccent),
                         ),
                       );
                     }
@@ -148,14 +149,14 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadius.md),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
+            color: AppColors.regAccent.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -334,7 +335,7 @@ class _UsageRow extends StatelessWidget {
   Color _iconColor(String feature, BuildContext context) {
     switch (feature) {
       case 'interest':
-        return AppColors.primary;
+        return AppColors.regAccent;
       case 'shortlist':
         return AppColors.gold;
       case 'profile_viewer_view':

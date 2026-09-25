@@ -102,7 +102,7 @@ class _LoadingState extends StatelessWidget {
   const _LoadingState();
   @override
   Widget build(BuildContext context) =>
-      const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
 }
 
 class _ProfileBody extends StatelessWidget {
@@ -128,7 +128,7 @@ class _ProfileBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      color: AppColors.primary,
+      color: AppColors.regAccent,
       onRefresh: controller.reload,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -245,8 +245,12 @@ class _HeroCard extends StatelessWidget {
           // of colour. Falling into a darker tone gives the card a horizon and
           // lets white type sit on something solid at the bottom, where the
           // name and the stats are.
+          //
+          // Re-toned to the registration flow's dusty rose (the stops run from
+          // [regPrimaryGradient]'s light end down into a deep rose ink) so the
+          // Profile tab frames the same family of colour as the signup screens.
           gradient: const LinearGradient(
-            colors: <Color>[Color(0xFFFF4E7D), Color(0xFFE81F5B), Color(0xFF8E1338)],
+            colors: <Color>[Color(0xFFE9A8B5), Color(0xFFD48796), Color(0xFF9E5566)],
             stops: <double>[0.0, 0.52, 1.0],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -254,7 +258,7 @@ class _HeroCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(26),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: const Color(0xFF8E1338).withValues(alpha: 0.30),
+              color: const Color(0xFF9E5566).withValues(alpha: 0.30),
               blurRadius: 32,
               offset: const Offset(0, 16),
               spreadRadius: -10,
@@ -774,7 +778,7 @@ class _ProfileViewsBanner extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.regPrimaryGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -860,14 +864,14 @@ class _CompletionCard extends StatelessWidget {
                         child: CircularProgressIndicator(
                           value: completion.fraction,
                           strokeWidth: 5,
-                          backgroundColor: AppColors.primary.withValues(alpha: 0.14),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                          backgroundColor: AppColors.regAccent.withValues(alpha: 0.14),
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.regAccent),
                         ),
                       ),
                       Text(
                         '$pct%',
                         style: AppTextStyles.caption.copyWith(
-                          color: AppColors.primary,
+                          color: AppColors.regAccent,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -1004,11 +1008,11 @@ class _PhotoFallback extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     width: width,
     height: 96,
-    color: AppColors.primary.withValues(alpha: 0.08),
+    color: AppColors.regAccent.withValues(alpha: 0.08),
     alignment: Alignment.center,
     child: Icon(
       Icons.image_not_supported_outlined,
-      color: AppColors.primary.withValues(alpha: 0.5),
+      color: AppColors.regAccent.withValues(alpha: 0.5),
     ),
   );
 }
@@ -1055,13 +1059,13 @@ class _MediaTile extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
     decoration: BoxDecoration(
-      color: AppColors.primary.withValues(alpha: 0.08),
+      color: AppColors.regAccent.withValues(alpha: 0.08),
       borderRadius: AppRadius.mdAll,
-      border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.25)),
     ),
     child: Column(
       children: <Widget>[
-        Icon(icon, color: AppColors.primary, size: AppDimensions.iconLg),
+        Icon(icon, color: AppColors.regAccent, size: AppDimensions.iconLg),
         const SizedBox(height: 6),
         Text(label, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700)),
         Text('Uploaded', style: AppTextStyles.badge.copyWith(color: AppColors.success)),
@@ -1642,13 +1646,13 @@ class _PrivacyCard extends StatelessWidget {
                 height: 34,
                 width: 34,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.09),
+                  color: AppColors.regAccent.withValues(alpha: 0.09),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.lock_outline_rounded,
                   size: AppDimensions.iconSm,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -1850,12 +1854,12 @@ class _ManageLink extends StatelessWidget {
             Text(
               'Manage',
               style: AppTextStyles.caption.copyWith(
-                color: AppColors.primary,
+                color: AppColors.regAccent,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.primary),
+            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.regAccent),
           ],
         ),
       ),
@@ -2023,7 +2027,7 @@ class _MissingNote extends StatelessWidget {
         children: <Widget>[
           // `hintColor` is pink, so this quiet footnote shouted as loudly as the
           // values above it. The icon keeps the accent; the sentence is ink.
-          Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primary.withValues(alpha: 0.75)),
+          Icon(Icons.info_outline_rounded, size: 14, color: AppColors.regAccent.withValues(alpha: 0.75)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -2096,10 +2100,10 @@ class _CardHeader extends StatelessWidget {
         height: 34,
         width: 34,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.09),
+          color: AppColors.regAccent.withValues(alpha: 0.09),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+        child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.regAccent),
       ),
       const SizedBox(width: AppSpacing.sm),
       Expanded(
@@ -2117,13 +2121,13 @@ class _CardHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.10),
+            color: AppColors.regAccent.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Text(
             trailing!,
             style: AppTextStyles.badge.copyWith(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -2210,7 +2214,7 @@ class _VerificationBanner extends StatelessWidget {
       );
     }
     return (
-      AppColors.primary,
+      AppColors.regAccent,
       Icons.verified_user_outlined,
       'Verify your identity',
       'Verified profiles are trusted more and get better responses.',
@@ -2283,10 +2287,10 @@ class _ActionTile extends StatelessWidget {
           height: 34,
           width: 34,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.09),
+            color: AppColors.regAccent.withValues(alpha: 0.09),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+          child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.regAccent),
         ),
         title: Text(
           title,

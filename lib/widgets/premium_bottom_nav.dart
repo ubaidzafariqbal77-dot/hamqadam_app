@@ -23,6 +23,9 @@ class PremiumNavItem {
 
 /// A floating, gradient bottom navigation bar with an animated selected pill.
 /// Keeps the same index/onTap contract as a standard bottom nav.
+///
+/// Coloured with the registration flow's muted rose gradient so the shell
+/// matches the screens it frames.
 class PremiumBottomNav extends StatelessWidget {
   const PremiumBottomNav({
     super.key,
@@ -45,15 +48,15 @@ class PremiumBottomNav extends StatelessWidget {
           height: 66,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 8),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: AppColors.brandGradient,
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(AppRadius.xl),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.40),
+          gradient: const LinearGradient(
+            colors: AppColors.regPrimaryGradient,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.regAccent.withValues(alpha: 0.40),
                 blurRadius: 22,
                 offset: const Offset(0, 10),
                 spreadRadius: -4,

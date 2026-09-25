@@ -56,6 +56,7 @@ class _ShortlistViewState extends State<ShortlistView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Shortlisted Profiles',
         subtitle: 'Saved member proposals',
@@ -102,7 +103,7 @@ class _ShortlistViewState extends State<ShortlistView> {
             }
 
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadShortlists(silent: true),
               child: ListView.separated(
                 controller: _scrollController,
@@ -117,7 +118,7 @@ class _ShortlistViewState extends State<ShortlistView> {
                       child: Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.primary,
+                          color: AppColors.regAccent,
                         ),
                       ),
                     );
@@ -333,14 +334,14 @@ class _ShortlistCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: <Widget>[
-                            Icon(Icons.auto_awesome, size: 13, color: AppColors.primary),
+                            Icon(Icons.auto_awesome, size: 13, color: AppColors.regAccent),
                             const SizedBox(width: 4),
                             Text(
                               '${profile.compatibilityPercentage}% Match',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
+                                color: AppColors.regAccent,
                               ),
                             ),
                           ],
@@ -369,7 +370,7 @@ class _ShortlistCard extends StatelessWidget {
             children: <Widget>[
               Expanded(
                 child: OutlinedButton.icon(
-                  icon: const Icon(Icons.favorite_outline_rounded, size: 16, color: AppColors.primary),
+                  icon: const Icon(Icons.favorite_outline_rounded, size: 16, color: AppColors.regAccent),
                   label: const Text('Send Interest', style: TextStyle(fontSize: 12.5)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -384,7 +385,7 @@ class _ShortlistCard extends StatelessWidget {
                   icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.white),
                   label: const Text('Chat', style: TextStyle(fontSize: 12.5, color: Colors.white)),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.regAccent,
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                   ),
@@ -400,11 +401,11 @@ class _ShortlistCard extends StatelessWidget {
 
   Widget _fallbackAvatar() {
     return Container(
-      color: AppColors.primary.withValues(alpha: 0.12),
+      color: AppColors.regAccent.withValues(alpha: 0.12),
       child: Center(
         child: Text(
           profile.initial,
-          style: AppTextStyles.subtitle.copyWith(color: AppColors.primary, fontSize: 24),
+          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 24),
         ),
       ),
     );

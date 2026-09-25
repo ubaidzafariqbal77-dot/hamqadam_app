@@ -37,11 +37,11 @@ class _SavedSearchesViewState extends State<SavedSearchesView> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Saved Searches', subtitle: 'Your favourite filter combinations'),
       body: Obx(() {
         if (_controller.loading.value) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
         }
 
         final List<Map<String, dynamic>> items = _controller.savedSearches;
@@ -66,8 +66,8 @@ class _SavedSearchesViewState extends State<SavedSearchesView> {
                   const SizedBox(height: 18),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(color: AppColors.primary),
+                      foregroundColor: AppColors.regAccent,
+                      side: const BorderSide(color: AppColors.regAccent),
                       shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
                     ),
                     onPressed: () => Get.back<void>(),
@@ -81,7 +81,7 @@ class _SavedSearchesViewState extends State<SavedSearchesView> {
         }
 
         return RefreshIndicator(
-          color: AppColors.primary,
+          color: AppColors.regAccent,
           onRefresh: () => _controller.loadSaved(),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -151,10 +151,10 @@ class _SavedSearchCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.10),
+              color: AppColors.regAccent.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.bookmark_rounded, color: AppColors.primary, size: 22),
+            child: const Icon(Icons.bookmark_rounded, color: AppColors.regAccent, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -174,7 +174,7 @@ class _SavedSearchCard extends StatelessWidget {
           const SizedBox(width: 8),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: AppColors.regAccent,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
             ),

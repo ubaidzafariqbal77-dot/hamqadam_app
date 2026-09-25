@@ -7,6 +7,7 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/payment_controller.dart';
 import '../../../models/payment_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import 'payment_flow.dart';
 
 
 /// Modal bottom sheet allowing user to select a payment gateway, apply a coupon,
@@ -36,10 +37,99 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
 
   String _selectedGateway = 'stripe'; // 'stripe' | 'easypaisa' | 'jazzcash'
 
+  /// Payment methods exactly as `GET /payments/gateways` reports them, so the
+  /// sheet never offers a method the admin has switched off.
+  List<PaymentGatewayInfo> _gateways = const <PaymentGatewayInfo>[];
+  bool _gatewaysLoading = true;
+
+  /// Static stand-in used while the endpoint is in flight or unreachable.
+  static const List<PaymentGatewayInfo> _fallbackGateways = <PaymentGatewayInfo>[
+    PaymentGatewayInfo(
+      id: 1,
+      key: 'stripe',
+      name: 'Stripe',
+      label: 'Credit / Debit Card',
+      description: 'Powered by Stripe (Instant Activation)',
+      enabled: true,
+      configured: true,
+      available: true,
+      sandbox: false,
+      checkoutType: 'stripe_checkout',
+    ),
+    PaymentGatewayInfo(
+      id: 2,
+      key: 'easypaisa',
+      name: 'EasyPaisa',
+      label: 'EasyPaisa Wallet',
+      description: 'Direct mobile wallet payment',
+      enabled: true,
+      configured: true,
+      available: true,
+      sandbox: false,
+    ),
+    PaymentGatewayInfo(
+      id: 3,
+      key: 'jazzcash',
+      name: 'JazzCash',
+      label: 'JazzCash Wallet',
+      description: 'Direct mobile account payment',
+      enabled: true,
+      configured: true,
+      available: true,
+      sandbox: false,
+    ),
+  ];
+
+  List<PaymentGatewayInfo> get _methods =>
+      _gateways.isNotEmpty ? _gateways : _fallbackGateways;
+
+  PaymentGatewayInfo? get _selectedInfo {
+    for (final PaymentGatewayInfo g in _methods) {
+      if (g.key == _selectedGateway) return g;
+    }
+    return null;
+  }
+
+  /// True when the chosen method pays on Stripe's hosted page.
+  bool get _hostedCard =>
+      _selectedGateway == 'stripe' || (_selectedInfo?.isHostedCheckout ?? false);
+
   @override
   void initState() {
     super.initState();
     _controller.clearCoupon();
+    _loadGateways();
+  }
+
+  Future<void> _loadGateways() async {
+    await _controller.loadGateways();
+    if (!mounted) return;
+    setState(() {
+      _gateways = _controller.gatewaysState.value.data ??
+          const <PaymentGatewayInfo>[];
+      _gatewaysLoading = false;
+      _ensureValidSelection();
+    });
+  }
+
+  /// Keeps the selection on a method that is actually payable.
+  void _ensureValidSelection() {
+    final List<PaymentGatewayInfo> methods = _methods;
+    for (final PaymentGatewayInfo g in methods) {
+      if (g.key == _selectedGateway && g.available) return;
+    }
+    for (final PaymentGatewayInfo g in methods) {
+      if (g.available) {
+        _selectedGateway = g.key;
+        return;
+      }
+    }
+  }
+
+  /// Pakistani mobile numbers in any of the shapes people type them.
+  static bool _validWalletNumber(String value) {
+    final String digits = value.replaceAll(RegExp(r'[\s\-()]'), '');
+    return RegExp(r'^(?:\+92|0092|92|0)?3\d{9}$').hasMatch(digits);
   }
 
   @override
@@ -115,7 +205,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: AppColors.brandGradient,
+                    colors: AppColors.regPrimaryGradient,
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -157,30 +247,21 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
               ),
               const SizedBox(height: AppSpacing.sm),
 
-              // Gateways: Stripe, EasyPaisa, JazzCash
-              _gatewayTile(
-                id: 'stripe',
-                title: 'Credit / Debit Card',
-                subtitle: 'Powered by Stripe (Instant Activation)',
-                icon: Icons.credit_card_rounded,
-                iconColor: const Color(0xFF635BFF),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              _gatewayTile(
-                id: 'easypaisa',
-                title: 'EasyPaisa Wallet',
-                subtitle: 'Direct mobile wallet payment',
-                icon: Icons.account_balance_wallet_rounded,
-                iconColor: const Color(0xFF00A651),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              _gatewayTile(
-                id: 'jazzcash',
-                title: 'JazzCash Wallet',
-                subtitle: 'Direct mobile account payment',
-                icon: Icons.payments_rounded,
-                iconColor: const Color(0xFFED1C24),
-              ),
+              // Gateways — loaded from the server so the list matches what is
+              // actually configured, with the built-in three as the stand-in.
+              if (_gatewaysLoading)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: LinearProgressIndicator(
+                      minHeight: 2, color: AppColors.regAccent),
+                ),
+              for (int i = 0; i < _methods.length; i++) ...<Widget>[
+                if (i > 0) const SizedBox(height: AppSpacing.xs),
+                _gatewayTileFrom(_methods[i]),
+              ],
+
+              // Card panel — what the member is actually handing over and where.
+              if (_hostedCard) _cardPanel(),
 
               // Mobile number input for EasyPaisa / JazzCash
               if (_selectedGateway == 'easypaisa' || _selectedGateway == 'jazzcash') ...<Widget>[
@@ -228,7 +309,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   Obx(() {
                     return FilledButton(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.regAccent,
                         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                       ),
@@ -318,7 +399,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   Obx(() {
                     return Text(
                       'PKR ${_finalAmount.toStringAsFixed(0)}',
-                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: AppColors.primary),
+                      style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: AppColors.regAccent),
                     );
                   }),
                 ],
@@ -331,7 +412,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   width: double.infinity,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: AppColors.regAccent,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -344,9 +425,14 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text(
-                            'Pay & Activate',
-                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        : Text(
+                            _hostedCard
+                                ? 'Pay ${_finalAmount.toStringAsFixed(0)} with Card'
+                                : 'Pay & Activate',
+                            style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
                           ),
                   ),
                 );
@@ -358,69 +444,223 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
     );
   }
 
+  /// Maps a server gateway onto the tile widget, choosing the icon/colour the
+  /// member already recognises for that method.
+  Widget _gatewayTileFrom(PaymentGatewayInfo g) {
+    final String title = g.label.isNotEmpty ? g.label : g.name;
+    final String subtitle = (g.description ?? '').isNotEmpty
+        ? g.description!
+        : (g.isHostedCheckout
+            ? 'Powered by Stripe (Instant Activation)'
+            : 'Direct mobile wallet payment');
+
+    return _gatewayTile(
+      id: g.key,
+      title: title,
+      subtitle: subtitle,
+      icon: switch (g.key) {
+        'stripe' => Icons.credit_card_rounded,
+        'easypaisa' => Icons.account_balance_wallet_rounded,
+        'jazzcash' => Icons.payments_rounded,
+        _ => Icons.account_balance_rounded,
+      },
+      iconColor: switch (g.key) {
+        'stripe' => const Color(0xFF635BFF),
+        'easypaisa' => const Color(0xFF00A651),
+        'jazzcash' => const Color(0xFFED1C24),
+        _ => AppColors.regAccent,
+      },
+      available: g.available,
+      sandbox: g.sandbox,
+    );
+  }
+
+  /// The card panel: where the money is actually taken and what is never
+  /// shared with the app.
+  Widget _cardPanel() {
+    final ThemeData theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(top: AppSpacing.sm),
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.lightSurface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.roseFieldBorder.withValues(alpha: 0.9)),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1AB4487B),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+            spreadRadius: -6,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Row(
+            children: <Widget>[
+              Icon(Icons.lock_rounded, size: 16, color: AppColors.regAccent),
+              SizedBox(width: 6),
+              Text(
+                'Secure card payment',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'You continue on Stripe\'s hosted checkout page. The app never sees, '
+            'stores or transmits your card number — Stripe does that, and the '
+            'plan activates the moment the charge succeeds.',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.5,
+              color: theme.hintColor,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: <Widget>[
+              _brandPill('VISA'),
+              _brandPill('Mastercard'),
+              _brandPill('AMEX'),
+              _brandPill('Discover'),
+              if (_selectedInfo?.sandbox == true)
+                _brandPill('TEST MODE', color: AppColors.warning),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _brandPill(String label, {Color color = AppColors.regAccent}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   Widget _gatewayTile({
     required String id,
     required String title,
     required String subtitle,
     required IconData icon,
     required Color iconColor,
+    bool available = true,
+    bool sandbox = false,
   }) {
-    final bool isSelected = _selectedGateway == id;
+    final bool isSelected = _selectedGateway == id && available;
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
 
-    return InkWell(
-      onTap: () => setState(() => _selectedGateway = id),
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isSelected
-                ? AppColors.primary
-                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-            width: isSelected ? 2 : 1,
+    return Opacity(
+      opacity: available ? 1 : 0.55,
+      child: InkWell(
+        onTap: () {
+          if (!available) {
+            AppSnackbar.info('$title is not available right now.');
+            return;
+          }
+          setState(() => _selectedGateway = id);
+        },
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: isSelected
+                  ? AppColors.regAccent
+                  : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+              width: isSelected ? 2 : 1,
+            ),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            color: isSelected ? AppColors.regAccent.withValues(alpha: 0.05) : null,
           ),
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : null,
-        ),
-        child: Row(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+          child: Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
-              child: Icon(icon, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Flexible(
+                          child: Text(title,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13.5)),
+                        ),
+                        if (sandbox) ...<Widget>[
+                          const SizedBox(width: 6),
+                          _brandPill('TEST', color: AppColors.warning),
+                        ],
+                        if (!available) ...<Widget>[
+                          const SizedBox(width: 6),
+                          _brandPill('Unavailable', color: AppColors.lightTextHint),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: TextStyle(fontSize: 11.5, color: theme.hintColor)),
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
-              color: isSelected ? AppColors.primary : theme.hintColor,
-              size: 20,
-            ),
-          ],
+              Icon(
+                isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                color: isSelected ? AppColors.regAccent : theme.hintColor,
+                size: 20,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _handleCheckout() async {
-    final String? phone = _phoneInput.text.trim().isNotEmpty ? _phoneInput.text.trim() : null;
+    final bool wallet =
+        _selectedGateway == 'easypaisa' || _selectedGateway == 'jazzcash';
+    final String phone = _phoneInput.text.trim();
 
-    if ((_selectedGateway == 'easypaisa' || _selectedGateway == 'jazzcash') && (phone == null || phone.isEmpty)) {
+    if (wallet && phone.isEmpty) {
       AppSnackbar.error('Please enter your mobile account number.');
+      return;
+    }
+    if (wallet && !_validWalletNumber(phone)) {
+      AppSnackbar.error('Enter a valid mobile number, e.g. 03001234567.');
+      return;
+    }
+
+    final PaymentGatewayInfo? info = _selectedInfo;
+    if (info != null && !info.available) {
+      AppSnackbar.error('${info.label} is not available right now.');
       return;
     }
 
@@ -433,59 +673,25 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
     );
 
     if (!mounted || result == null) return;
+
+    // The backend refused to start the card checkout (keys missing, Stripe
+    // unreachable) — say so instead of opening a page that does not exist.
+    if (result.unavailableReason != null) {
+      AppSnackbar.error(result.unavailableReason!);
+      return;
+    }
+
+    // Hand off to the app-level context: the sheet is about to close and the
+    // hosted payment page / confirmation dialogs must outlive it.
+    final BuildContext host = Get.context ?? context;
     Navigator.of(context).pop();
-    _showCheckoutSuccessDialog(context, result);
+    await PaymentFlow.start(host, result, onPaid: _refreshAfterPayment);
   }
 
-  void _showCheckoutSuccessDialog(BuildContext context, CheckoutResult res) {
-
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
-        title: Row(
-          children: <Widget>[
-            const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
-            const SizedBox(width: 8),
-            const Text('Payment Initiated'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(res.message ?? 'Your payment request has been received.'),
-            if (res.invoiceNumber != null) ...<Widget>[
-              const SizedBox(height: 8),
-              Text(
-                'Invoice: ${res.invoiceNumber}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-            ],
-            if (res.instructions != null && res.instructions!.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  res.instructions!,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            ],
-          ],
-        ),
-        actions: <Widget>[
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+  /// Called once the server says the money arrived.
+  void _refreshAfterPayment() {
+    _controller.loadCurrentPackage(silent: true);
+    _controller.loadPlans(silent: true);
+    _controller.loadHistory(silent: true);
   }
 }

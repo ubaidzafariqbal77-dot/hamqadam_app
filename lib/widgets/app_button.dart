@@ -107,7 +107,7 @@ class _AppButtonState extends State<AppButton> {
               decoration: BoxDecoration(
                 gradient: isGradient
                     ? const LinearGradient(
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.regPrimaryGradient,
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       )
@@ -115,7 +115,7 @@ class _AppButtonState extends State<AppButton> {
                 borderRadius: AppRadius.lgAll,
                 border: widget.variant == AppButtonVariant.outline
                     ? Border.all(
-                        color: _disabled ? Theme.of(context).dividerColor : AppColors.primary,
+                        color: _disabled ? Theme.of(context).dividerColor : AppColors.regAccent,
                         width: 1.5,
                       )
                     : null,
@@ -141,7 +141,7 @@ class _AppButtonState extends State<AppButton> {
         return AppColors.error;
       case AppButtonVariant.primary:
       case AppButtonVariant.outline:
-        return AppColors.primary;
+        return AppColors.regAccent;
     }
   }
 
@@ -153,7 +153,7 @@ class _AppButtonState extends State<AppButton> {
     }
     switch (widget.variant) {
       case AppButtonVariant.primary:
-        return AppColors.primary;
+        return AppColors.regAccent;
       case AppButtonVariant.secondary:
         return AppColors.gold;
       case AppButtonVariant.outline:

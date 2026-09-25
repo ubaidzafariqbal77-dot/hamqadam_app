@@ -47,9 +47,9 @@ class InterestsView extends StatelessWidget {
               color: Theme.of(context).cardColor,
               child: Obx(
                 () => TabBar(
-                  labelColor: AppColors.primary,
+                  labelColor: AppColors.regAccent,
                   unselectedLabelColor: Theme.of(context).hintColor,
-                  indicatorColor: AppColors.primary,
+                  indicatorColor: AppColors.regAccent,
                   indicatorSize: TabBarIndicatorSize.label,
                   dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.3),
                   labelStyle: AppTextStyles.bodyStrong.copyWith(fontWeight: FontWeight.w800),
@@ -307,7 +307,7 @@ class _FilterRow extends StatelessWidget {
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   color: selected ? Colors.white : Theme.of(context).hintColor,
                 ),
-                selectedColor: AppColors.primary,
+                selectedColor: AppColors.regAccent,
                 onSelected: (_) => received
                     ? controller.loadReceived(status: o.value)
                     : controller.loadSent(status: o.value),
@@ -350,6 +350,7 @@ class _InterestTile extends StatelessWidget {
               },
               borderRadius: BorderRadius.circular(AppRadius.md),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   _Avatar(url: m?.photoUrl, initial: m?.initial ?? 'H'),
                   const SizedBox(width: AppSpacing.sm),
@@ -357,15 +358,30 @@ class _InterestTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
+                        // "Sara Khan, 26" — name joined with the age, the way
+                        // the reference card draws its headline.
                         Row(
                           children: <Widget>[
                             Flexible(
                               child: Text(
                                 m?.displayName ?? 'HamQadam Member',
-                                style: AppTextStyles.bodyStrong,
+                                style: AppTextStyles.bodyStrong.copyWith(
+                                  fontSize: 15.5,
+                                  color: AppColors.roseTitleInk,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if ((m?.age ?? 0) > 0) ...<Widget>[
+                              const SizedBox(width: 5),
+                              Text(
+                                ', ${m!.age}',
+                                style: AppTextStyles.bodyStrong.copyWith(
+                                  fontSize: 15.5,
+                                  color: AppColors.roseTitleInk,
+                                ),
+                              ),
+                            ],
                             if (m?.isVerified ?? false) ...<Widget>[
                               const SizedBox(width: 6),
                               const Icon(Icons.verified_rounded, size: 16, color: AppColors.success),
@@ -373,7 +389,12 @@ class _InterestTile extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        // Status + Shortlisted chips, exactly as before but
+                        // sitting under the headline like the reference chips.
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: <Widget>[
                             StatusPill(
                               label: interest.statusLabel ?? _fallbackLabel(interest),
@@ -384,7 +405,6 @@ class _InterestTile extends StatelessWidget {
                                 final bool isShortlisted = shortlistCtrl.isShortlisted(m.id);
                                 if (!isShortlisted) return const SizedBox.shrink();
                                 return Container(
-                                  margin: const EdgeInsets.only(left: 6),
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppColors.gold.withValues(alpha: 0.15),
@@ -432,10 +452,14 @@ class _InterestTile extends StatelessWidget {
                         onPressed: () => shortlistCtrl.toggleShortlist(m.id, displayName: m.displayName),
                       );
                     }),
-                  Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor, size: 20),
                 ],
               ),
             ),
+            // The reference card's detail lines: city, education, profession
+            // and income, each with its little glyph — only the lines the API
+            // actually filled in are drawn.
+            if (_hasDetailLines(m))
+              ..._detailLines(m),
 
             if ((interest.initialNote ?? '').isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
@@ -483,6 +507,8 @@ class _InterestTile extends StatelessWidget {
                           label: const Text('Accept'),
                         ),
                       ),
+                      // The Accept pill keeps the theme's regAccent fill via
+                      // FilledButtonThemeData, so no per-widget color here.
                     ],
                   );
                 }
@@ -570,6 +596,53 @@ class _InterestTile extends StatelessWidget {
     if (i.isPending) return AppColors.info;
     return Theme.of(context).hintColor;
   }
+
+  /// True when the API sent at least one of the reference card's detail
+  /// lines — older cached payloads (and members with an empty profile) carry
+  /// none, and drawing an empty section would be worse than hiding it.
+  static bool _hasDetailLines(InterestMember? m) =>
+      m != null &&
+      ((m.city ?? '').isNotEmpty ||
+          (m.education ?? '').isNotEmpty ||
+          (m.profession ?? '').isNotEmpty ||
+          (m.income ?? '').isNotEmpty);
+
+  /// The reference card's glyph lines: 📍 city, 🎓 education, 💼 profession,
+  /// 💰 income — a quiet ink row under the headline.
+  List<Widget> _detailLines(InterestMember? m) {
+    final List<Widget> rows = <Widget>[];
+    void add(IconData icon, String? text) {
+      final String value = (text ?? '').trim();
+      if (value.isEmpty) return;
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: 13, color: AppColors.chatTimeInk),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  value,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 12,
+                    color: AppColors.chatPreviewInk,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    add(Icons.location_on_outlined, m?.city);
+    add(Icons.school_outlined, m?.education);
+    add(Icons.work_outline_rounded, m?.profession);
+    add(Icons.payments_outlined, m?.income);
+    return rows;
+  }
 }
 
 class _Avatar extends StatelessWidget {
@@ -593,9 +666,9 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _fallback() => ColoredBox(
-    color: AppColors.primary.withValues(alpha: 0.12),
+    color: AppColors.regAccent.withValues(alpha: 0.14),
     child: Center(
-      child: Text(initial, style: AppTextStyles.subtitle.copyWith(color: AppColors.primary)),
+      child: Text(initial, style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent)),
     ),
   );
 }

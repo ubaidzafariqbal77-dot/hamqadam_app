@@ -35,7 +35,7 @@ class AppTheme {
 
     const ColorScheme scheme = ColorScheme(
       brightness: Brightness.light,
-      primary: AppColors.primary,
+      primary: AppColors.regAccent,
       onPrimary: Colors.white,
       primaryContainer: AppColors.goldLight,
       onPrimaryContainer: AppColors.primaryDark,
@@ -69,7 +69,7 @@ class AppTheme {
 
       // ---- AppBar: brand background, white content -------------------------
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
@@ -84,7 +84,7 @@ class AppTheme {
 
       // ---- Bottom navigation: brand background, white items ----------------
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         surfaceTintColor: Colors.transparent,
         indicatorColor: Colors.white.withValues(alpha: 0.24),
         elevation: 8,
@@ -103,7 +103,7 @@ class AppTheme {
         }),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white70,
         type: BottomNavigationBarType.fixed,
@@ -113,7 +113,7 @@ class AppTheme {
       // ---- Buttons ---------------------------------------------------------
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.regAccent,
           foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: const Size(0, AppDimensions.buttonHeight),
@@ -124,7 +124,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.regAccent,
           foregroundColor: Colors.white,
           minimumSize: const Size(0, AppDimensions.buttonHeight),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
@@ -133,21 +133,21 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: AppColors.regAccent,
           textStyle: AppTextStyles.label,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1.4),
+          foregroundColor: AppColors.regAccent,
+          side: const BorderSide(color: AppColors.regAccent, width: 1.4),
           minimumSize: const Size(0, AppDimensions.buttonHeight),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
           textStyle: AppTextStyles.button,
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         foregroundColor: Colors.white,
       ),
 
@@ -171,7 +171,7 @@ class AppTheme {
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: AppRadius.mdAll,
-          borderSide: BorderSide(color: AppColors.primary, width: 1.6),
+          borderSide: BorderSide(color: AppColors.regAccent, width: 1.6),
         ),
         errorBorder: const OutlineInputBorder(
           borderRadius: AppRadius.mdAll,
@@ -184,25 +184,25 @@ class AppTheme {
         thumbColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) =>
             Colors.white),
         trackColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) => s.contains(WidgetState.selected)
-            ? AppColors.primary
+            ? AppColors.regAccent
             : Colors.grey.shade300),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
-            s.contains(WidgetState.selected) ? AppColors.primary : null),
+            s.contains(WidgetState.selected) ? AppColors.regAccent : null),
         checkColor: const WidgetStatePropertyAll<Color>(Colors.white),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
-            s.contains(WidgetState.selected) ? AppColors.primary : null),
+            s.contains(WidgetState.selected) ? AppColors.regAccent : null),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primary),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.regAccent),
 
       // ---- Chips: neutral resting state, brand when selected ---------------
       chipTheme: ChipThemeData(
         backgroundColor: surfaceAlt,
-        selectedColor: AppColors.primary,
+        selectedColor: AppColors.regAccent,
         checkmarkColor: Colors.white,
         labelStyle: AppTextStyles.caption.copyWith(color: textPrimary),
         secondaryLabelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
@@ -251,7 +251,7 @@ class AppTheme {
       datePickerTheme: DatePickerThemeData(
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        headerBackgroundColor: AppColors.primary,
+        headerBackgroundColor: AppColors.regAccent,
         headerForegroundColor: Colors.white,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
         todayBackgroundColor: WidgetStatePropertyAll<Color>(AppColors.primary.withValues(alpha: 0.12)),
@@ -259,13 +259,13 @@ class AppTheme {
       timePickerTheme: const TimePickerThemeData(
         backgroundColor: surface,
         hourMinuteColor: surfaceAlt,
-        dialHandColor: AppColors.primary,
+        dialHandColor: AppColors.regAccent,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
       ),
       tabBarTheme: const TabBarThemeData(
-        labelColor: AppColors.primary,
+        labelColor: AppColors.regAccent,
         unselectedLabelColor: textSecondary,
-        indicatorColor: AppColors.primary,
+        indicatorColor: AppColors.regAccent,
       ),
     );
   }

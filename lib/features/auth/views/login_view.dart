@@ -23,14 +23,13 @@ import '../../../widgets/dismiss_keyboard.dart';
 import '../../../widgets/loading_overlay.dart';
 import '../../../widgets/reveal.dart';
 
-/// Premium login screen with Email and Mobile-OTP methods + Google.
+/// Login screen wearing the registration flow's reference look: the dusty-rose
+/// canvas, one floating white rounded card with the soft rose shadow, a serif
+/// heading, and the muted rose buttons — the same chrome StepScaffold draws.
+/// Only the styling moved; every controller, validator and handler is the one
+/// the previous design used.
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
-
-  /// Space reserved above content so TOP-positioned snackbars (login errors,
-  /// pending-approval notices) land on the white body instead of crashing into
-  /// the gradient header — the collision seen on the previous design.
-  static const double _headerTopGap = AppSpacing.xxl + AppSpacing.lg;
 
   @override
   State<LoginView> createState() => _LoginViewState();
@@ -76,36 +75,64 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
             // email/password/phone fields) has bilingual Urdu disabled.
             body: UrduScope(
               enabled: false,
-              child: ListView(
-              padding: EdgeInsets.zero,
-              children: <Widget>[
-                const _LoginHeader(),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    LoginView._headerTopGap,
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      _MethodToggle(emailMode: _emailMode),
-                      const SizedBox(height: AppSpacing.lg),
-                      Obx(() => _emailMode.value ? _emailForm() : _mobileForm()),
-                      const SizedBox(height: AppSpacing.lg),
-                      const _OrDivider(),
-                      const SizedBox(height: AppSpacing.md),
-                      // Fingerprint login replaces the (never-enabled) Google
-                      // button: one tap, system biometric prompt, straight in.
-                      _FingerprintLoginButton(onPressed: c.loginWithBiometric),
-                      const SizedBox(height: AppSpacing.lg),
-                      _CreateAccountRow(),
+              child: DecoratedBox(
+                // Registration's rose watercolour canvas.
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      AppColors.roseCanvas,
+                      AppColors.roseCanvasDeep,
                     ],
                   ),
                 ),
-              ],
-            ),
+                child: SafeArea(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      const _LoginHeader(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, AppSpacing.md, 18, AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            _MethodToggle(emailMode: _emailMode),
+                            const SizedBox(height: AppSpacing.lg),
+                            // The floating white card that holds the form —
+                            // the same card the registration steps draw.
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: const Color(0xFFB4487B).withValues(alpha: 0.10),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Obx(() => _emailMode.value
+                                  ? _emailForm()
+                                  : _mobileForm()),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            const _OrDivider(),
+                            const SizedBox(height: AppSpacing.md),
+                            // Fingerprint login replaces the (never-enabled) Google
+                            // button: one tap, system biometric prompt, straight in.
+                            _FingerprintLoginButton(onPressed: c.loginWithBiometric),
+                            const SizedBox(height: AppSpacing.lg),
+                            _CreateAccountRow(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -161,7 +188,8 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
               onPressed: _forgotPassword,
               child: BiText.inline(
                 AppStrings.forgotPassword,
-                style: AppTextStyles.label.copyWith(color: AppColors.primary, fontSize: 13),
+                style: AppTextStyles.label.copyWith(
+                    color: AppColors.regAccent, fontSize: 13),
               ),
             ),
           ),
@@ -216,7 +244,7 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                   child: BiText(
                     'Change number / resend',
                     gap: 0,
-                    style: AppTextStyles.label.copyWith(color: AppColors.primary),
+                    style: AppTextStyles.label.copyWith(color: AppColors.regAccent),
                   ),
                 ),
               ],
@@ -241,15 +269,14 @@ class _MethodToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final bool email = emailMode.value;
-      final bool dark = Theme.of(context).brightness == Brightness.dark;
-      // Segmented control with a pill indicator + subtle shadow so the active
-      // segment reads as raised, not merely recoloured.
+      // The registration segmented look: white track, rose hairline, and the
+      // active segment filled with the muted rose gradient.
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: dark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+          color: Colors.white,
           borderRadius: AppRadius.mdAll,
-          border: Border.all(color: dark ? AppColors.darkBorder : AppColors.lightBorder),
+          border: Border.all(color: AppColors.roseFieldBorder),
         ),
         child: Row(
           children: <Widget>[
@@ -270,14 +297,21 @@ class _MethodToggle extends StatelessWidget {
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary : Colors.transparent,
+            gradient: active
+                ? const LinearGradient(
+                    colors: AppColors.regPrimaryGradient,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
+                : null,
+            color: active ? null : Colors.transparent,
             borderRadius: AppRadius.smAll,
             boxShadow: active
                 ? <BoxShadow>[
                     BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.30),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                      color: AppColors.regAccent.withValues(alpha: 0.38),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                       spreadRadius: -2,
                     ),
                   ]
@@ -289,7 +323,7 @@ class _MethodToggle extends StatelessWidget {
             textAlign: TextAlign.center,
             gap: 0,
             style: AppTextStyles.label.copyWith(
-              color: active ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
+              color: active ? Colors.white : AppColors.chatPillInk,
             ),
             urduColor: active ? Colors.white.withValues(alpha: 0.9) : null,
           ),
@@ -305,12 +339,19 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        const Expanded(child: Divider()),
+        const Expanded(
+          child: Divider(color: AppColors.roseFieldBorder),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: BiText.inline('or', style: AppTextStyles.caption.copyWith(fontSize: 12)),
+          child: BiText.inline(
+              'or',
+              style: AppTextStyles.caption
+                  .copyWith(fontSize: 12, color: AppColors.chatTimeInk)),
         ),
-        const Expanded(child: Divider()),
+        const Expanded(
+          child: Divider(color: AppColors.roseFieldBorder),
+        ),
       ],
     );
   }
@@ -321,35 +362,26 @@ class _LoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + AppSpacing.xxl,
+        top: MediaQuery.of(context).padding.top * 0.3 + AppSpacing.lg,
         left: AppSpacing.lg,
         right: AppSpacing.lg,
-        bottom: AppSpacing.xxl + AppSpacing.md,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.brandGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          // The new brand mark in a glass ring — same treatment as the splash,
-          // so login, splash and the launcher icon all read as one product.
+          // The brand mark in a glass ring — same treatment as the splash, so
+          // login, splash and the launcher icon all read as one product.
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withValues(alpha: 0.65), width: 2),
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.9), width: 2),
               boxShadow: <BoxShadow>[
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.18),
+                  color: const Color(0xFFB4487B).withValues(alpha: 0.14),
                   blurRadius: 24,
                   offset: const Offset(0, 10),
                   spreadRadius: -6,
@@ -357,35 +389,31 @@ class _LoginHeader extends StatelessWidget {
               ],
             ),
             child: const CircleAvatar(
-              radius: 40,
+              radius: 38,
               backgroundColor: Colors.white,
               backgroundImage: AssetImage('assets/images/app_icon_white_bg.jpeg'),
             ),
           ),
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.md),
           BiText(
             AppStrings.loginTitle,
             textAlign: TextAlign.center,
-            style: AppTextStyles.display.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
-              shadows: <Shadow>[
-                Shadow(
-                  color: Colors.black.withValues(alpha: 0.18),
-                  offset: const Offset(0, 2),
-                  blurRadius: 10,
-                ),
-              ],
+            // The registration serif heading in the deep rose ink.
+            style: AppTextStyles.displaySerif.copyWith(
+              fontSize: 30,
+              color: AppColors.roseTitleInk,
             ),
-            urduColor: Colors.white.withValues(alpha: 0.9),
+            urduColor: AppColors.roseTitleInk,
           ),
           const SizedBox(height: 4),
           BiText(
             AppStrings.loginSubtitle,
             textAlign: TextAlign.center,
-            style: AppTextStyles.body.copyWith(color: Colors.white.withValues(alpha: 0.85)),
-            urduColor: Colors.white70,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 13.5,
+              color: AppColors.regAccent.withValues(alpha: 0.9),
+            ),
+            urduColor: AppColors.regAccent.withValues(alpha: 0.9),
           ),
         ],
       ),
@@ -403,7 +431,8 @@ class _FingerprintLoginButton extends StatefulWidget {
   final VoidCallback onPressed;
 
   @override
-  State<_FingerprintLoginButton> createState() => _FingerprintLoginButtonState();
+  State<_FingerprintLoginButton> createState() =>
+      _FingerprintLoginButtonState();
 }
 
 class _FingerprintLoginButtonState extends State<_FingerprintLoginButton> {
@@ -425,28 +454,24 @@ class _FingerprintLoginButtonState extends State<_FingerprintLoginButton> {
   @override
   Widget build(BuildContext context) {
     if (!_available) return const SizedBox.shrink();
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return OutlinedButton.icon(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(52),
-        foregroundColor: AppColors.primary,
-        side: BorderSide(
-          color: AppColors.primary.withValues(alpha: 0.55),
-          width: 1.2,
-        ),
+        foregroundColor: AppColors.regAccent,
+        side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
         shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
-        backgroundColor: AppColors.primary.withValues(alpha: dark ? 0.12 : 0.05),
+        backgroundColor: Colors.white,
       ),
       onPressed: widget.onPressed,
       icon: const Icon(Icons.fingerprint_rounded, size: 24),
       label: Text(
         'Login with Fingerprint',
-        style: AppTextStyles.label.copyWith(fontSize: 14.5, color: AppColors.primary),
+        style: AppTextStyles.label
+            .copyWith(fontSize: 14.5, color: AppColors.regAccent),
       ),
     );
   }
 }
-
 
 class _CreateAccountRow extends StatelessWidget {
   @override
@@ -457,8 +482,8 @@ class _CreateAccountRow extends StatelessWidget {
       children: <Widget>[
         BiText.inline(
           AppStrings.noAccount,
-          style: AppTextStyles.body
-              .copyWith(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.5),
+          style: AppTextStyles.body.copyWith(
+              color: AppColors.chatPreviewInk, fontSize: 13.5),
         ),
         TextButton(
           onPressed: () async {
@@ -475,11 +500,11 @@ class _CreateAccountRow extends StatelessWidget {
           },
           child: BiText.inline(
             AppStrings.createAccount,
-            style: AppTextStyles.label.copyWith(color: AppColors.primary, fontSize: 13.5),
+            style: AppTextStyles.label.copyWith(
+                color: AppColors.regAccent, fontSize: 13.5),
           ),
         ),
       ],
     );
   }
 }
-

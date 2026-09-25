@@ -320,6 +320,8 @@ class _AppDrawer extends StatelessWidget {
                           () => Get.to<void>(() => const ShortlistView())),
                       _DrawerEntry(Icons.favorite_border_rounded, 'Manage Interests',
                           () => Get.to<void>(() => const InterestsView())),
+                      _DrawerEntry(Icons.visibility_outlined, 'Profile Views',
+                          () => Get.to<void>(() => const ProfileViewsView())),
                       _DrawerEntry(Icons.bookmarks_outlined, 'Saved Searches',
                           () => Get.toNamed<void>(AppRoutes.savedSearches)),
                       _DrawerEntry(Icons.notifications_none_rounded, 'Notifications',

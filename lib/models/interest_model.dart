@@ -43,6 +43,12 @@ class InterestMember {
     this.cityId,
     this.verificationStatus,
     this.aiVerificationStatus,
+    this.age,
+    this.city,
+    this.education,
+    this.profession,
+    this.income,
+    this.compatibilityPercentage,
   });
 
   final int id;
@@ -53,6 +59,28 @@ class InterestMember {
   final int? cityId;
   final String? verificationStatus;
   final String? aiVerificationStatus;
+
+  // ---- Card lines (Matches screen reference design) -------------------------
+  // Resolved server-side in InterestResource::memberBlock so the card never
+  // needs a lookup table of its own.
+
+  /// "Sara Khan, 26" — the age lives on its own so the card can join it.
+  final int? age;
+
+  /// "Lahore" — resolved city name, not an id.
+  final String? city;
+
+  /// "BS Computer Science" / "Bachelor's Degree".
+  final String? education;
+
+  /// "Software Engineer".
+  final String? profession;
+
+  /// "PKR 120k / mo" — preformatted by the API.
+  final String? income;
+
+  /// 0-100, the same viewer-relative score a Discover card shows.
+  final int? compatibilityPercentage;
 
   String get displayName => (name ?? '').trim().isEmpty ? 'HamQadam Member' : name!.trim();
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : 'H';
@@ -71,6 +99,12 @@ class InterestMember {
       cityId: _asIntOrNull(json['city_id']),
       verificationStatus: json['verification_status']?.toString(),
       aiVerificationStatus: json['ai_verification_status']?.toString(),
+      age: _asIntOrNull(json['age']),
+      city: json['city']?.toString(),
+      education: json['education']?.toString(),
+      profession: json['profession']?.toString(),
+      income: json['income']?.toString(),
+      compatibilityPercentage: _asIntOrNull(json['compatibility_percentage']),
     );
   }
 }

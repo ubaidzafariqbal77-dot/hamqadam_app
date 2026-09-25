@@ -74,8 +74,8 @@ class _ProposalsViewState extends State<ProposalsView> with SingleTickerProvider
             color: Theme.of(context).cardColor,
             child: TabBar(
               controller: _tabController,
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
+              indicatorColor: AppColors.regAccent,
+              labelColor: AppColors.regAccent,
               unselectedLabelColor: theme.hintColor,
               labelStyle: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
               tabs: <Widget>[
@@ -178,7 +178,7 @@ class _ProposalList extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      color: AppColors.primary,
+      color: AppColors.regAccent,
       onRefresh: onRefresh,
       child: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -412,10 +412,12 @@ class _ProposalCard extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.primary),
-                      label: const Text('Profile', style: TextStyle(fontSize: 13)),
+                      icon: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.regAccent),
+                      label: const Text('Profile', style: TextStyle(fontSize: 13, color: AppColors.regAccent)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 9),
+                        side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
+                        backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                       ),
                       onPressed: () {
@@ -436,7 +438,7 @@ class _ProposalCard extends StatelessWidget {
                       icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.white),
                       label: const Text('Chat', style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold)),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.regAccent,
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                       ),

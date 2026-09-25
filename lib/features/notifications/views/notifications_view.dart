@@ -5,6 +5,8 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../controllers/notification_controller.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../features/gifts/views/gift_detail_view.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../features/chat/views/chat_inbox_view.dart';
 import '../../../features/interests/views/interests_view.dart';
@@ -99,6 +101,17 @@ class _NotificationsViewState extends State<NotificationsView> {
     _controller.markAsRead(notif.id, silent: true);
 
     final String type = notif.type.toLowerCase();
+
+    // 0. Gift notifications → the gift's detail screen.
+    if (type.contains('gift')) {
+      final int? txnId = notif.infoId;
+      if (txnId != null && txnId > 0) {
+        Get.to<void>(() => GiftDetailView(transactionId: txnId));
+      } else {
+        Get.toNamed<void>(AppRoutes.myGifts);
+      }
+      return;
+    }
 
     // 1. Chat messages — routed into the conversation thread.
     if (notif.isChatMessage) {

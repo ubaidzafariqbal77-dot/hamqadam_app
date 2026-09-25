@@ -107,6 +107,8 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/lottie/
+    - assets/animated_gifts/
+    - assets/gift_thumbnail/
     # Offline copy of `GET /profile/dropdown-reference-data`. The endpoint is
     # bearer-only and registration has no token until its final submit, so this
     # is what every signup dropdown reads from. Ids are the server's, verbatim.

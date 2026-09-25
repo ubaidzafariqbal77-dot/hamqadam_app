@@ -434,6 +434,14 @@ class ApiEndpoints {
   static const String familyIntroductions = '/family/introductions';
   static String familyIntroductionRespond(int introductionId) => '/family/introductions/$introductionId/respond';
   static String familyIntroductionCancel(int introductionId) => '/family/introductions/$introductionId/cancel';
+
+  // ---- Gifts (backend is the source of truth for catalog and prices) -------
+  static const String gifts = '/gifts';
+  static String giftDetail(int giftId) => '/gifts/$giftId';
+  static const String giftsSend = '/gifts/send';
+  static const String giftsReceived = '/gifts/received';
+  static const String giftsSent = '/gifts/sent';
+  static String giftTransaction(int transactionId) => '/gifts/transactions/$transactionId';
 }
 
 

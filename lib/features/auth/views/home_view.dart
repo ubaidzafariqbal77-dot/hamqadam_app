@@ -340,6 +340,8 @@ class _AppDrawer extends StatelessWidget {
                     entries: <_DrawerEntry>[
                       _DrawerEntry(Icons.edit_outlined, 'Edit Profile',
                           () => Get.to<void>(() => const EditProfileView())),
+                      _DrawerEntry(Icons.card_giftcard_rounded, 'My Gifts',
+                          () => Get.toNamed<void>(AppRoutes.myGifts)),
                       _DrawerEntry(Icons.playlist_add_check_rounded, 'Complete your profile',
                           () => Get.toNamed<void>(AppRoutes.profileCompletion)),
                       _DrawerEntry(Icons.verified_user_outlined, 'Verification',

@@ -1043,56 +1043,57 @@ class _SingleUserProfileCard extends StatelessWidget {
                       children: <Widget>[
                         // "Sara Khan, 26" — serif headline, the reference
                         // card's way of writing a name.
-                        Row(
-                          children: <Widget>[
-                            Flexible(
-                              child: Text(
-                                profile.displayName,
-                                style: AppTextStyles.displaySerif.copyWith(
-                                  fontSize: 20,
-                                  height: 1.2,
-                                  color: AppColors.roseTitleInk,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (profile.age != null) ...<Widget>[
-                              const SizedBox(width: 5),
-                              Text(
-                                ', ${profile.age}',
-                                style: AppTextStyles.displaySerif.copyWith(
-                                  fontSize: 20,
-                                  height: 1.2,
-                                  color: AppColors.roseTitleInk,
+                        //
+                        // One text flow, not a Row: as separate children the
+                        // age and the tick reserved fixed width, so the name
+                        // was the only thing left to shrink and long names
+                        // ellipsed to "Muha…" even with room to spare. As
+                        // spans they share the line, and the name may take a
+                        // second one before any of it is cut.
+                        Text.rich(
+                          TextSpan(
+                            children: <InlineSpan>[
+                              TextSpan(text: profile.displayName),
+                              if (profile.age != null)
+                                TextSpan(text: ', ${profile.age}'),
+                              // Non-breaking space, not a spacer widget: a
+                              // WidgetSpan gap is a legal place to wrap, which
+                              // left the tick stranded alone on a second line
+                              // whenever the name itself fitted on the first.
+                              const TextSpan(text: '\u00A0'),
+                              WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                // The tick doubles as a button: tapping it
+                                // opens the member's Trust & Verification
+                                // dialog.
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: () => TrustVerificationSheet.show(
+                                    context,
+                                    profileId: profile.id,
+                                    name: profile.displayName,
+                                    photoUrl: profile.photo,
+                                  ),
+                                  child: Icon(
+                                    profile.isVerified
+                                        ? Icons.verified_rounded
+                                        : Icons.shield_outlined,
+                                    color: profile.isVerified
+                                        ? AppColors.success
+                                        : AppColors.regAccentSoft,
+                                    size: 17,
+                                  ),
                                 ),
                               ),
                             ],
-                            const SizedBox(width: 5),
-                            // The tick doubles as a button: tapping it opens
-                            // the member's Trust & Verification dialog.
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => TrustVerificationSheet.show(
-                                context,
-                                profileId: profile.id,
-                                name: profile.displayName,
-                                photoUrl: profile.photo,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(2),
-                                child: Icon(
-                                  profile.isVerified
-                                      ? Icons.verified_rounded
-                                      : Icons.shield_outlined,
-                                  color: profile.isVerified
-                                      ? AppColors.success
-                                      : AppColors.regAccentSoft,
-                                  size: 17,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
+                          style: AppTextStyles.displaySerif.copyWith(
+                            fontSize: 20,
+                            height: 1.25,
+                            color: AppColors.roseTitleInk,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
                         Wrap(
@@ -1576,19 +1577,31 @@ class _FactLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.only(top: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(icon, size: 13, color: AppColors.chatTimeInk),
-          const SizedBox(width: 7),
+          // Fixed-width, centred icon cell so every line's text starts on the
+          // same left edge whatever the glyph's own width is — a mosque and a
+          // pin do not measure the same, and the ragged left edge was what
+          // made the block look unaligned.
+          SizedBox(
+            width: 18,
+            child: Center(
+              child: Icon(icon, size: 14, color: AppColors.regAccent),
+            ),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
               style: AppTextStyles.caption.copyWith(
-                fontSize: 12.5,
+                fontSize: 13,
+                height: 1.35,
+                fontWeight: FontWeight.w500,
                 color: AppColors.chatPreviewInk,
               ),
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),

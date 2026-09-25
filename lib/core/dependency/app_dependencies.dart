@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/gift_controller.dart';
 import '../../controllers/help_chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
@@ -27,6 +28,7 @@ import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/call_repository.dart';
 import '../../repositories/chat_repository.dart';
+import '../../repositories/gift_repository.dart';
 import '../../repositories/help_chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
@@ -147,6 +149,7 @@ class AppDependencies {
     Get.put<AiHelperRepository>(AiHelperRepository(apiClient), permanent: true);
     Get.put<ContentRepository>(ContentRepository(apiClient), permanent: true);
     Get.put<FamilyRepository>(FamilyRepository(apiClient), permanent: true);
+    Get.put<GiftRepository>(GiftRepository(apiClient), permanent: true);
     Get.put<AuthExtraRepository>(AuthExtraRepository(apiClient), permanent: true);
     Get.put<HoroscopeRepository>(HoroscopeRepository(apiClient), permanent: true);
     Get.put<BridgeRepository>(BridgeRepository(apiClient), permanent: true);
@@ -355,6 +358,7 @@ class AppDependencies {
     Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
     Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
     Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);
+    Get.lazyPut<GiftController>(() => GiftController(Get.find<GiftRepository>()), fenix: true);
     Get.lazyPut<HoroscopeController>(() => HoroscopeController(Get.find<HoroscopeRepository>()), fenix: true);
 
     // Restore any persisted session for the splash bootstrap.

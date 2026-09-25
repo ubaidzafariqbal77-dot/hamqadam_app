@@ -11,6 +11,7 @@ import '../../../controllers/interest_controller.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/proposal_controller.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
+import '../../../features/gifts/views/gift_selection_sheet.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/public_profile_model.dart';
@@ -899,6 +900,31 @@ class _ActionBar extends StatelessWidget {
                   }),
                 ),
               ],
+            ),
+
+            // 3. Send Gift — opens the gift selection sheet (catalog + coins
+            // come from the backend; the deduction happens server-side).
+            const SizedBox(height: AppSpacing.xs),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.card_giftcard_rounded, size: 17, color: AppColors.fieldLabelRose),
+                label: const Text(
+                  'Send Gift',
+                  style: TextStyle(
+                    color: AppColors.fieldLabelRose,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () => showGiftSelectionSheet(context, profile.id),
+              ),
             ),
           ],
         ),

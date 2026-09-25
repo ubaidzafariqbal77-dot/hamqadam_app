@@ -100,7 +100,7 @@ class LoginController extends GetxController {
     // Route based on server registration status.
     final bool gated = await authController.checkManualReview();
     if (gated) return;
-    await Get.find<RegistrationController>().resume();
+    await Get.find<RegistrationController>().resumeAfterLogin();
   }
 
   /// Fingerprint login: verifies the member with the system BiometricPrompt,
@@ -129,7 +129,7 @@ class LoginController extends GetxController {
       await authController.persistSession(res);
       final bool gated = await authController.checkManualReview();
       if (gated) return;
-      await Get.find<RegistrationController>().resume();
+      await Get.find<RegistrationController>().resumeAfterLogin();
     } on ValidationException catch (e) {
       // The stored password no longer matches (changed on another device, or
       // the account changed). The member falls back to typing; the stale

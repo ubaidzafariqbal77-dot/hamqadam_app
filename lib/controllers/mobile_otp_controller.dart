@@ -73,7 +73,7 @@ class MobileOtpController extends GetxController {
       await authController.persistSession(res);
       final bool gated = await authController.checkManualReview();
       if (gated) return;
-      await Get.find<RegistrationController>().resume();
+      await Get.find<RegistrationController>().resumeAfterLogin();
     } on AppException catch (e) {
       _fail(e.message);
     } finally {

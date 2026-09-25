@@ -2,7 +2,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
 import 'constants/app_strings.dart';
 import 'controllers/notification_controller.dart';
 import 'core/dependency/app_dependencies.dart';

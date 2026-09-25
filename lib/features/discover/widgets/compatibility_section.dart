@@ -16,9 +16,19 @@ import '../../../models/public_profile_model.dart';
 /// Unmet criteria are shown alongside the met ones on purpose: a matchmaking
 /// score that only ever lists positives is not information, it is decoration.
 class CompatibilitySection extends StatelessWidget {
-  const CompatibilitySection({super.key, required this.future});
+  const CompatibilitySection({super.key, required this.future, this.overridePercentage});
 
   final Future<CompatibilityModel?> future;
+
+  /// The AI match percentage the listing card already shows
+  /// (`compatibility_percentage` on `GET /search/profiles` and `GET /matches`).
+  ///
+  /// The detail endpoint `/profiles/{id}/compatibility` can answer with a
+  /// DIFFERENT number — a stored rule-based row or a re-scored value — and the
+  /// section then contradicts the very card the member tapped from. When this
+  /// is set, the AI listing score WINS: the endpoint is only read for the
+  /// explanation and the per-criterion checklist around it.
+  final int? overridePercentage;
 
   @override
   Widget build(BuildContext context) {
@@ -30,32 +40,57 @@ class CompatibilitySection extends StatelessWidget {
         }
         final CompatibilityModel? data = snap.data;
         // A missing score is not an error worth shouting about — the rest of
-        // the profile is still perfectly usable.
-        if (snap.hasError || data == null || data.percentage <= 0) {
+        // the profile is still perfectly usable. But when the listing card
+        // carried a score, this section still draws with it, keeping the
+        // card and the detail page in agreement even when the endpoint failed.
+        if (snap.hasError || data == null) {
+          final int? o = overridePercentage;
+          if (o == null || o <= 0) return const SizedBox.shrink();
+          return _CompatibilityCard(
+            data: CompatibilityModel(profileId: 0, percentage: o),
+          );
+        }
+        // Without a listing override, a zero / absent score stays hidden —
+        // the rest of the profile is still perfectly usable.
+        if (overridePercentage == null && data.percentage <= 0) {
           return const SizedBox.shrink();
         }
-        return _CompatibilityCard(data: data);
+        return _CompatibilityCard(
+          data: data,
+          displayPercentage:
+              (overridePercentage != null && overridePercentage! > 0)
+                  ? overridePercentage
+                  : data.percentage,
+        );
       },
     );
   }
 }
 
 class _CompatibilityCard extends StatelessWidget {
-  const _CompatibilityCard({required this.data});
+  const _CompatibilityCard({required this.data, int? displayPercentage})
+      : _displayPercentage = displayPercentage;
 
   final CompatibilityModel data;
 
+  /// The headline number. Defaults to the endpoint's own percentage; the
+  /// section passes the AI listing score here so the card never disagrees
+  /// with what the member saw on the list.
+  final int? _displayPercentage;
+
+  int get _shownPercentage => _displayPercentage ?? data.percentage;
+
   Color get _scoreColor {
-    if (data.percentage >= 80) return AppColors.success;
-    if (data.percentage >= 60) return AppColors.gold;
-    if (data.percentage >= 40) return Colors.orange;
+    if (_shownPercentage >= 80) return AppColors.success;
+    if (_shownPercentage >= 60) return AppColors.gold;
+    if (_shownPercentage >= 40) return Colors.orange;
     return AppColors.error;
   }
 
   String get _levelLabel {
-    if (data.percentage >= 80) return 'Very high compatibility';
-    if (data.percentage >= 60) return 'High compatibility';
-    if (data.percentage >= 40) return 'Moderate compatibility';
+    if (_shownPercentage >= 80) return 'Very high compatibility';
+    if (_shownPercentage >= 60) return 'High compatibility';
+    if (_shownPercentage >= 40) return 'Moderate compatibility';
     return 'Low compatibility';
   }
 
@@ -133,7 +168,7 @@ class _CompatibilityCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '${data.percentage}% compatibility',
+                '$_shownPercentage% compatibility',
                 style: AppTextStyles.title.copyWith(
                   color: AppColors.lightTextPrimary,
                   fontWeight: FontWeight.w800,

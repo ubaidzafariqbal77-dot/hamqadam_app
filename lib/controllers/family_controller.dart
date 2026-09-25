@@ -18,6 +18,30 @@ class FamilyController extends GetxController {
   final RxList<Map<String, dynamic>> conversations = <Map<String, dynamic>>[].obs;
   final RxBool busy = false.obs;
 
+  // ---- Guardian Mode state ------------------------------------------------
+
+  /// Guardian Mode on/off (server flag: wali_mode_enabled).
+  final RxBool guardianModeEnabled = false.obs;
+
+  /// Permission catalog from `GET /family/guardian-mode/status`:
+  /// `{<key>: <human label>}`.
+  final RxMap<String, dynamic> permissionCatalog = <String, dynamic>{}.obs;
+
+  /// Presets: `{view_only: [...], review: [...], participate: [...]}`.
+  final RxMap<String, dynamic> permissionPresets = <String, dynamic>{}.obs;
+
+  /// The member's sent guardian invitations.
+  final RxList<Map<String, dynamic>> guardianInvitations = <Map<String, dynamic>>[].obs;
+
+  /// Guardian's match-review feed for one managed profile.
+  final RxList<Map<String, dynamic>> guardianMatches = <Map<String, dynamic>>[].obs;
+
+  /// Guardian activity (audit) rows for one profile.
+  final RxList<Map<String, dynamic>> guardianActivity = <Map<String, dynamic>>[].obs;
+
+  /// Family introductions involving the caller.
+  final RxList<Map<String, dynamic>> introductions = <Map<String, dynamic>>[].obs;
+
   /// Whether the member's wali/family-involvement mode is on (server flag).
   final RxBool waliModeEnabled = false.obs;
 
@@ -213,6 +237,218 @@ class FamilyController extends GetxController {
     } catch (e) {
       AppSnackbar.error('Failed to send message.');
       return false;
+    }
+  }
+
+  // ---- Guardian Mode (spec §5–§25) ----------------------------------------
+
+  Future<void> loadGuardianModeStatus() async {
+    try {
+      final Map<String, dynamic> status = await _repo.fetchGuardianModeStatus();
+      guardianModeEnabled.value = status['enabled'] == true;
+      permissionCatalog.assignAll(
+        (status['permissions'] as Map<String, dynamic>? ?? <String, dynamic>{}).cast<String, dynamic>(),
+      );
+      permissionPresets.assignAll(
+        (status['presets'] as Map<String, dynamic>? ?? <String, dynamic>{}).cast<String, dynamic>(),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> toggleGuardianMode(bool enabled) async {
+    try {
+      await _repo.toggleGuardianMode(enabled: enabled);
+      guardianModeEnabled.value = enabled;
+      AppSnackbar.success(enabled ? 'Guardian Mode enabled.' : 'Guardian Mode disabled.');
+    } catch (e) {
+      AppSnackbar.error('Failed to toggle Guardian Mode.');
+    }
+  }
+
+  Future<void> loadGuardianInvitations() async {
+    try {
+      guardianInvitations.assignAll(await _repo.fetchGuardianInvitations());
+    } catch (_) {}
+  }
+
+  /// Invite via single-use expiring token; accepts a preset or explicit keys.
+  Future<bool> inviteGuardianWithPreset({
+    required String contact,
+    required String relationship,
+    String? guardianRole,
+    bool isWali = false,
+    String permissionPreset = 'view_only',
+    List<String>? permissions,
+  }) async {
+    if (busy.value) return false;
+    busy.value = true;
+    try {
+      await _repo.createGuardianInvitation(
+        contact: contact,
+        relationship: relationship,
+        guardianRole: guardianRole,
+        isWali: isWali,
+        permissionPreset: permissionPreset,
+        permissions: permissions,
+      );
+      AppSnackbar.success('Guardian invitation sent.');
+      await Future.wait(<Future<void>>[loadGuardians(), loadGuardianInvitations()]);
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Failed to invite guardian.');
+      return false;
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  /// Guardian accepts an invitation token (from a link/code).
+  Future<bool> acceptGuardianInvitation(String token) async {
+    try {
+      await _repo.acceptGuardianInvitation(token);
+      AppSnackbar.success('Invitation accepted — you are now a guardian.');
+      await loadManagedProfiles();
+      return true;
+    } catch (e) {
+      AppSnackbar.error('This invitation is not valid.');
+      return false;
+    }
+  }
+
+  Future<void> pauseGuardian(int guardianId) async {
+    try {
+      await _repo.pauseGuardian(guardianId);
+      AppSnackbar.success('Guardian paused.');
+      await loadGuardians();
+    } catch (e) {
+      AppSnackbar.error('Failed to pause guardian.');
+    }
+  }
+
+  Future<void> resumeGuardian(int guardianId) async {
+    try {
+      await _repo.resumeGuardian(guardianId);
+      AppSnackbar.success('Guardian resumed.');
+      await loadGuardians();
+    } catch (e) {
+      AppSnackbar.error('Failed to resume guardian.');
+    }
+  }
+
+  Future<void> updateGuardianPermissions(int guardianId, List<String> permissions) async {
+    try {
+      await _repo.updateGuardianPermissions(guardianId, permissions);
+      AppSnackbar.success('Permissions updated.');
+      await loadGuardians();
+    } catch (e) {
+      AppSnackbar.error('Failed to update permissions.');
+    }
+  }
+
+  Future<void> loadGuardianActivity(int profileUserId) async {
+    try {
+      guardianActivity.assignAll(await _repo.fetchGuardianActivity(profileUserId));
+    } catch (_) {}
+  }
+
+  Future<void> loadGuardianMatches(int profileUserId) async {
+    try {
+      guardianMatches.assignAll(await _repo.fetchGuardianMatches(profileUserId));
+    } catch (_) {
+      guardianMatches.clear();
+    }
+  }
+
+  Future<bool> guardianShortlist({required int profileUserId, required int targetUserId}) async {
+    try {
+      await _repo.guardianShortlist(profileUserId: profileUserId, targetUserId: targetUserId);
+      AppSnackbar.success('Shortlisted for the member.');
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Not permitted or failed.');
+      return false;
+    }
+  }
+
+  Future<bool> guardianFeedback({
+    required int profileUserId,
+    required int targetUserId,
+    required String feedbackType,
+    String? reason,
+    String? comment,
+  }) async {
+    try {
+      await _repo.guardianFeedback(
+        profileUserId: profileUserId,
+        targetUserId: targetUserId,
+        feedbackType: feedbackType,
+        reason: reason,
+        comment: comment,
+      );
+      AppSnackbar.success('Feedback saved.');
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Not permitted or failed.');
+      return false;
+    }
+  }
+
+  Future<bool> guardianNote({
+    required int profileUserId,
+    required int targetUserId,
+    required String note,
+    String visibility = 'primary_and_guardian',
+  }) async {
+    try {
+      await _repo.guardianNote(
+        profileUserId: profileUserId,
+        targetUserId: targetUserId,
+        note: note,
+        visibility: visibility,
+      );
+      AppSnackbar.success('Note saved.');
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Not permitted or failed.');
+      return false;
+    }
+  }
+
+  Future<void> loadIntroductions() async {
+    try {
+      introductions.assignAll(await _repo.fetchIntroductions());
+    } catch (_) {}
+  }
+
+  Future<bool> requestIntroduction({required int proposalId, String? message}) async {
+    try {
+      await _repo.requestIntroduction(proposalId: proposalId, message: message);
+      AppSnackbar.success('Family introduction requested.');
+      await loadIntroductions();
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Could not request the introduction.');
+      return false;
+    }
+  }
+
+  Future<void> respondIntroduction(int introductionId, {required bool accept}) async {
+    try {
+      await _repo.respondIntroduction(introductionId, accept: accept);
+      AppSnackbar.success(accept ? 'Introduction accepted.' : 'Introduction declined.');
+      await loadIntroductions();
+    } catch (e) {
+      AppSnackbar.error('Failed to respond.');
+    }
+  }
+
+  Future<void> cancelIntroduction(int introductionId) async {
+    try {
+      await _repo.cancelIntroduction(introductionId);
+      AppSnackbar.success('Introduction cancelled.');
+      await loadIntroductions();
+    } catch (e) {
+      AppSnackbar.error('Failed to cancel.');
     }
   }
 }

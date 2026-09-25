@@ -29,6 +29,9 @@ class _FamilyViewState extends State<FamilyView> {
       _controller.loadApprovalRequests();
       _controller.loadManagedProfiles();
       _controller.loadDigest();
+      _controller.loadGuardianModeStatus();
+      _controller.loadGuardianInvitations();
+      _controller.loadIntroductions();
     });
   }
 
@@ -47,6 +50,9 @@ class _FamilyViewState extends State<FamilyView> {
             _controller.loadApprovalRequests(),
             _controller.loadManagedProfiles(),
             _controller.loadDigest(),
+            _controller.loadGuardianModeStatus(),
+            _controller.loadGuardianInvitations(),
+            _controller.loadIntroductions(),
           ]);
         },
         child: ListView(
@@ -73,6 +79,11 @@ class _FamilyViewState extends State<FamilyView> {
               icon: Icons.supervisor_account_rounded,
               title: 'Profiles I Guard',
               child: const _ManagedProfilesSection(),
+            ),
+            _SectionCard(
+              icon: Icons.favorite_border_rounded,
+              title: 'Family Introductions',
+              child: const _IntroductionsSection(),
             ),
             _SectionCard(
               icon: Icons.insights_rounded,
@@ -412,8 +423,32 @@ class _GuardiansSection extends StatelessWidget {
                     ],
                   )
                 else ...<Widget>[
-                  _StatusChip(status: status),
+                  _StatusChip(status: (g['paused_at'] != null) ? 'paused' : status),
                   const SizedBox(width: 6),
+                  // Pause / resume without deleting the relationship (spec §25).
+                  InkWell(
+                    onTap: () => (g['paused_at'] != null)
+                        ? controller.resumeGuardian(id)
+                        : controller.pauseGuardian(id),
+                    borderRadius: BorderRadius.circular(999),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        (g['paused_at'] != null) ? Icons.play_circle_outline_rounded : Icons.pause_circle_outline_rounded,
+                        size: 18,
+                        color: AppColors.info,
+                      ),
+                    ),
+                  ),
+                  // Granular permission editor (spec §7).
+                  InkWell(
+                    onTap: () => _showPermissionsSheet(context, controller, g),
+                    borderRadius: BorderRadius.circular(999),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.tune_rounded, size: 18, color: AppColors.fieldLabelRose),
+                    ),
+                  ),
                   InkWell(
                     onTap: () => controller.revokeGuardian(id),
                     borderRadius: BorderRadius.circular(999),
@@ -567,8 +602,15 @@ class _InviteGuardianSheetState extends State<_InviteGuardianSheet> {
   final TextEditingController _idCtrl = TextEditingController();
   final TextEditingController _relCtrl = TextEditingController();
   String _role = 'guardian';
+  String _preset = 'view_only';
 
   static const List<String> _roles = <String>['guardian', 'wali'];
+  static const List<(String, String)> _presets = <(String, String)>[
+    ('view_only', 'View Only — profile, verification, matches'),
+    ('review', 'Review — + shortlist, notes, proposal review'),
+    ('participate', 'Participate — + recommend, family actions'),
+    ('custom', 'Custom — set later'),
+  ];
 
   @override
   void dispose() {
@@ -583,10 +625,14 @@ class _InviteGuardianSheetState extends State<_InviteGuardianSheet> {
       AppSnackbar.info('Enter the member ID of your guardian.');
       return;
     }
-    final bool ok = await widget.controller.inviteGuardian(
-      guardianUserId: userId,
+    // Preset drives the granular permission rows created on acceptance
+    // (spec §8). The member can fine-tune every key afterwards.
+    final bool ok = await widget.controller.inviteGuardianWithPreset(
+      contact: 'member-$userId',
       relationship: _relCtrl.text.trim().isEmpty ? 'Family' : _relCtrl.text.trim(),
-      permissions: const <String>['view_activity'],
+      guardianRole: _role == 'wali' ? 'primary' : 'supporting',
+      isWali: _role == 'wali',
+      permissionPreset: _preset,
     );
     if (ok && mounted) Navigator.of(context).pop();
   }
@@ -642,6 +688,21 @@ class _InviteGuardianSheetState extends State<_InviteGuardianSheet> {
                   .toList(),
               onChanged: (String? v) => setState(() => _role = v ?? 'guardian'),
             ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _preset,
+              decoration: InputDecoration(
+                labelText: 'Permission preset',
+                border: OutlineInputBorder(borderRadius: AppRadius.mdAll),
+              ),
+              items: _presets
+                  .map(((String, String) p) => DropdownMenuItem<String>(
+                        value: p.$1,
+                        child: Text(p.$2, style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+                      ))
+                  .toList(),
+              onChanged: (String? v) => setState(() => _preset = v ?? 'view_only'),
+            ),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -664,5 +725,205 @@ class _InviteGuardianSheetState extends State<_InviteGuardianSheet> {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Guardian granular permissions sheet (spec §7)
+// ---------------------------------------------------------------------------
+
+/// Loads the link's current permission keys, then lets the member toggle every
+/// key from the server catalog. Sensitive keys are shown but need a deliberate
+/// opt-in — they are never pre-ticked (spec §21/§22).
+void _showPermissionsSheet(
+  BuildContext context,
+  FamilyController controller,
+  Map<String, dynamic> guardian,
+) {
+  final int linkId = (guardian['id'] as num?)?.toInt() ?? 0;
+  if (linkId <= 0) return;
+
+  // Seed from the link's stored JSON; the backend keeps rows and JSON in step.
+  final List<String> current =
+      ((guardian['permissions'] as List<dynamic>?) ?? <dynamic>[]).map((dynamic e) => e.toString()).toList();
+  final Set<String> selected = current.toSet();
+
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
+    builder: (BuildContext ctx) => StatefulBuilder(
+      builder: (BuildContext sheetCtx, void Function(void Function()) setSheetState) {
+        final Map<String, dynamic> catalog = Map<String, dynamic>.from(controller.permissionCatalog);
+        final Map<String, dynamic> presets = Map<String, dynamic>.from(controller.permissionPresets);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('Guardian Permissions', style: AppTextStyles.title),
+                const SizedBox(height: 6),
+                Text(
+                  'Choose exactly what this guardian can see and do. Changes apply immediately.',
+                  style: AppTextStyles.caption.copyWith(color: Theme.of(sheetCtx).hintColor),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: catalog.entries.map((MapEntry<String, dynamic> entry) {
+                        final bool sensitive = <String>{
+                          'send_interest', 'view_private_photos', 'view_private_chat',
+                          'view_contact_details', 'manage_other_guardians', 'view_payments',
+                          'account_security', 'delete_account',
+                        }.contains(entry.key);
+
+                        return CheckboxListTile(
+                          dense: true,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          activeColor: AppColors.regAccent,
+                          title: Text(
+                            entry.value.toString(),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 13,
+                              color: sensitive ? AppColors.error : null,
+                            ),
+                          ),
+                          value: selected.contains(entry.key),
+                          onChanged: (bool? checked) => setSheetState(() {
+                            checked! ? selected.add(entry.key) : selected.remove(entry.key);
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: <Widget>[
+                    for (final String presetKey in <String>['view_only', 'review', 'participate'])
+                      if (presets[presetKey] is List)
+                        ActionChip(
+                          label: Text(presetKey.replaceAll('_', ' ')),
+                          onPressed: () => setSheetState(() {
+                            selected
+                              ..clear()
+                              ..addAll((presets[presetKey] as List<dynamic>).map((dynamic e) => e.toString()));
+                          }),
+                        ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.regAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+                    ),
+                    onPressed: () async {
+                      Navigator.of(sheetCtx).pop();
+                      await controller.updateGuardianPermissions(linkId, selected.toList());
+                    },
+                    child: const Text('Save Permissions',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Family introductions (spec §15)
+// ---------------------------------------------------------------------------
+
+class _IntroductionsSection extends StatelessWidget {
+  const _IntroductionsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final FamilyController controller = Get.find<FamilyController>();
+
+    return Obx(() {
+      if (controller.introductions.isEmpty) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+          child: Text(
+            'No family introductions yet. After a proposal is accepted, either family can request an introduction — both must consent before a family conversation opens.',
+            style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor),
+          ),
+        );
+      }
+
+      return Column(
+        children: controller.introductions.map((Map<String, dynamic> intro) {
+          final String status = (intro['status'] ?? 'requested').toString();
+          final int id = (intro['id'] as num?)?.toInt() ?? 0;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.lightSurfaceAlt.withValues(alpha: 0.6),
+              borderRadius: AppRadius.mdAll,
+            ),
+            child: Row(
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.regAccent.withValues(alpha: 0.12),
+                  child: const Icon(Icons.diversity_1_rounded, size: 18, color: AppColors.regAccent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Family Introduction — Proposal #${intro['proposal_id'] ?? '?'}',
+                        style: AppTextStyles.bodyStrong.copyWith(fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Status: $status',
+                        style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor),
+                      ),
+                    ],
+                  ),
+                ),
+                if (status == 'requested') ...<Widget>[
+                  InkWell(
+                    onTap: () => controller.respondIntroduction(id, accept: true),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.check_circle_outline_rounded, size: 20, color: AppColors.success),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => controller.respondIntroduction(id, accept: false),
+                    child: const Padding(
+                      padding: EdgeInsets.all(6),
+                      child: Icon(Icons.cancel_outlined, size: 20, color: AppColors.error),
+                    ),
+                  ),
+                ] else if (status == 'active')
+                  const _StatusChip(status: 'active'),
+              ],
+            ),
+          );
+        }).toList(),
+      );
+    });
   }
 }

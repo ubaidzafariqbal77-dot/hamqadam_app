@@ -417,6 +417,23 @@ class ApiEndpoints {
   static const String familyConversations = '/family/conversations';
   static String familyConversationMessages(int conversationId) => '/family/conversations/$conversationId/messages';
   static const String familyDigestPreview = '/family/digest/preview';
+
+  // ---- Guardian Mode (spec §5–§25) -----------------------------------------
+  static const String guardianModeStatus = '/family/guardian-mode/status';
+  static const String guardianModeToggle = '/family/guardian-mode';
+  static const String guardianInvitations = '/family/guardian-invitations';
+  static const String guardianInvitationsAccept = '/family/guardian-invitations/accept';
+  static String familyGuardianPause(int guardianId) => '/family/guardians/$guardianId/pause';
+  static String familyGuardianResume(int guardianId) => '/family/guardians/$guardianId/resume';
+  static String familyGuardianPermissions(int guardianId) => '/family/guardians/$guardianId/permissions';
+  static String familyGuardianActivity(int profileUserId) => '/family/$profileUserId/activity';
+  static const String guardianMatches = '/guardian/matches';
+  static const String guardianMatchShortlist = '/guardian/matches/shortlist';
+  static const String guardianMatchFeedback = '/guardian/matches/feedback';
+  static const String guardianMatchNote = '/guardian/matches/note';
+  static const String familyIntroductions = '/family/introductions';
+  static String familyIntroductionRespond(int introductionId) => '/family/introductions/$introductionId/respond';
+  static String familyIntroductionCancel(int introductionId) => '/family/introductions/$introductionId/cancel';
 }
 
 

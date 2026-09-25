@@ -11,6 +11,7 @@ import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 16 — Family information, the API's step 15
 /// (`POST /auth/register/step/15`, skippable).
@@ -79,6 +80,8 @@ class _Step16ViewState extends State<Step16View> {
       stepNumber: 16,
       totalSteps: 18,
       title: 'Family information',
+      art: RegIcons.step16Family,
+      artIcon: Icons.family_restroom_rounded,
       subtitle: 'A little about your family (optional).',
       busy: c.busy,
       error: c.error,
@@ -92,6 +95,8 @@ class _Step16ViewState extends State<Step16View> {
         const SizedBox(height: 8),
         Obx(
           () => AppStringPicker(
+            // The reference gives each family row a leading icon disc.
+            icon: Icons.work_rounded,
             label: "Father's occupation",
             value: c.fatherOccupation.value,
             options: RegOptions.parentOccupations,
@@ -104,6 +109,7 @@ class _Step16ViewState extends State<Step16View> {
        const SizedBox(height: 8),
         Obx(
           () => AppStringPicker(
+            icon: Icons.work_rounded,
             label: "Mother's occupation",
             value: c.motherOccupation.value,
             options: RegOptions.parentOccupations,
@@ -116,6 +122,7 @@ class _Step16ViewState extends State<Step16View> {
        const SizedBox(height: 8),
         Obx(
           () => AppLookupDropdown(
+            icon: Icons.groups_rounded,
             label: 'Number of brothers',
             lookupKey: LookupKeys.siblings,
             controller: c.lookup,
@@ -127,6 +134,7 @@ class _Step16ViewState extends State<Step16View> {
         const SizedBox(height: 8),
         Obx(
           () => AppLookupDropdown(
+            icon: Icons.groups_rounded,
             label: 'Number of sisters',
             lookupKey: LookupKeys.siblings,
             controller: c.lookup,

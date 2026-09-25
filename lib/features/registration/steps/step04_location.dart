@@ -8,6 +8,7 @@ import '../../../core/validators/app_validators.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
+import '../../../widgets/field_icon_assets.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
@@ -102,6 +103,8 @@ class _Step04ViewState extends State<Step04View> {
       stepNumber: 4,
       totalSteps: 18,
       title: 'Location',
+      // art: RegIcons.step04Location,
+      // artIcon: Icons.location_on_rounded,
       subtitle: 'Where do you currently live?',
       busy: c.busy,
       error: c.error,
@@ -109,6 +112,7 @@ class _Step04ViewState extends State<Step04View> {
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
+      note: 'Tip: This helps us show nearby services and matches close to you.',
       children: <Widget>[
         Obx(() {
           final bool hasCountry = c.country.value != null;
@@ -118,6 +122,8 @@ class _Step04ViewState extends State<Step04View> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               AppLookupDropdown(
+                // The reference gives every location field a leading icon disc.
+                icon: Icons.public_rounded,
                 label: 'Country',
                 lookupKey: LookupKeys.countries,
                 controller: c.lookup,
@@ -128,6 +134,7 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppLookupDropdown(
+                    icon: Icons.layers_rounded,
                     label: 'Province / State',
                     lookupKey: LookupKeys.states,
                     controller: c.lookup,
@@ -141,6 +148,7 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppLookupDropdown(
+                    icon: Icons.location_city_rounded,
                     label: 'City',
                     lookupKey: LookupKeys.cities,
                     controller: c.lookup,
@@ -154,6 +162,11 @@ class _Step04ViewState extends State<Step04View> {
                 const SizedBox(height: 20),
                 Reveal(
                   child: AppTextFormField(
+                    insetLabel: true,
+                    // The reference marks Area with a home-and-pin glyph.
+                    prefixIcon: const AssetOrIconDisc(
+                      icon: Icons.home_work_rounded,
+                    ),
                     label: 'Area / Neighbourhood',
                     controller: c.area,
                     hint: 'e.g. Gulberg, DHA Phase 5',

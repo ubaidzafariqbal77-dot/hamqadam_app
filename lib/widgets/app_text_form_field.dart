@@ -34,9 +34,16 @@ class AppTextFormField extends StatelessWidget {
     this.showCounter = false,
     this.autofillHints,
     this.textCapitalization = TextCapitalization.none,
+    this.insetLabel = false,
   });
 
   final String label;
+
+  /// Draw the label INSIDE the field, above the value — the registration
+  /// references' field card. Off by default so Login and Forgot password keep
+  /// the label-as-placeholder field they already use.
+  final bool insetLabel;
+
   final FieldRequirement requirement;
   final TextEditingController? controller;
   final String? hint;
@@ -66,11 +73,14 @@ class AppTextFormField extends StatelessWidget {
     final bool hasServerError = (serverError ?? '').isNotEmpty;
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color hintColor = Theme.of(context).hintColor;
+    // Accent comes from the theme, not AppColors: registration overrides the
+    // scheme with its muted rose while the rest of the app keeps brand pink.
+    final Color accent = Theme.of(context).colorScheme.primary;
 
-    // Premium filled look: a soft, brand-tinted rounded field that lifts to the
+    // Premium filled look: a soft, neutral rounded field that lifts to the
     // brand colour (with a whisper of glow) when focused.
     final Color fill = enabled
-        ? (dark ? AppColors.requiredFieldBackgroundDark : const Color(0xFFF9F5F8))
+        ? (dark ? AppColors.requiredFieldBackgroundDark : AppColors.requiredFieldBackgroundLight)
         : (dark ? AppColors.fieldDisabledBackgroundDark : AppColors.fieldDisabledBackgroundLight);
     final Color borderColor = dark ? AppColors.requiredFieldBorderDark : AppColors.lightBorder;
 
@@ -79,7 +89,7 @@ class AppTextFormField extends StatelessWidget {
       borderSide: BorderSide(color: c, width: w),
     );
 
-    return TextFormField(
+    final Widget field = TextFormField(
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,
@@ -89,7 +99,7 @@ class AppTextFormField extends StatelessWidget {
       style: AppTextStyles.body.copyWith(
         color: dark ? AppColors.darkInputText : AppColors.lightInputText,
       ),
-      cursorColor: AppColors.primary,
+      cursorColor: accent,
       maxLines: obscureText ? 1 : maxLines,
       minLines: minLines,
       maxLength: maxLength,
@@ -114,32 +124,42 @@ class AppTextFormField extends StatelessWidget {
               int? maxLength,
             }) => null,
       decoration: InputDecoration(
-        isDense: false,
-        filled: true,
+        isDense: insetLabel,
+        filled: !insetLabel,
         fillColor: fill,
         // The label doubles as the placeholder, shown bilingually inline.
         hint: BiText.inline(
-          label,
+          insetLabel ? (hint ?? '') : label,
           textAlign: TextAlign.start,
-          style: AppTextStyles.body.copyWith( color: AppColors.primaryDark),
+          style: AppTextStyles.body.copyWith(color: Theme.of(context).hintColor),
         ),
-        prefixIcon: prefixIcon,
+        prefixIcon: insetLabel ? null : prefixIcon,
         suffixIcon: suffixIcon,
-        prefixIconColor: AppColors.primary,
+        prefixIconColor: accent,
         suffixIconColor: hintColor,
-        contentPadding: EdgeInsets.fromLTRB(
-          prefixIcon == null ? 16 : 4,
-          16,
-          16,
-          16,
-        ),
-        border: ob(borderColor),
-        enabledBorder: ob(borderColor),
-        focusedBorder: ob(AppColors.primary, 1.6),
-        errorBorder: ob(AppColors.error),
-        focusedErrorBorder: ob(AppColors.error, 1.6),
-        disabledBorder: ob(borderColor),
+        contentPadding: insetLabel
+            ? EdgeInsets.zero
+            : EdgeInsets.fromLTRB(prefixIcon == null ? 16 : 4, 16, 16, 16),
+        border: insetLabel ? InputBorder.none : ob(borderColor),
+        enabledBorder: insetLabel ? InputBorder.none : ob(borderColor),
+        focusedBorder: insetLabel ? InputBorder.none : ob(accent, 1.6),
+        errorBorder: insetLabel ? InputBorder.none : ob(AppColors.error),
+        focusedErrorBorder:
+            insetLabel ? InputBorder.none : ob(AppColors.error, 1.6),
+        disabledBorder: insetLabel ? InputBorder.none : ob(borderColor),
       ),
+    );
+
+    if (!insetLabel) return field;
+
+    // The reference's field card: the label sits inside, above the value, with
+    // the leading disc to its left. FormFieldContainer already draws exactly
+    // that for the pickers, so the two field families stay identical.
+    return FormFieldContainer(
+      label: label,
+      requirement: requirement,
+      leading: prefixIcon,
+      child: field,
     );
   }
 }

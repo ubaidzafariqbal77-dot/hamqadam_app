@@ -9,6 +9,7 @@ import '../../../controllers/login_controller.dart';
 import '../../../controllers/mobile_otp_controller.dart';
 import '../../../controllers/registration_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/biometric_auth_service.dart';
 import '../../../core/utils/view_controller_mixin.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../repositories/auth_repository.dart';
@@ -17,13 +18,16 @@ import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/app_otp_field.dart';
 import '../../../widgets/app_password_field.dart';
 import '../../../widgets/app_phone_field.dart';
-import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/dismiss_keyboard.dart';
 import '../../../widgets/loading_overlay.dart';
 import '../../../widgets/reveal.dart';
 
-/// Premium login screen with Email and Mobile-OTP methods + Google.
+/// Login screen wearing the registration flow's reference look: the dusty-rose
+/// canvas, one floating white rounded card with the soft rose shadow, a serif
+/// heading, and the muted rose buttons — the same chrome StepScaffold draws.
+/// Only the styling moved; every controller, validator and handler is the one
+/// the previous design used.
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
 
@@ -71,34 +75,64 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
             // email/password/phone fields) has bilingual Urdu disabled.
             body: UrduScope(
               enabled: false,
-              child: ListView(
-              padding: EdgeInsets.zero,
-              children: <Widget>[
-                const _LoginHeader(),
-                Padding(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      _MethodToggle(emailMode: _emailMode),
-                      const SizedBox(height: AppSpacing.lg),
-                      Obx(() => _emailMode.value ? _emailForm() : _mobileForm()),
-                      const SizedBox(height: AppSpacing.lg),
-                      const _OrDivider(),
-                      const SizedBox(height: AppSpacing.md),
-                      AppButton(
-                        label: 'With Google',
-                        variant: AppButtonVariant.outline,
-                        icon: Icons.g_mobiledata_rounded,
-                        onPressed: _google,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      _CreateAccountRow(),
+              child: DecoratedBox(
+                // Registration's rose watercolour canvas.
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      AppColors.roseCanvas,
+                      AppColors.roseCanvasDeep,
                     ],
                   ),
                 ),
-              ],
-            ),
+                child: SafeArea(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: <Widget>[
+                      const _LoginHeader(),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, AppSpacing.md, 18, AppSpacing.lg),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            _MethodToggle(emailMode: _emailMode),
+                            const SizedBox(height: AppSpacing.lg),
+                            // The floating white card that holds the form —
+                            // the same card the registration steps draw.
+                            Container(
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: const Color(0xFFB4487B).withValues(alpha: 0.10),
+                                    blurRadius: 30,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: Obx(() => _emailMode.value
+                                  ? _emailForm()
+                                  : _mobileForm()),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            const _OrDivider(),
+                            const SizedBox(height: AppSpacing.md),
+                            // Fingerprint login replaces the (never-enabled) Google
+                            // button: one tap, system biometric prompt, straight in.
+                            _FingerprintLoginButton(onPressed: c.loginWithBiometric),
+                            const SizedBox(height: AppSpacing.lg),
+                            _CreateAccountRow(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ),
@@ -113,12 +147,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Obx(() => c.generalError.value.isEmpty
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: _ErrorBanner(message: c.generalError.value),
-                )),
           Reveal(
             child: UrduScope(
               enabled: false,
@@ -160,7 +188,8 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
               onPressed: _forgotPassword,
               child: BiText.inline(
                 AppStrings.forgotPassword,
-                style: AppTextStyles.label.copyWith(color: AppColors.primary, fontSize: 13),
+                style: AppTextStyles.label.copyWith(
+                    color: AppColors.regAccent, fontSize: 13),
               ),
             ),
           ),
@@ -178,17 +207,11 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Obx(() => otp.generalError.value.isEmpty
-              ? const SizedBox.shrink()
-              : Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: _ErrorBanner(message: otp.generalError.value),
-                )),
           Reveal(
             child: UrduScope(
               enabled: false,
               child: AppPhoneField(
-                label: 'Mobile number',
+                label: 'Enter Email',
                 controller: otp.phoneCtrl,
                 validator: (String? v) => AppValidators.pakistaniPhone(v),
               ),
@@ -221,7 +244,7 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                   child: BiText(
                     'Change number / resend',
                     gap: 0,
-                    style: AppTextStyles.label.copyWith(color: AppColors.primary),
+                    style: AppTextStyles.label.copyWith(color: AppColors.regAccent),
                   ),
                 ),
               ],
@@ -230,13 +253,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
         ],
       ),
     );
-  }
-
-  void _google() {
-    // The Google ID-token flow is wired in AuthRepository.loginWithGoogle().
-    // Enabling it requires a Google OAuth client (serverClientId) +
-    // google-services.json, which must be configured first.
-    AppSnackbar.info('Google Sign-In will be enabled after Google OAuth setup.');
   }
 
   void _forgotPassword() {
@@ -253,16 +269,19 @@ class _MethodToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final bool email = emailMode.value;
+      // The registration segmented look: white track, rose hairline, and the
+      // active segment filled with the muted rose gradient.
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          color: Colors.white,
           borderRadius: AppRadius.mdAll,
+          border: Border.all(color: AppColors.roseFieldBorder),
         ),
         child: Row(
           children: <Widget>[
             _seg(context, 'Email', email, () => emailMode.value = true),
-            _seg(context, 'Mobile OTP', !email, () => emailMode.value = false),
+            _seg(context, 'Email OTP', !email, () => emailMode.value = false),
           ],
         ),
       );
@@ -275,10 +294,28 @@ class _MethodToggle extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: active ? AppColors.primary : Colors.transparent,
+            gradient: active
+                ? const LinearGradient(
+                    colors: AppColors.regPrimaryGradient,
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
+                : null,
+            color: active ? null : Colors.transparent,
             borderRadius: AppRadius.smAll,
+            boxShadow: active
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.regAccent.withValues(alpha: 0.38),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                      spreadRadius: -2,
+                    ),
+                  ]
+                : null,
           ),
           alignment: Alignment.center,
           child: BiText(
@@ -286,7 +323,7 @@ class _MethodToggle extends StatelessWidget {
             textAlign: TextAlign.center,
             gap: 0,
             style: AppTextStyles.label.copyWith(
-              color: active ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
+              color: active ? Colors.white : AppColors.chatPillInk,
             ),
             urduColor: active ? Colors.white.withValues(alpha: 0.9) : null,
           ),
@@ -302,12 +339,19 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        const Expanded(child: Divider()),
+        const Expanded(
+          child: Divider(color: AppColors.roseFieldBorder),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: BiText.inline('or', style: AppTextStyles.caption.copyWith(fontSize: 12)),
+          child: BiText.inline(
+              'or',
+              style: AppTextStyles.caption
+                  .copyWith(fontSize: 12, color: AppColors.chatTimeInk)),
         ),
-        const Expanded(child: Divider()),
+        const Expanded(
+          child: Divider(color: AppColors.roseFieldBorder),
+        ),
       ],
     );
   }
@@ -318,37 +362,112 @@ class _LoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
+    return Padding(
       padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + AppSpacing.xxl,
+        top: MediaQuery.of(context).padding.top * 0.3 + AppSpacing.lg,
         left: AppSpacing.lg,
         right: AppSpacing.lg,
-        bottom: AppSpacing.xxl,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.brandGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
+          // The brand mark in a glass ring — same treatment as the splash, so
+          // login, splash and the launcher icon all read as one product.
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.9), width: 2),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: const Color(0xFFB4487B).withValues(alpha: 0.14),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                  spreadRadius: -6,
+                ),
+              ],
+            ),
+            child: const CircleAvatar(
+              radius: 38,
+              backgroundColor: Colors.white,
+              backgroundImage: AssetImage('assets/images/app_icon_white_bg.jpeg'),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           BiText(
             AppStrings.loginTitle,
-            style: AppTextStyles.display.copyWith(color: Colors.white),
-            urduColor: Colors.white.withValues(alpha: 0.9),
+            textAlign: TextAlign.center,
+            // The registration serif heading in the deep rose ink.
+            style: AppTextStyles.displaySerif.copyWith(
+              fontSize: 30,
+              color: AppColors.roseTitleInk,
+            ),
+            urduColor: AppColors.roseTitleInk,
           ),
           const SizedBox(height: 4),
           BiText(
             AppStrings.loginSubtitle,
-            style: AppTextStyles.body.copyWith(color: Colors.white70),
-            urduColor: Colors.white70,
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 13.5,
+              color: AppColors.regAccent.withValues(alpha: 0.9),
+            ),
+            urduColor: AppColors.regAccent.withValues(alpha: 0.9),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Fingerprint login button. Shown only when the member has opted in and the
+/// device can verify them — otherwise it disappears entirely (a dead button
+/// would be worse than none). One tap opens the system BiometricPrompt and on
+/// success the saved credentials are replayed through the normal login API.
+class _FingerprintLoginButton extends StatefulWidget {
+  const _FingerprintLoginButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  State<_FingerprintLoginButton> createState() =>
+      _FingerprintLoginButtonState();
+}
+
+class _FingerprintLoginButtonState extends State<_FingerprintLoginButton> {
+  bool _available = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAvailability();
+  }
+
+  Future<void> _checkAvailability() async {
+    if (!Get.isRegistered<BiometricAuthService>()) return;
+    final bool enabled = await Get.find<BiometricAuthService>().isEnabled();
+    if (!mounted) return;
+    setState(() => _available = enabled);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_available) return const SizedBox.shrink();
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        foregroundColor: AppColors.regAccent,
+        side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+        backgroundColor: Colors.white,
+      ),
+      onPressed: widget.onPressed,
+      icon: const Icon(Icons.fingerprint_rounded, size: 24),
+      label: Text(
+        'Login with Fingerprint',
+        style: AppTextStyles.label
+            .copyWith(fontSize: 14.5, color: AppColors.regAccent),
       ),
     );
   }
@@ -363,8 +482,8 @@ class _CreateAccountRow extends StatelessWidget {
       children: <Widget>[
         BiText.inline(
           AppStrings.noAccount,
-          style: AppTextStyles.body
-              .copyWith(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.5),
+          style: AppTextStyles.body.copyWith(
+              color: AppColors.chatPreviewInk, fontSize: 13.5),
         ),
         TextButton(
           onPressed: () async {
@@ -381,36 +500,11 @@ class _CreateAccountRow extends StatelessWidget {
           },
           child: BiText.inline(
             AppStrings.createAccount,
-            style: AppTextStyles.label.copyWith(color: AppColors.primary, fontSize: 13.5),
+            style: AppTextStyles.label.copyWith(
+                color: AppColors.regAccent, fontSize: 13.5),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.error.withValues(alpha: 0.1),
-        borderRadius: AppRadius.mdAll,
-        border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/services/notification_service.dart';
 import '../core/services/pusher_chat_service.dart';
@@ -26,11 +27,59 @@ class NotificationController extends GetxController {
   int _currentPage = 1;
   int _lastPage = 1;
 
-  /// Notifications already seen locally, so the list does not re-announce them
-  /// on every poll. The *tray* de-duplication is [NotificationService.claim],
-  /// which is shared with the socket and push paths — this set only stops us
-  /// re-asking that gate for rows we have already processed.
+  /// Notification rows already announced in the tray.
+  ///
+  /// This is persisted. It used to be an in-memory set, which meant every cold
+  /// start re-announced every row that was still unread — a member with five
+  /// week-old unread notifications got the same five tray entries on every
+  /// single launch, for as long as they never opened them. [NotificationService.claim]
+  /// could not save us either: its claims live in memory with a TTL and are
+  /// gone by the next launch too.
   final Set<int> _seen = <int>{};
+
+  /// Where [_seen] is kept between launches.
+  static const String _seenKey = 'notif_tray_seen_ids';
+
+  /// Ids kept on disk. Enough to cover any realistic unread backlog without
+  /// letting the list grow without bound; the oldest fall off first.
+  static const int _seenCap = 500;
+
+  /// True once [_seen] has been restored, so the first poll cannot run against
+  /// an empty set and re-announce the backlog before the disk read lands.
+  bool _seenLoaded = false;
+
+  SharedPreferences? get _prefs =>
+      Get.isRegistered<SharedPreferences>() ? Get.find<SharedPreferences>() : null;
+
+  Future<void> _loadSeen() async {
+    if (_seenLoaded) return;
+    try {
+      final List<String>? stored = _prefs?.getStringList(_seenKey);
+      if (stored != null) {
+        _seen.addAll(stored.map(int.tryParse).whereType<int>());
+      }
+    } catch (e) {
+      AppLogger.w('Could not restore announced-notification ids: $e');
+    } finally {
+      // Even a failed read must flip this: a member is far better served by a
+      // missed tray entry than by the same five buzzing at every launch.
+      _seenLoaded = true;
+    }
+  }
+
+  Future<void> _persistSeen() async {
+    try {
+      final List<int> ids = _seen.toList(growable: false);
+      final List<int> capped =
+          ids.length <= _seenCap ? ids : ids.sublist(ids.length - _seenCap);
+      await _prefs?.setStringList(
+        _seenKey,
+        capped.map((int id) => '$id').toList(growable: false),
+      );
+    } catch (e) {
+      AppLogger.w('Could not persist announced-notification ids: $e');
+    }
+  }
 
   /// Fallback poller for the tray. Slow while realtime is live (it exists only
   /// to keep the badge honest), fast while realtime is down — where it is the
@@ -90,6 +139,9 @@ class NotificationController extends GetxController {
     _lastPage = 1;
     _pushTokenRecordId = null;
     _seen.clear();
+    _seenLoaded = false;
+    // A different member must not inherit the previous one's announced ids.
+    unawaited(_prefs?.remove(_seenKey) ?? Future<void>.value());
     _trayPoller?.cancel();
     _trayPoller = null;
     _pollPeriod = null;
@@ -107,9 +159,13 @@ class NotificationController extends GetxController {
       if (res is Map && res['id'] != null) {
         _pushTokenRecordId = res['id'];
       }
-      AppLogger.i('FCM Push Token synced to backend successfully (device: $deviceType)');
+      AppLogger.push('token ACCEPTED by backend (platform: $deviceType, '
+          'record: ${_pushTokenRecordId ?? '?'})');
     } catch (e) {
-      AppLogger.w('Failed to sync push token with backend: $e');
+      // Release-visible on purpose: a rejected registration is the difference
+      // between a phone that rings when it is closed and one that never does,
+      // and it is otherwise completely silent from the member's side.
+      AppLogger.push('token REJECTED by backend: $e');
     }
   }
 
@@ -150,6 +206,7 @@ class NotificationController extends GetxController {
   /// proposals, profile views, coin usage, and all other activity types.
   Future<void> _pollAndShowInTray() async {
     if (!_hasToken) return;
+    await _loadSeen();
     try {
       final pageData = await _repository.getNotifications(page: 1);
       final List<NotificationModel> unread = pageData.notifications
@@ -158,8 +215,10 @@ class NotificationController extends GetxController {
 
       AppLogger.d('Tray poller: ${pageData.notifications.length} total, ${unread.length} unread, ${unreadCount.value} badge');
 
+      bool announced = false;
       for (final NotificationModel notif in unread) {
         if (!_seen.add(notif.id)) continue;
+        announced = true;
 
         final String title = notif.title.isNotEmpty ? notif.title : 'HamQadam';
         final String body = notif.message.isNotEmpty
@@ -214,6 +273,8 @@ class NotificationController extends GetxController {
           }),
         );
       }
+
+      if (announced) await _persistSeen();
 
       // Update badge count
       unreadCount.value = pageData.unreadCount;

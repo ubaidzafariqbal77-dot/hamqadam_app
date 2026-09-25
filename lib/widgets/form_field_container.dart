@@ -21,10 +21,14 @@ class FieldStyle {
   }) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     if (disabled) {
-      return dark ? AppColors.fieldDisabledBackgroundDark : AppColors.fieldDisabledBackgroundLight;
+      return dark
+          ? AppColors.fieldDisabledBackgroundDark
+          : AppColors.fieldDisabledBackgroundLight;
     }
     if (hasError) {
-      return dark ? AppColors.fieldErrorBackgroundDark : AppColors.fieldErrorBackgroundLight;
+      return dark
+          ? AppColors.fieldErrorBackgroundDark
+          : AppColors.fieldErrorBackgroundLight;
     }
     switch (req) {
       case FieldRequirement.required:
@@ -49,9 +53,13 @@ class FieldStyle {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     switch (req) {
       case FieldRequirement.required:
-        return dark ? AppColors.requiredFieldBorderDark : AppColors.requiredFieldBorderLight;
+        return dark
+            ? AppColors.requiredFieldBorderDark
+            : AppColors.requiredFieldBorderLight;
       case FieldRequirement.optional:
-        return dark ? AppColors.optionalFieldBorderDark : AppColors.optionalFieldBorderLight;
+        return dark
+            ? AppColors.optionalFieldBorderDark
+            : AppColors.optionalFieldBorderLight;
     }
   }
 }
@@ -67,7 +75,11 @@ class FormFieldContainer extends StatelessWidget {
     this.errorText,
     this.helperText,
     this.disabled = false,
-    this.padding = const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 4),
+    this.padding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: 4,
+    ),
+    this.leading,
   });
 
   final String label;
@@ -78,27 +90,55 @@ class FormFieldContainer extends StatelessWidget {
   final bool disabled;
   final EdgeInsets padding;
 
+  /// Optional leading artwork shown as a soft pink disc on the field's left
+  /// (the Education reference style). An asset [image] or a Material [icon].
+  final Widget? leading;
+
   bool get _hasError => (errorText ?? '').isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final Color textSecondary = Theme.of(context).textTheme.bodyMedium?.color ?? AppColors.lightTextSecondary;
+    final Color textSecondary =
+        Theme.of(context).textTheme.bodyMedium?.color ??
+        AppColors.lightTextSecondary;
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color fill = disabled
-        ? (dark ? AppColors.fieldDisabledBackgroundDark : AppColors.fieldDisabledBackgroundLight)
-        : (dark ? AppColors.requiredFieldBackgroundDark : AppColors.requiredFieldBackgroundLight);
-    final Color borderColor = dark ? AppColors.requiredFieldBorderDark : AppColors.lightBorder2;
+        ? (dark
+              ? AppColors.fieldDisabledBackgroundDark
+              : AppColors.fieldDisabledBackgroundLight)
+        : (dark
+              ? AppColors.requiredFieldBackgroundDark
+              : AppColors.requiredFieldBackgroundLight);
+    // Reference style: crisp white fields with a soft pink hairline.
+    final Color borderColor = dark
+        ? AppColors.requiredFieldBorderDark
+        : (_hasError ? AppColors.error : AppColors.roseFieldBorder);
+    // Reference layout (Education screen): the label lives INSIDE the field
+    // card, in rose, directly above the value — with the icon disc to its left
+    // and the chevron on the right. Putting the label outside made every field
+    // two blocks tall and pushed short steps into a scroll.
+    final Widget labelled = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        BiText.inline(
+          label,
+          textAlign: TextAlign.start,
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
+            color: dark ? AppColors.darkTextSecondary : AppColors.fieldLabelRose,
+          ),
+        ),
+        const SizedBox(height: 2),
+        child,
+      ],
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8, left: 4),
-          child: BiText.inline(
-            label,
-            textAlign: TextAlign.start,
-            style: AppTextStyles.caption.copyWith(color: textSecondary),
-          ),
-        ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
@@ -109,20 +149,34 @@ class FormFieldContainer extends StatelessWidget {
               width: 1.3,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: child,
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+          child: leading == null
+              ? labelled
+              : Row(
+                  children: <Widget>[
+                    leading!,
+                    const SizedBox(width: 12),
+                    Expanded(child: labelled),
+                  ],
+                ),
         ),
         if (_hasError)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Row(
               children: <Widget>[
-                const Icon(Icons.error_outline_rounded, size: 15, color: AppColors.error),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 15,
+                  color: AppColors.error,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     errorText!,
-                    style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
               ],
@@ -145,7 +199,11 @@ class FormFieldContainer extends StatelessWidget {
 /// (e.g. [AppTextFormField]). The `requirement` argument is kept for API
 /// compatibility but is no longer shown as a text badge.
 class FieldLabel extends StatelessWidget {
-  const FieldLabel({super.key, required this.label, this.requirement = FieldRequirement.required});
+  const FieldLabel({
+    super.key,
+    required this.label,
+    this.requirement = FieldRequirement.required,
+  });
 
   final String label;
   final FieldRequirement requirement;

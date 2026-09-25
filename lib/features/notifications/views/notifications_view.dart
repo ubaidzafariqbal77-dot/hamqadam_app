@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../constants/app_colors.dart';
+import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../controllers/notification_controller.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
@@ -12,6 +15,8 @@ import '../../../features/profile_views/views/profile_views_view.dart';
 import '../../../features/proposals/views/proposals_view.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/notification_model.dart';
+import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 
 class NotificationsView extends StatefulWidget {
@@ -60,7 +65,7 @@ class _NotificationsViewState extends State<NotificationsView> {
       color = Colors.blueAccent;
     } else if (lower.contains('view')) {
       iconData = Icons.visibility_rounded;
-      color = const Color(0xFF6C5CE7);
+      color = AppColors.info;
     } else if (lower.contains('coin') || lower.contains('bonus') || lower.contains('credit')) {
       iconData = Icons.monetization_on_rounded;
       color = AppColors.gold;
@@ -178,15 +183,16 @@ class _NotificationsViewState extends State<NotificationsView> {
 
   // ── build ─────────────────────────────────────────────────────────────────
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
+  Widget build(BuildContext context) {    return Scaffold(
+      appBar: PremiumAppBar(
+        title: 'Notifications',
+        subtitle: 'Updates about your activity',
         actions: <Widget>[
           Obx(() {
             if (_controller.unreadCount.value > 0) {
               return TextButton(
                 onPressed: _controller.markAllAsRead,
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('Mark all read'),
               );
             }
@@ -196,78 +202,184 @@ class _NotificationsViewState extends State<NotificationsView> {
       ),
       body: Obx(() {
         if (_controller.isLoading.value && _controller.notifications.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          // Skeleton feed while the first page loads.
+          return ListView.separated(
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpacing.md),
+            itemCount: 6,
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+            itemBuilder: (_, _) => Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: AppRadius.lgAll,
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkBorder
+                      : AppColors.lightBorder,
+                ),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Skeleton(height: 44, circle: true),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const <Widget>[
+                        Skeleton(width: 150, height: 13),
+                        SizedBox(height: 8),
+                        Skeleton(width: double.infinity, height: 11),
+                        SizedBox(height: 6),
+                        Skeleton(width: 80, height: 11),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         }
 
         if (!_controller.isLoading.value && _controller.notifications.isEmpty) {
           return const EmptyStateWidget(
             title: 'No Notifications',
-            message: 'You have no notifications yet.',
+            message: 'You are all caught up. Activity about your profile, interests and messages will appear here.',
           );
         }
 
         return RefreshIndicator(
+          color: AppColors.primary,
           onRefresh: () => _controller.fetchNotifications(refresh: true),
           child: ListView.separated(
             controller: _scrollController,
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xl,
+            ),
             itemCount: _controller.notifications.length +
                 (_controller.isLoadingMore.value ? 1 : 0),
-            separatorBuilder: (_, _) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
             itemBuilder: (context, index) {
               if (index == _controller.notifications.length) {
                 return const Padding(
                   padding: EdgeInsets.all(16.0),
-                  child: Center(child: CircularProgressIndicator()),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  ),
                 );
               }
               final notif = _controller.notifications[index];
-              return Material(
-                color: notif.isRead
-                    ? Colors.transparent
-                    : AppColors.primary.withValues(alpha: 0.05),
-                child: ListTile(
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  leading: _buildIcon(notif.type),
-                  title: Text(
-                    notif.title.capitalizeFirst ?? notif.title,
-                    style: TextStyle(
-                      fontWeight:
-                          notif.isRead ? FontWeight.normal : FontWeight.bold,
-                    ),
-                  ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      const SizedBox(height: 3),
-                      Text(notif.message),
-                      if (notif.createdAt != null) ...<Widget>[
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatDate(notif.createdAt!),
-                          style: const TextStyle(
-                              fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ],
-                  ),
-                  trailing: notif.isRead
-                      ? null
-                      : Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                  onTap: () => _handleNotificationTap(notif),
-                ),
+              return _NotificationCard(
+                notif: notif,
+                icon: _buildIcon(notif.type),
+                timeLabel: notif.createdAt != null
+                    ? _formatDate(notif.createdAt!)
+                    : null,
+                onTap: () => _handleNotificationTap(notif),
               );
             },
           ),
         );
       }),
+    );
+  }
+}
+
+/// One notification as a quiet card; unread rows get a brand wash and a dot.
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({
+    required this.notif,
+    required this.icon,
+    required this.onTap,
+    this.timeLabel,
+  });
+
+  final NotificationModel notif;
+  final Widget icon;
+  final String? timeLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color titleColor = Theme.of(context).textTheme.titleLarge?.color ?? AppColors.lightTextPrimary;
+    return Material(
+      color: notif.isRead
+          ? Theme.of(context).cardColor
+          : AppColors.primary.withValues(alpha: dark ? 0.10 : 0.05),
+      borderRadius: AppRadius.lgAll,
+      child: InkWell(
+        borderRadius: AppRadius.lgAll,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: dark ? AppColors.darkBorder : AppColors.lightBorder),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              icon,
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Text(
+                            notif.title.capitalizeFirst ?? notif.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.bodyStrong.copyWith(
+                              color: titleColor,
+                              fontWeight: notif.isRead ? FontWeight.w600 : FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        if (!notif.isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      notif.message,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyles.caption.copyWith(
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
+                        height: 1.4,
+                      ),
+                    ),
+                    if (timeLabel != null) ...<Widget>[
+                      const SizedBox(height: 6),
+                      Text(
+                        timeLabel!,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 11.5,
+                          color: Theme.of(context).hintColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

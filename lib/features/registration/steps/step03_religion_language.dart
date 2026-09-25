@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/form_field_container.dart';
@@ -145,12 +146,16 @@ class _Step03ViewState extends State<Step03View> {
       stepNumber: 3,
       totalSteps: 18,
       title: 'Religion & language',
+      art: RegIcons.step03Faith,
+      artIcon: Icons.menu_book_rounded,
       subtitle: 'Your faith and mother tongue.',
       busy: c.busy,
       error: c.error,
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
+      note: 'Tip: Your answers help us personalize content in line with your '
+          'faith tradition.',
       children: <Widget>[
         Obx(
           () => AppLookupPicker(
@@ -159,6 +164,9 @@ class _Step03ViewState extends State<Step03View> {
             controller: c.lookup,
             selected: c.religion.value,
             onChanged: c.onReligion,
+            // The reference design shows the 3D faith symbol beside each
+            // religion — crescent, cross, Om, Khanda, Star of David.
+            itemImage: (LookupItem item) => RegIcons.religionRowArt[item.id],
           ),
         ),
         Obx(

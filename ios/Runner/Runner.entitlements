@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  The Push Notifications capability. Without this key the app is not
+	  entitled to register with APNs at all: `registerForRemoteNotifications`
+	  never calls back with a token, so `FirebaseMessaging.getAPNSToken()`
+	  stays nil, `getToken()` never issues an FCM token, and
+	  `PushTokenService` exhausts its eight retries and gives up. The result
+	  is an iOS build that can never be reached while it is closed - on any
+	  device, not just a new one.
+
+	  `development` is correct for debug/TestFlight-from-Xcode builds; Xcode
+	  rewrites it to `production` for App Store distribution automatically.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>

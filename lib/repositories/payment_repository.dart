@@ -76,6 +76,40 @@ class PaymentRepository {
     return CouponValidationResult.fromJson(res.dataMap, success: res.success);
   }
 
+  /// `GET /payments/coins/pricing` — Admin-configured per-coin charge.
+  Future<CoinPricing> fetchCoinPricing() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.paymentCoinPricing);
+    return CoinPricing.fromJson(res.dataMap);
+  }
+
+  /// `POST /payments/checkout` — Initiate custom coins purchase checkout.
+  Future<CheckoutResult> checkoutCustomCoins({
+    required int coins,
+    required String gateway, // 'stripe' | 'easypaisa' | 'jazzcash'
+    String currency = 'PKR',
+    String? easypaisaPhone,
+    String? jazzcashPhone,
+  }) async {
+    final Map<String, dynamic> body = <String, dynamic>{
+      'custom_coins': 1,
+      'coins': coins,
+      'gateway': gateway.toLowerCase(),
+      'currency': currency,
+    };
+    if (easypaisaPhone != null && easypaisaPhone.trim().isNotEmpty) {
+      body['easypaisa_phone'] = easypaisaPhone.trim();
+    }
+    if (jazzcashPhone != null && jazzcashPhone.trim().isNotEmpty) {
+      body['jazzcash_phone'] = jazzcashPhone.trim();
+    }
+
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.paymentCheckout,
+      body: body,
+    );
+    return CheckoutResult.fromJson(res.raw, success: res.success, message: res.message);
+  }
+
   /// `POST /payments/checkout` — Initiate subscription payment checkout.
   Future<CheckoutResult> checkout({
     required int packageId,

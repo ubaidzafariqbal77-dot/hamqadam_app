@@ -22,6 +22,14 @@ class AppTextStyles {
   /// Headings use Plus Jakarta Sans too (single English family across the app).
   static const String headingFont = bodyFont;
 
+  /// Playfair Display — the display serif the product design references use for
+  /// their big step headings ("Gender", "Marital status", "Caste", "Education").
+  ///
+  /// Deliberately narrow in scope. Body copy, labels, fields and buttons all
+  /// stay on Plus Jakarta Sans; that restraint is what makes the serif read as
+  /// an accent rather than a second body font competing with the first.
+  static const String displayFont = 'PlayfairDisplay';
+
   /// Noto Nastaliq Urdu — for the Urdu line rendered under English text.
   static const String urduFont = 'NotoNastaliqUrdu';
 
@@ -53,6 +61,20 @@ class AppTextStyles {
     fontWeight: FontWeight.w800,
     height: 1.15,
     letterSpacing: -0.2,
+  );
+
+  /// The registration flow's step heading — Playfair Display, as drawn in the
+  /// design references.
+  ///
+  /// Serif faces carry more optical weight than a sans at the same nominal
+  /// size, so this sits a little lighter (600) and with positive tracking; at
+  /// 800/-0.2 the reference heading turns into a dense block.
+  static const TextStyle displaySerif = TextStyle(
+    fontFamily: displayFont,
+    fontSize: 32,
+    fontWeight: FontWeight.w600,
+    height: 1.18,
+    letterSpacing: 0.1,
   );
 
   static const TextStyle headline = TextStyle(

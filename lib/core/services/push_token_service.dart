@@ -118,12 +118,12 @@ class PushTokenService {
       _attempt = 0;
       _token = fresh;
       NotificationService.instance.cachedFcmToken = fresh;
-      AppLogger.i('FCM token acquired (${fresh.substring(0, 12)}…)');
+      AppLogger.push('token acquired ${AppLogger.tokenPreview(fresh)}');
       return true;
     } catch (e) {
       _attempt++;
       if (_attempt > 8) {
-        AppLogger.w('Giving up on the FCM token after $_attempt attempts: $e');
+        AppLogger.push('GIVING UP on the FCM token after $_attempt attempts: $e');
         return false;
       }
       // 3s, 6s, 12s, 24s, 48s, 60s… — an APNs registration or a cold network
@@ -164,10 +164,13 @@ class PushTokenService {
     final String? token = _token;
     if (token == null || token.isEmpty) return; // retry loop will come back
     if (!_storage.hasToken) {
-      AppLogger.i('FCM token held back: no session to attach it to yet.');
+      AppLogger.push('token held back: no session to attach it to yet.');
       return;
     }
-    if (!Get.isRegistered<NotificationController>()) return;
+    if (!Get.isRegistered<NotificationController>()) {
+      AppLogger.push('token held back: NotificationController not registered.');
+      return;
+    }
 
     if (!force && _prefs.getString(_lastSyncedTokenKey) == token) {
       final int? at = _prefs.getInt(_lastSyncedAtKey);
@@ -178,7 +181,7 @@ class PushTokenService {
       if (since < _resyncInterval) return;
     }
 
-    AppLogger.i('Registering the FCM token with the backend…');
+    AppLogger.push('registering ${AppLogger.tokenPreview(token)} with the backend…');
     await Get.find<NotificationController>().syncPushToken(token);
     await _prefs.setString(_lastSyncedTokenKey, token);
     await _prefs.setInt(

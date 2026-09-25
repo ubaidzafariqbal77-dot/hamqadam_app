@@ -8,6 +8,7 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../exceptions/app_exceptions.dart';
@@ -17,6 +18,7 @@ import '../../../widgets/app_otp_field.dart';
 import '../../../widgets/app_phone_field.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/app_text_form_field.dart';
+import '../../../widgets/field_icon_assets.dart';
 import '../../../widgets/reveal.dart';
 import '../../../widgets/step_scaffold.dart';
 
@@ -187,6 +189,8 @@ class _Step05ViewState extends State<Step05View> {
       stepNumber: 5,
       totalSteps: 18,
       title: 'Contact information',
+      art: RegIcons.step05Contact,
+      artIcon: Icons.contact_phone_rounded,
       subtitle: 'We use this to secure your account.',
       busy: c.busy,
       error: c.error,
@@ -204,25 +208,38 @@ class _Step05ViewState extends State<Step05View> {
         const SizedBox(height: 22),
         Reveal(
           child: AppPhoneField(
+            insetLabel: true,
             label: 'Mobile number',
             controller: c.phone,
             textInputAction: TextInputAction.next,
             validator: (String? v) => AppValidators.pakistaniPhone(v),
+            // Reference style: rose handset glyph in the field's leading disc.
+            prefixIcon: const Padding(
+              padding: EdgeInsets.only(left: 14, right: 8),
+              child: AssetOrIconDisc(child: PhoneGlyph(size: 22)),
+            ),
           ),
         ),
         const SizedBox(height: 42),
         Reveal(
-          delayMs: 120,
-          child: AppTextFormField(
-            label: 'Email address',
-            controller: c.email,
-            hint: 'you@example.com',
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-            autofillHints: const <String>[AutofillHints.email],
-            validator: (String? v) => AppValidators.email(v),
+            delayMs: 120,
+            child: AppTextFormField(
+              insetLabel: true,
+              label: 'Email address',
+              controller: c.email,
+              hint: 'you@example.com',
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              autofillHints: const <String>[AutofillHints.email],
+              validator: (String? v) => AppValidators.email(v),
+              // Matching rose envelope glyph — same disc treatment as the
+              // phone field above.
+              prefixIcon: const Padding(
+                padding: EdgeInsets.only(left: 14, right: 8),
+                child: AssetOrIconDisc(child: MailGlyph(size: 22)),
+              ),
+            ),
           ),
-        ),
         if (c.otpEnabled) _EmailVerification(c: c),
       ],
     );
@@ -282,7 +299,7 @@ class _EmailVerification extends StatelessWidget {
                   child: Text(
                     c.resendIn.value > 0 ? 'Resend ${c.resendIn.value}s' : 'Resend',
                     style: AppTextStyles.label.copyWith(
-                      color: c.canResend ? AppColors.primary : Theme.of(context).disabledColor,
+                      color: c.canResend ? AppColors.regAccent : Theme.of(context).disabledColor,
                     ),
                   ),
                 ),

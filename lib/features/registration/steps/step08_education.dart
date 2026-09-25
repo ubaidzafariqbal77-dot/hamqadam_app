@@ -5,6 +5,7 @@ import '../../../constants/api_options.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_picker_field.dart';
@@ -43,14 +44,17 @@ class Step08Controller extends StepController {
 
   bool get hasFields =>
       degree.value != null &&
-      lookup.itemsOf(LookupKeys.fieldsOfStudy, parentId: degree.value!.id).isNotEmpty;
+      lookup
+          .itemsOf(LookupKeys.fieldsOfStudy, parentId: degree.value!.id)
+          .isNotEmpty;
 
   bool get hasInstitutions =>
       lookup.itemsOf(LookupKeys.institutions, parentId: countryId).isNotEmpty;
 
   bool get isInProgress => status.value == 'in_progress';
 
-  String get yearLabel => isInProgress ? 'Expected graduation year' : 'Graduation year';
+  String get yearLabel =>
+      isInProgress ? 'Expected graduation year' : 'Graduation year';
 
   @override
   void restore() {
@@ -141,6 +145,8 @@ class _Step08ViewState extends State<Step08View> {
       stepNumber: 8,
       totalSteps: 18,
       title: 'Education',
+      art: RegIcons.step08Education,
+      artIcon: Icons.school_rounded,
       subtitle: 'Your highest qualification.',
       busy: c.busy,
       error: c.error,
@@ -148,6 +154,8 @@ class _Step08ViewState extends State<Step08View> {
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
+      note:
+          'Did you know? Profiles with education details get 3x more matches.',
       children: <Widget>[
         Obx(
           () => Column(
@@ -160,6 +168,8 @@ class _Step08ViewState extends State<Step08View> {
                 controller: c.lookup,
                 selected: c.level.value,
                 onChanged: c.onLevel,
+                image: 'assets/registration/EDUCATION/File 1.png',
+                icon: Icons.school_rounded,
               ),
               if (c.hasDegrees) ...<Widget>[
                 const SizedBox(height: 28),
@@ -172,6 +182,8 @@ class _Step08ViewState extends State<Step08View> {
                     selected: c.degree.value,
                     requirement: FieldRequirement.optional,
                     onChanged: c.onDegree,
+                    image: 'assets/registration/EDUCATION/File 2.png',
+                    icon: Icons.menu_book_rounded,
                   ),
                 ),
               ],
@@ -186,6 +198,8 @@ class _Step08ViewState extends State<Step08View> {
                     selected: c.field.value,
                     requirement: FieldRequirement.optional,
                     onChanged: (LookupItem? v) => c.field.value = v,
+                    image: 'assets/registration/EDUCATION/File 3.png',
+                    icon: Icons.category_rounded,
                   ),
                 ),
               ],
@@ -200,6 +214,8 @@ class _Step08ViewState extends State<Step08View> {
                     selected: c.institution.value,
                     requirement: FieldRequirement.optional,
                     onChanged: (LookupItem? v) => c.institution.value = v,
+                    image: 'assets/registration/EDUCATION/File 4.png',
+                    icon: Icons.account_balance_rounded,
                   ),
                 ),
               ],
@@ -208,10 +224,15 @@ class _Step08ViewState extends State<Step08View> {
                 Reveal(
                   child: AppOptionDropdown(
                     label: 'Education status',
-                    value: ApiOptions.labelOf(ApiOptions.educationStatus, c.status.value),
+                    value: ApiOptions.labelOf(
+                      ApiOptions.educationStatus,
+                      c.status.value,
+                    ),
                     options: ApiOptions.labelsOf(ApiOptions.educationStatus),
                     onChanged: (String? v) => c.status.value =
                         ApiOptions.valueOfLabel(ApiOptions.educationStatus, v),
+                    image: 'assets/registration/EDUCATION/File 5.png',
+                    icon: Icons.check_circle_outline_rounded,
                   ),
                 ),
               ],
@@ -225,6 +246,8 @@ class _Step08ViewState extends State<Step08View> {
                     requirement: FieldRequirement.optional,
                     hint: 'Select year',
                     onChanged: (String? v) => c.year.value = v,
+                    image: 'assets/registration/EDUCATION/File 6.png',
+                    icon: Icons.calendar_today_rounded,
                   ),
                 ),
               ],

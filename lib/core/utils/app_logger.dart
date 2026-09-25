@@ -41,6 +41,44 @@ class AppLogger {
     if (kDebugMode) debugPrint('⚠️  $message');
   }
 
+  /// Logs a push/realtime milestone **in every build mode**, release included.
+  ///
+  /// The one deliberate exception to "only print in debug". Everything about
+  /// whether a closed app can be reached is device-specific — which grants the
+  /// member gave, whether FCM issued a token, whether the server accepted it —
+  /// and none of it reproduces on a developer's machine. Testers run release
+  /// builds, where every other line in this class compiles to nothing, so the
+  /// evidence for "no notifications on my phone" did not exist and the problem
+  /// was diagnosed by guesswork for weeks.
+  ///
+  /// Kept deliberately narrow: push lifecycle only, one stable tag to filter
+  /// on, and never a whole token — [tokenPreview] is what callers pass.
+  ///
+  ///     adb logcat -s flutter | grep HQ-PUSH
+  static void push(String message) {
+    // ignore: avoid_print
+    print('HQ-PUSH $message');
+  }
+
+  /// Opt-in, build-time only: print whole FCM tokens.
+  ///
+  ///     flutter build apk --release --dart-define=HQ_LOG_FULL_TOKEN=true
+  ///
+  /// A registration token is a capability — anyone holding it can push to that
+  /// device — so it is never written to the system log by default, where every
+  /// app with log access could read it. This exists so a tester's phone can be
+  /// pushed to directly when diagnosing "nothing arrives on my device", which
+  /// otherwise needs a debuggable build the call path cannot be tested on.
+  static const bool _logFullToken = bool.fromEnvironment('HQ_LOG_FULL_TOKEN');
+
+  /// The first few characters of a token, for correlating a device with a
+  /// server-side log line without writing a credential to the system log.
+  static String tokenPreview(String? token) {
+    if (token == null || token.isEmpty) return '<none>';
+    if (_logFullToken) return token;
+    return token.length <= 12 ? '<short>' : '${token.substring(0, 12)}…';
+  }
+
   static void e(String message, [Object? error, StackTrace? st]) {
     if (kDebugMode) {
       debugPrint('⛔ $message${error != null ? ' | $error' : ''}');

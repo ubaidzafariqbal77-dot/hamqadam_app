@@ -23,6 +23,8 @@ class SearchProfileModel {
     this.compatibilityPercentage,
     this.lastActiveAt,
     this.createdAt,
+    this.interestScore,
+    this.sharedInterests = const <String>[],
   });
 
   final int id;
@@ -46,6 +48,14 @@ class SearchProfileModel {
   final DateTime? lastActiveAt;
   final DateTime? createdAt;
 
+  /// Interest-Based Recommendations only (`GET /matches/interest-based`): how
+  /// much of the viewer's own interests this member shares, 0-100.
+  final int? interestScore;
+
+  /// The words behind [interestScore] ("reading", "travel", …) so a card can
+  /// say WHY it was recommended instead of showing a bare number.
+  final List<String> sharedInterests;
+
   String get displayName => (name ?? '').trim().isEmpty ? 'HamQadam Member' : name!.trim();
   String get initial => displayName.isNotEmpty ? displayName[0].toUpperCase() : 'H';
   String? get photoUrl => ApiConfig.mediaUrl(photo);
@@ -67,29 +77,48 @@ class SearchProfileModel {
   factory SearchProfileModel.fromJson(Map<String, dynamic> json) {
     final Map<String, dynamic> verification = json['verification'] is Map<String, dynamic>
         ? json['verification'] as Map<String, dynamic>
-        : <String, dynamic>{};
+        : const <String, dynamic>{};
+
+    // `GET /matches` items are ProfileMatch rows, not profiles: the real
+    // candidate id rides in `matched_user_id` (`id` is the row's own primary
+    // key) and the human fields live in a nested `profile` object. Parsing
+    // only the flat search shape made every match card carry a row id — so
+    // tapping one opened the WRONG member's detail sheet and a compatibility
+    // score that belonged to whoever happened to hold that id.
+    final Map<String, dynamic> nested = json['profile'] is Map<String, dynamic>
+        ? json['profile'] as Map<String, dynamic>
+        : const <String, dynamic>{};
+
+    dynamic field(String key) => json[key] ?? nested[key];
 
     return SearchProfileModel(
-      id: _asInt(json['id']),
-      code: json['code']?.toString(),
-      name: json['name']?.toString(),
-      photo: json['photo']?.toString(),
+      id: _asInt(json['matched_user_id'] ?? json['id']),
+      code: field('code')?.toString(),
+      name: field('name')?.toString(),
+      photo: field('photo')?.toString(),
       membership: _asIntOrNull(json['membership']),
-      approved: _asBool(json['approved']),
-      age: _asIntOrNull(json['age']),
-      gender: json['gender']?.toString(),
+      approved: _asBool(json['approved'] ?? nested['verified']),
+      age: _asIntOrNull(field('age')),
+      gender: field('gender')?.toString(),
       maritalStatusId: _asIntOrNull(json['marital_status_id']),
-      height: json['height']?.toString(),
-      religionId: _asIntOrNull(json['religion_id']),
+      height: field('height')?.toString(),
+      religionId: _asIntOrNull(field('religion_id')),
       casteId: _asIntOrNull(json['caste_id']),
       cityId: _asIntOrNull(json['city_id']),
       stateId: _asIntOrNull(json['state_id']),
       countryId: _asIntOrNull(json['country_id']),
       compatibilityPercentage: _asIntOrNull(json['compatibility_percentage']),
-      identityVerified: _asBool(verification['identity_verified']),
+      identityVerified: verification.isNotEmpty
+          ? _asBool(verification['identity_verified'])
+          : _asBool(nested['verified']),
       verifiedAt: _asDate(verification['verified_at']),
       lastActiveAt: _asDate(json['last_active_at']),
       createdAt: _asDate(json['created_at']),
+      interestScore: _asIntOrNull(json['interest_score']),
+      sharedInterests: (json['shared_interests'] as List<dynamic>? ?? <dynamic>[])
+          .map((dynamic e) => '$e')
+          .where((String e) => e.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -214,6 +243,10 @@ class SearchFilterModel {
     this.cityId,
     this.searchQuery,
     this.partnerPreferenceFilter = false,
+    this.excludeViewed = false,
+    this.newProfiles = false,
+    this.mutualMatch = false,
+    this.onlineNow = false,
   });
 
   final int? ageMin;
@@ -232,6 +265,20 @@ class SearchFilterModel {
   final int? cityId;
   final String? searchQuery;
   final bool partnerPreferenceFilter;
+
+  /// Hide members this account has already opened. The API owns the list (its
+  /// own `profile-views`), so the flag is the whole implementation here.
+  final bool excludeViewed;
+
+  /// Only members who joined recently (`new_profiles` → 14 days,
+  /// `new_this_week` → 7).
+  final bool newProfiles;
+
+  /// Only members whose interest with this account was accepted both ways.
+  final bool mutualMatch;
+
+  /// Only members active in the last few minutes.
+  final bool onlineNow;
 
   /// Counts the active filter criteria (excluding search text and page).
   int get activeFilterCount {
@@ -252,6 +299,10 @@ class SearchFilterModel {
     if (countryId != null) count++;
     if (stateId != null) count++;
     if (cityId != null) count++;
+    if (excludeViewed) count++;
+    if (newProfiles) count++;
+    if (mutualMatch) count++;
+    if (onlineNow) count++;
     return count;
   }
 
@@ -278,10 +329,19 @@ class SearchFilterModel {
     if (countryId != null) params['country_id'] = countryId;
     if (stateId != null) params['state_id'] = stateId;
     if (cityId != null) params['city_id'] = cityId;
+    if (excludeViewed) params['exclude_viewed'] = 1;
+    if (newProfiles) params['new_profiles'] = 1;
+    if (mutualMatch) params['mutual_match'] = 1;
+    if (onlineNow) params['online_now'] = 1;
     if (searchQuery != null && searchQuery!.trim().isNotEmpty) {
       params['search'] = searchQuery!.trim();
     }
-    if (partnerPreferenceFilter) params['partner_preference'] = 'false';
+    // The backend applies the saved partner-preference scope only when this is
+    // truthy (filter_var BOOLEAN). It used to send 'false' here when the
+    // member switched the filter ON — an inverted flag that made the toggle a
+    // no-op. Absent (default) and false mean the same thing, so only the ON
+    // case needs to send anything.
+    if (partnerPreferenceFilter) params['partner_preference'] = 'true';
 
     return params;
   }
@@ -303,6 +363,10 @@ class SearchFilterModel {
     int? cityId,
     String? searchQuery,
     bool? partnerPreferenceFilter,
+    bool? excludeViewed,
+    bool? newProfiles,
+    bool? mutualMatch,
+    bool? onlineNow,
     bool clearAgeMin = false,
     bool clearAgeMax = false,
     bool clearCompatibilityMin = false,
@@ -333,6 +397,10 @@ class SearchFilterModel {
       cityId: clearCity ? null : (cityId ?? this.cityId),
       searchQuery: clearSearch ? null : (searchQuery ?? this.searchQuery),
       partnerPreferenceFilter: partnerPreferenceFilter ?? this.partnerPreferenceFilter,
+      excludeViewed: excludeViewed ?? this.excludeViewed,
+      newProfiles: newProfiles ?? this.newProfiles,
+      mutualMatch: mutualMatch ?? this.mutualMatch,
+      onlineNow: onlineNow ?? this.onlineNow,
     );
   }
 

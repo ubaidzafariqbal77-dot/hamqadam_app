@@ -6,12 +6,19 @@ import '../constants/app_text_styles.dart';
 
 /// One destination in [PremiumBottomNav].
 class PremiumNavItem {
-  const PremiumNavItem({required this.icon, required this.label, IconData? activeIcon})
-      : activeIcon = activeIcon ?? icon;
+  const PremiumNavItem({
+    required this.icon,
+    required this.label,
+    IconData? activeIcon,
+    this.badge = 0,
+  }) : activeIcon = activeIcon ?? icon;
 
   final IconData icon;
   final IconData activeIcon;
   final String label;
+
+  /// Unread count rendered as a small bubble on the icon (0 hides it).
+  final int badge;
 }
 
 /// A floating, gradient bottom navigation bar with an animated selected pill.
@@ -95,10 +102,17 @@ class _NavCell extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(
-              selected ? item.activeIcon : item.icon,
-              color: selected ? Colors.white : Colors.white.withValues(alpha: 0.75),
-              size: selected ? 24 : 22,
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                Icon(
+                  selected ? item.activeIcon : item.icon,
+                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.75),
+                  size: selected ? 24 : 22,
+                ),
+                if (item.badge > 0)
+                  Positioned(top: -5, right: -7, child: _Badge(count: item.badge)),
+              ],
             ),
             // Label appears only for the selected item (space-efficient, premium).
             Flexible(
@@ -123,6 +137,38 @@ class _NavCell extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Unread bubble for nav icons. Deliberately sits outside the pink bar's
+/// language: white with an ink count, so it reads as a notification, not as
+/// part of the selected pill.
+class _Badge extends StatelessWidget {
+  const _Badge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.primary, width: 1.2),
+      ),
+      constraints: const BoxConstraints(minWidth: 17),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: AppColors.primaryDark,
+          fontSize: 9,
+          height: 1.1,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

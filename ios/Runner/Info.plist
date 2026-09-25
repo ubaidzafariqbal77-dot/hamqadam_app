@@ -82,6 +82,11 @@
 	<array>
 		<string>fetch</string>
 		<string>remote-notification</string>
+		<!-- Without this an audio call is suspended the moment the app leaves
+		     the screen, so minimising it drops the call. iOS has no equivalent
+		     of the Android foreground service; this is the mode that keeps the
+		     Agora audio session running. -->
+		<string>audio</string>
 	</array>
 </dict>
 </plist>

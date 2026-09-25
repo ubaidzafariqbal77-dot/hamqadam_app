@@ -302,7 +302,15 @@ class CallController extends GetxController {
     if (activeCallId == callId) return; // the socket already told us
     try {
       final CallSession session = await _repo.show(callId);
-      if (!session.call.status.isLive) return;
+      if (!session.call.status.isLive) {
+        // The offer is already over. A cold start may have opened *onto* the
+        // ringing screen for it — the record the push isolate left behind says
+        // nothing about whether the caller has since hung up — so take that
+        // screen down rather than leaving it ringing for a dead call.
+        IncomingCallScreen.dismissIfShowing();
+        NotificationService.instance.cancelIncomingCall(callId);
+        return;
+      }
       _onIncoming(session.call);
     } catch (e) {
       AppLogger.d('Could not load pushed call $callId: $e');
@@ -580,5 +588,11 @@ class CallController extends GetxController {
     CallStateService.instance.endCall();
     IncomingCallScreen.dismissIfShowing();
     NotificationService.instance.stopRingtone();
+    // Give the display back to the system. While a call is up the activity
+    // holds FLAG_KEEP_SCREEN_ON and behaves as a lock-screen surface; leaving
+    // that on afterwards is what would keep the phone awake — or, on the OEMs
+    // that answer a self-waking activity with a short timeout, keep it dozing
+    // off every few seconds.
+    NotificationService.instance.endCallScreen();
   }
 }

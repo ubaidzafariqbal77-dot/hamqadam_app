@@ -11,6 +11,9 @@ import 'package:hamqadam/main.dart';
 
 void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
-    expect(const HamQadamApp(), isNotNull);
+    expect(
+      const HamQadamApp(initialRoute: '/'),
+      isNotNull,
+    );
   });
 }

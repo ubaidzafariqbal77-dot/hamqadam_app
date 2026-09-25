@@ -38,6 +38,22 @@ class ContentController extends GetxController {
   final Rx<ApiState<ContentPage<Map<String, dynamic>>>> tipsState =
       const ApiState<ContentPage<Map<String, dynamic>>>.initial().obs;
 
+  // ---- Forum threads / thread posts (drill-down) --------------------------
+  final Rx<ApiState<ContentPage<Map<String, dynamic>>>> threadsState =
+      const ApiState<ContentPage<Map<String, dynamic>>>.initial().obs;
+  final Rx<ApiState<ContentPage<Map<String, dynamic>>>> postsState =
+      const ApiState<ContentPage<Map<String, dynamic>>>.initial().obs;
+
+  /// The forum whose threads are on screen.
+  final Rxn<Map<String, dynamic>> selectedForum = Rxn<Map<String, dynamic>>();
+
+  /// The thread whose posts are on screen.
+  final Rxn<Map<String, dynamic>> selectedThread = Rxn<Map<String, dynamic>>();
+
+  /// Webinars the member has registered for this session (id → true), so the
+  /// button flips without a refetch.
+  final RxSet<int> registeredWebinars = <int>{}.obs;
+
   // ---- Articles
   Future<void> loadArticles({String? query}) async {
     articlesState.value = const ApiState.loading();
@@ -118,6 +134,27 @@ class ContentController extends GetxController {
     }
   }
 
+  Future<bool> submitQuestion({
+    required String category,
+    required String question,
+    String? details,
+    bool anonymous = true,
+  }) async {
+    try {
+      await _repo.submitExpertQuestion(
+        category: category,
+        question: question,
+        details: details,
+        isAnonymous: anonymous,
+      );
+      AppSnackbar.success('Question sent to the experts.');
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Could not submit your question.');
+      return false;
+    }
+  }
+
   // ---- Forums
   Future<void> loadForums() async {
     forumsState.value = const ApiState.loading();
@@ -145,6 +182,81 @@ class ContentController extends GetxController {
       webinarsState.value = ApiState.fromException(e);
     } catch (e) {
       webinarsState.value = ApiState.serverError(e.toString());
+    }
+  }
+
+  Future<void> registerWebinar(int webinarId) async {
+    try {
+      await _repo.registerWebinar(webinarId);
+      registeredWebinars.add(webinarId);
+      AppSnackbar.success('Registered! You will get the joining details.');
+    } catch (e) {
+      AppSnackbar.error('Registration failed.');
+    }
+  }
+
+  // ---- Forum drill-down -----------------------------------------------------
+
+  Future<void> loadForumThreads(Map<String, dynamic> forum) async {
+    selectedForum.value = forum;
+    final int forumId = (forum['id'] as num?)?.toInt() ?? 0;
+    if (forumId <= 0) return;
+    threadsState.value = const ApiState.loading();
+    try {
+      final page = await _repo.fetchForumThreads(forumId);
+      threadsState.value = page.items.isEmpty
+          ? const ApiState.empty(message: 'No discussions here yet. Start the first one!')
+          : ApiState.success(page);
+    } on AppException catch (e) {
+      threadsState.value = ApiState.fromException(e);
+    } catch (e) {
+      threadsState.value = ApiState.serverError(e.toString());
+    }
+  }
+
+  Future<bool> createThread({required String title, required String body}) async {
+    final Map<String, dynamic>? forum = selectedForum.value;
+    final int forumId = (forum?['id'] as num?)?.toInt() ?? 0;
+    if (forum == null || forumId <= 0) return false;
+    try {
+      await _repo.createThread(forumId: forumId, title: title, body: body);
+      AppSnackbar.success('Discussion posted.');
+      await loadForumThreads(forum);
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Could not post the discussion.');
+      return false;
+    }
+  }
+
+  Future<void> loadThreadPosts(Map<String, dynamic> thread) async {
+    selectedThread.value = thread;
+    final int threadId = (thread['id'] as num?)?.toInt() ?? 0;
+    if (threadId <= 0) return;
+    postsState.value = const ApiState.loading();
+    try {
+      final page = await _repo.fetchThreadPosts(threadId);
+      postsState.value = page.items.isEmpty
+          ? const ApiState.empty(message: 'No replies yet. Share your thoughts.')
+          : ApiState.success(page);
+    } on AppException catch (e) {
+      postsState.value = ApiState.fromException(e);
+    } catch (e) {
+      postsState.value = ApiState.serverError(e.toString());
+    }
+  }
+
+  Future<bool> replyToThread({required String body}) async {
+    final Map<String, dynamic>? thread = selectedThread.value;
+    final int threadId = (thread?['id'] as num?)?.toInt() ?? 0;
+    if (thread == null || threadId <= 0 || body.trim().isEmpty) return false;
+    try {
+      await _repo.replyToThread(threadId: threadId, body: body.trim());
+      await loadThreadPosts(thread);
+      return true;
+    } catch (e) {
+      AppSnackbar.error('Reply failed.');
+      return false;
     }
   }
 

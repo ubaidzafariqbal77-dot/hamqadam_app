@@ -8,6 +8,7 @@ import '../../../constants/registration_sections.dart';
 import '../../../controllers/registration_controller.dart';
 import '../../../core/storage/profile_completion_service.dart';
 import '../../../widgets/bilingual_text.dart';
+import '../../../widgets/premium_app_bar.dart';
 
 /// "Complete your profile" — the hub for every registration section the user
 /// skipped (or has not filled yet).
@@ -48,7 +49,10 @@ class ProfileCompletionView extends StatelessWidget {
     final RegistrationController reg = Get.find<RegistrationController>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Complete your profile')),
+      appBar: const PremiumAppBar(
+        title: 'Complete your profile',
+        subtitle: 'Every section brings better matches',
+      ),
       body: Obx(
         () => ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -185,10 +189,12 @@ class _SectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color statusColor = done
         ? AppColors.success
         : (skipped ? AppColors.warning : AppColors.primary);
     final String statusLabel = done ? 'Completed' : (skipped ? 'Skipped' : 'Not added');
+    final Color titleColor = Theme.of(context).textTheme.titleLarge?.color ?? AppColors.lightTextPrimary;
 
     return Material(
       color: Theme.of(context).cardColor,
@@ -196,8 +202,12 @@ class _SectionTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
+        child: Container(
           padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.lgAll,
+            border: Border.all(color: dark ? AppColors.darkBorder : AppColors.lightBorder),
+          ),
           child: Row(
             children: <Widget>[
               Container(
@@ -215,7 +225,10 @@ class _SectionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    BiText(title, style: AppTextStyles.bodyStrong),
+                    BiText(
+                      title,
+                      style: AppTextStyles.bodyStrong.copyWith(color: titleColor),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       statusLabel,

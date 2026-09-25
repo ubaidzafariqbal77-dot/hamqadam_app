@@ -9,6 +9,7 @@ import '../models/lookup_item_model.dart';
 import '../models/profile_model.dart';
 import '../models/user_model.dart';
 import '../models/search_filter_profile_model.dart';
+import '../repositories/match_repository.dart';
 import '../repositories/search_repository.dart';
 import 'auth_controller.dart';
 import 'lookup_controller.dart';
@@ -25,13 +26,20 @@ class SearchProfilesController extends GetxController {
   SearchProfilesController({
     required SearchRepository repository,
     required LookupController lookupController,
+    MatchRepository? matchRepository,
   })  : _repo = repository,
-        _lookup = lookupController;
+        _lookup = lookupController,
+        _matchRepo = matchRepository;
 
   final SearchRepository _repo;
   final LookupController _lookup;
+  final MatchRepository? _matchRepo;
 
   static const int _perPage = 20;
+
+  /// How many profiles the AI Filtered mode shows — the matchmaking model's
+  /// top five for this member.
+  static const int _aiMatchLimit = 5;
 
   /// Main screen state holding the profiles page.
   final Rx<ApiState<SearchProfilesPage>> state =
@@ -42,6 +50,13 @@ class SearchProfilesController extends GetxController {
 
   /// Temporary filter state edited within the filter bottom sheet.
   final Rx<SearchFilterModel> draftFilter = SearchFilterModel.empty().obs;
+
+  /// Whether the feed is narrowed to the AI matchmaking model's top 5.
+  final RxBool aiFiltered = false.obs;
+
+  /// State of the AI matches fetch backing [aiFiltered].
+  final Rx<ApiState<SearchProfilesPage>> _aiState =
+      const ApiState<SearchProfilesPage>.initial().obs;
 
   /// Indicates if an infinite-scroll next page is currently being loaded.
   final RxBool isLoadingMore = false.obs;
@@ -58,21 +73,107 @@ class SearchProfilesController extends GetxController {
 
   SearchProfilesPage? get pageData => state.value.data;
   List<SearchProfileModel> get profiles => pageData?.profiles ?? <SearchProfileModel>[];
-  /// What the grid renders: ignored members removed, and — the last line of
-  /// defence for the opposite-gender rule — anything the backend returned that
-  /// is not the allowed gender dropped. Sending `gender` on the query is a
-  /// request; this makes it a guarantee.
+  /// What the grid renders: server results put through the small number of
+  /// filters the API does not (yet) apply itself, then ordered.
+  ///
+  /// 1. Ignored members and anything off the allowed gender are dropped.
+  /// 2. `marital_status_id` — accepted by the form validation era of the API
+  ///    but never implemented in [ProfileSearchService], so it is filtered
+  ///    here over the fetched pages.
+  /// 3. The keyword search — the service has no `search`/name clause at all,
+  ///    so the search box is matched client-side against name and member
+  ///    code across every loaded page (and pagination keeps fetching until
+  ///    the pool is exhausted, below).
+  ///
+  /// When the member has NOT chosen a sort themselves, the survivors are then
+  /// ordered by the API's `compatibility_percentage`, highest first, down to 0
+  /// — so the best match is the first card, even if a page boundary or a
+  /// backend ordering change ever rearranges the raw list. Unknown scores sink
+  /// below known ones rather than cutting in. A member-chosen sort (Newest,
+  /// Recently Active, …) is respected as-is.
+  /// What the Discover body should render: the normal search state, or the
+  /// AI-matches state while the feed is narrowed to the top 5.
+  ApiState<SearchProfilesPage> get displayState =>
+      aiFiltered.value ? _aiState.value : state.value;
+
   List<SearchProfileModel> get visibleProfiles {
+    if (aiFiltered.value) return aiFilteredProfiles;
     final String? allowed = _allowedGender;
-    return profiles.where((SearchProfileModel p) {
+    final String query = (filter.value.searchQuery ?? '').trim().toLowerCase();
+    final int? marital = filter.value.maritalStatusId;
+    final List<SearchProfileModel> list = profiles.where((SearchProfileModel p) {
       if (ignoredUserIds.contains(p.id)) return false;
-      if (allowed == null) return true;
-      final String g = (p.gender ?? '').trim();
-      // An unlabelled profile is kept: hiding it would be guessing.
-      return g.isEmpty || g == allowed;
+      if (allowed != null) {
+        final String g = (p.gender ?? '').trim();
+        // An unlabelled profile is kept: hiding it would be guessing.
+        if (g.isNotEmpty && g != allowed) return false;
+      }
+      if (marital != null && p.maritalStatusId != marital) return false;
+      if (query.isNotEmpty) {
+        final String name = p.displayName.toLowerCase();
+        final String code = (p.code ?? '').toLowerCase();
+        if (!name.contains(query) && !code.contains(query)) return false;
+      }
+      return true;
     }).toList();
+
+    final String? chosen = filter.value.sort;
+    final bool memberChoseSort = chosen != null && chosen.isNotEmpty && chosen != 'default';
+    if (!memberChoseSort) {
+      list.sort((SearchProfileModel a, SearchProfileModel b) {
+        final int? sa = a.compatibilityPercentage;
+        final int? sb = b.compatibilityPercentage;
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sb.compareTo(sa);
+      });
+    }
+    return list;
   }
-  bool get hasMore => pageData?.hasMore ?? false;
+  /// The five best-matching profiles for the signed-in member, from the AI
+  /// matchmaking service (`GET /matches`). If the service returns nothing, the
+  /// current search results are ranked by their compatibility score instead, so
+  /// the toggle always delivers a usable top 5. Ignored members and anything
+  /// off the allowed gender are dropped, and unknown scores sink below known
+  /// ones — the same rules as the main feed.
+  List<SearchProfileModel> get aiFilteredProfiles {
+    final SearchProfilesPage? aiPage = _aiState.value.data;
+    final List<SearchProfileModel> source;
+    if (aiPage == null) {
+      source = const <SearchProfileModel>[];
+    } else if (aiPage.isEmpty) {
+      source = profiles; // graceful fallback: rank the current results
+    } else {
+      source = aiPage.profiles;
+    }
+
+    final String? allowed = _allowedGender;
+    final List<SearchProfileModel> list = source.where((SearchProfileModel p) {
+      if (ignoredUserIds.contains(p.id)) return false;
+      if (allowed != null) {
+        final String g = (p.gender ?? '').trim();
+        // An unlabelled profile is kept: hiding it would be guessing.
+        if (g.isNotEmpty && g != allowed) return false;
+      }
+      return true;
+    }).toList()
+      ..sort((SearchProfileModel a, SearchProfileModel b) {
+        final int? sa = a.compatibilityPercentage;
+        final int? sb = b.compatibilityPercentage;
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sb.compareTo(sa);
+      });
+
+    if (list.length > _aiMatchLimit) {
+      list.removeRange(_aiMatchLimit, list.length);
+    }
+    return list;
+  }
+
+  bool get hasMore => !aiFiltered.value && (pageData?.hasMore ?? false);
   int get activeFilterCount => filter.value.activeFilterCount;
 
   bool isShortlisted(int userId) {
@@ -238,6 +339,23 @@ class SearchProfilesController extends GetxController {
 
   // ---- Fetch & Pagination ---------------------------------------------------
 
+  /// The filter as actually sent to the API: the member's choices, the pinned
+  /// opposite gender, and — when they have not picked a sort themselves — the
+  /// default `sort=compatibility`, so the feed opens with the profiles that
+  /// match the logged-in member best and descends toward 0%.
+  ///
+  /// The default lives here rather than in `filter.value` so it never lights
+  /// the "filters active" badge or shows a removable "Sort" chip: it is the
+  /// feed's natural order, not a filter the member applied.
+  SearchFilterModel get _effectiveFilter {
+    final SearchFilterModel f = _lockGender(filter.value);
+    final String? sort = f.sort;
+    if (sort == null || sort.isEmpty || sort == 'default') {
+      return f.copyWith(sort: 'compatibility');
+    }
+    return f;
+  }
+
   /// Loads profiles for page 1 using the current [filter].
   Future<void> loadProfiles({bool showLoading = true}) async {
     // Re-applied on every load, not just once in `onInit`: the profile that
@@ -249,7 +367,7 @@ class SearchProfilesController extends GetxController {
     }
     try {
       final SearchProfilesPage page = await _repo.fetchProfiles(
-        filter: filter.value,
+        filter: _effectiveFilter,
         page: 1,
         perPage: _perPage,
       );
@@ -266,10 +384,53 @@ class SearchProfilesController extends GetxController {
     }
   }
 
-  /// Pull-to-refresh handler.
-  Future<void> reload() => loadProfiles(showLoading: false);
+  /// Pull-to-refresh handler — refreshes whichever feed is showing.
+  Future<void> reload() => aiFiltered.value
+      ? loadAiMatches(showLoading: false)
+      : loadProfiles(showLoading: false);
+
+  /// Flips the AI Filtered mode. Turning it on fetches the AI matchmaking
+  /// service's top matches; pulling to refresh while the mode is on re-fetches
+  /// them. Turning it off simply returns to the member's filtered feed.
+  Future<void> toggleAiFiltered() async {
+    if (aiFiltered.value) {
+      aiFiltered.value = false;
+      return;
+    }
+    aiFiltered.value = true;
+    await loadAiMatches();
+  }
+
+  /// Fetches the AI matchmaking model's top matches for this member.
+  Future<void> loadAiMatches({bool showLoading = true}) async {
+    final MatchRepository? repo = _matchRepo;
+    if (repo == null) {
+      // No AI service available (e.g. tests): an empty AI page makes
+      // [aiFilteredProfiles] rank the current search results instead of
+      // showing an error the member cannot act on.
+      _aiState.value = const ApiState<SearchProfilesPage>.success(SearchProfilesPage());
+      return;
+    }
+    if (showLoading) {
+      _aiState.value = const ApiState<SearchProfilesPage>.loading();
+    }
+    try {
+      final SearchProfilesPage page =
+          await repo.fetchMatches(page: 1, perPage: _aiMatchLimit);
+      _aiState.value = ApiState<SearchProfilesPage>.success(page);
+    } on AppException catch (e) {
+      _aiState.value = ApiState<SearchProfilesPage>.fromException(e);
+    } catch (e) {
+      _aiState.value = ApiState<SearchProfilesPage>.serverError(e.toString());
+    }
+  }
 
   /// Appends the next page to the existing list.
+  ///
+  /// Standard single-page pagination. The `search` keyword is applied
+  /// SERVER-side now (ProfileSearchService filters name/ID before paginating),
+  /// so matches are reachable on every page and the old 3-pages-per-scroll
+  /// workaround is no longer needed.
   Future<void> loadMore() async {
     final SearchProfilesPage? current = pageData;
     if (current == null || !current.hasMore || isLoadingMore.value || state.value.isLoading) {
@@ -279,11 +440,10 @@ class SearchProfilesController extends GetxController {
     isLoadingMore.value = true;
     try {
       final SearchProfilesPage next = await _repo.fetchProfiles(
-        filter: _lockGender(filter.value),
+        filter: _effectiveFilter,
         page: current.currentPage + 1,
         perPage: _perPage,
       );
-
       state.value = ApiState<SearchProfilesPage>.success(current.merge(next));
     } on AppException catch (_) {
       // Do not replace existing list on pagination error
@@ -348,6 +508,24 @@ class SearchProfilesController extends GetxController {
       filter.value = filter.value.copyWith(searchQuery: text.trim());
       loadProfiles(showLoading: false);
     });
+  }
+
+  /// The search field's action / submit: commits the CURRENT text right away
+  /// instead of waiting out the 500 ms debounce. Bound to
+  /// `textInputAction: .search` and `onSubmitted` so "tap search on the
+  /// keyboard" is a real action, and safe to call when the debounced run has
+  /// already committed the same text.
+  void submitSearch(String text) {
+    _debounceTimer?.cancel();
+    final String q = text.trim();
+    if (q == (filter.value.searchQuery ?? '')) {
+      // Already applied — just re-run the fetch so the tap always does
+      // something (fresh results) rather than looking dead.
+      loadProfiles(showLoading: false);
+      return;
+    }
+    filter.value = filter.value.copyWith(searchQuery: q);
+    loadProfiles();
   }
 
   void clearSearchQuery() {

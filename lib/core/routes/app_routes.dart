@@ -4,8 +4,22 @@ class AppRoutes {
 
   static const String splash = '/';
   static const String onboarding = '/onboarding';
+
+  /// First-look "Proposals for you" preview shown after onboarding — every
+  /// card/button on it opens the Create Account / Login dialog.
+  static const String welcomePreview = '/welcome';
+
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
+
+  /// The ringing screen, as a real route rather than a dialog.
+  ///
+  /// It has to be routable because it is sometimes the app's **first** screen:
+  /// a call arriving at a killed app launches the process, and the member must
+  /// land on Accept/Decline, not on the splash. A `Get.dialog` could never do
+  /// that - it needs a navigator that already exists, and the splash's
+  /// `Get.offAllNamed` tore it down a frame after it appeared.
+  static const String incomingCall = '/incoming-call';
 
   // ---- Registration steps 1..18 (see product document) ----------------------
   static const String accountFor = '/register/account-for'; // 1
@@ -33,6 +47,12 @@ class AppRoutes {
   static const String verifyEmail = '/register/verify-email';
 
   static const String registrationCompleted = '/register/completed';
+
+  /// Full-screen gate shown when the server answers 423 (`manual_review`): the
+  /// account is in manual identity review and the app stays read-only until it
+  /// clears.
+  static const String manualReview = '/auth/manual-review';
+
   static const String home = '/home';
 
   /// "Complete your profile" — hub for the sections skipped during signup.
@@ -51,6 +71,33 @@ class AppRoutes {
   /// Partner preferences (registration step 17), editable after signup. These
   /// drive server-side match filtering.
   static const String partnerPreferencesEdit = '/preferences/partner';
+
+  // ---- Family & Wali mode ---------------------------------------------
+  static const String family = '/family';
+
+  // ---- Community content ----------------------------------------------
+  static const String webinars = '/content/webinars';
+  static const String expertQuestions = '/content/expert-questions';
+  static const String forums = '/content/forums';
+
+  // ---- Saved searches ---------------------------------------------------
+  static const String savedSearches = '/search/saved/view';
+
+  // ---- Discover filter module -------------------------------------------
+  /// Swipe Matching — like/pass deck (`GET /matches/swipe-deck`).
+  static const String swipeMatching = '/discover/swipe';
+
+  /// Interest-Based Recommendations (`GET /matches/interest-based`).
+  static const String interestMatches = '/discover/interest-based';
+
+  /// New Profiles (`GET /search/profiles?new_profiles=1`).
+  static const String newProfiles = '/discover/new-profiles';
+
+  /// Recently Viewed Profiles (`GET /profile-views`).
+  static const String recentlyViewed = '/discover/recently-viewed';
+
+  /// Search History (`GET /search/history`), with clear + re-apply.
+  static const String searchHistory = '/search/history/view';
 
   /// step number (1-based) -> route.
   static const List<String> stepRoutes = <String>[

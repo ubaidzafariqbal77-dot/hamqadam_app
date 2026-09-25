@@ -35,6 +35,10 @@ class PaymentController extends GetxController {
   final RxBool isValidatingCoupon = false.obs;
   final RxBool isCheckingOut = false.obs;
 
+  // Custom coins
+  final Rx<CoinPricing> coinPricing = const CoinPricing(unitPrice: 1, currency: 'PKR').obs;
+  final RxBool isLoadingCoinPricing = false.obs;
+
   // Pagination states
   final RxBool isLoadingMoreUsage = false.obs;
   final RxBool isLoadingMoreHistory = false.obs;
@@ -263,6 +267,52 @@ class PaymentController extends GetxController {
       );
 
       // Refresh current package and history
+      loadCurrentPackage(silent: true);
+      loadHistory(silent: true);
+
+      return result;
+    } on AppException catch (e) {
+      AppSnackbar.error(e.message);
+      return null;
+    } catch (e) {
+      AppSnackbar.error('Checkout failed. Please try again.');
+      return null;
+    } finally {
+      isCheckingOut.value = false;
+    }
+  }
+
+  /// Loads admin-configured per-coin pricing (`GET /payments/coins/pricing`).
+  Future<void> loadCoinPricing() async {
+    isLoadingCoinPricing.value = true;
+    try {
+      coinPricing.value = await _repo.fetchCoinPricing();
+    } on AppException catch (e) {
+      AppSnackbar.error(e.message);
+    } catch (e) {
+      AppSnackbar.error('Could not load coin pricing.');
+    } finally {
+      isLoadingCoinPricing.value = false;
+    }
+  }
+
+  /// Initiates custom coins purchase checkout (`POST /payments/checkout`).
+  Future<CheckoutResult?> checkoutCustomCoins({
+    required int coins,
+    String? easypaisaPhone,
+    String? jazzcashPhone,
+  }) async {
+    isCheckingOut.value = true;
+    try {
+      final CheckoutResult result = await _repo.checkoutCustomCoins(
+        coins: coins,
+        gateway: selectedGateway.value,
+        currency: coinPricing.value.currency,
+        easypaisaPhone: easypaisaPhone,
+        jazzcashPhone: jazzcashPhone,
+      );
+
+      // Coin balance changed after payment — refresh caches.
       loadCurrentPackage(silent: true);
       loadHistory(silent: true);
 

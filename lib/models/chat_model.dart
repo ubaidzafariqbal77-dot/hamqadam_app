@@ -26,23 +26,46 @@ class ChatAttachment {
   static const List<String> _audioExts = <String>['mp3', 'm4a', 'aac', 'wav', 'ogg', 'flac'];
   static const List<String> _videoExts = <String>['mp4', 'mov', 'avi', 'mkv', 'm4v', 'webm'];
 
-  /// Derive MIME category from a file name or URL.
-  static String _detectType(String serverType, String name, String url) {
-    if (serverType.isNotEmpty && serverType != 'file') return serverType;
-    final String src = (name.isNotEmpty ? name : url).toLowerCase().split('?').first;
-    final String ext = src.split('.').last;
+  /// Derive the media category for an attachment.
+  ///
+  /// The file's own extension wins over [serverType]. Every upload made before
+  /// the API started classifying them is stored as `image` whatever it really
+  /// is, so a voice note read back from history claims to be an image — which
+  /// put it in the picture grid as a broken thumbnail instead of in a player.
+  /// Trusting the extension repairs those rows on the client, with no
+  /// migration and no second round trip.
+  ///
+  /// [serverType] still decides when the extension says nothing: a file with
+  /// no extension, or one these lists do not know.
+  static String _detectType(String serverType, String extension, String name, String url) {
+    final String ext = _extensionOf(extension, name, url);
+
     if (_imageExts.contains(ext)) return 'image';
     if (_audioExts.contains(ext)) return 'audio';
     if (_videoExts.contains(ext)) return 'video';
+
+    if (serverType.isNotEmpty && serverType != 'file') return serverType;
     return 'file';
   }
 
-  bool get isImage {
-    if (type == 'image') return true;
-    // Also check url/name extension as a fallback
-    final String src = (originalName.isNotEmpty ? originalName : url).toLowerCase().split('?').first;
-    return _imageExts.contains(src.split('.').last);
+  /// Lower-case extension, preferring the API's own `extension` field and
+  /// falling back to the URL. `original_name` comes back with the extension
+  /// already stripped, so it is the least useful of the three.
+  static String _extensionOf(String extension, String name, String url) {
+    final String declared = extension.trim().toLowerCase().replaceAll('.', '');
+    if (declared.isNotEmpty) return declared;
+
+    for (final String candidate in <String>[url, name]) {
+      final String src = candidate.toLowerCase().split('?').first.split('#').first;
+      if (!src.contains('.')) continue;
+      final String ext = src.split('.').last;
+      if (ext.isNotEmpty && ext.length <= 5) return ext;
+    }
+
+    return '';
   }
+
+  bool get isImage => type == 'image';
 
   bool get isFile => !isImage && type != 'audio' && type != 'video';
   bool get isAudio => type == 'audio';
@@ -53,7 +76,13 @@ class ChatAttachment {
     final String name = json['name'] as String? ?? '';
     final String originalName = json['original_name'] as String? ?? '';
     final String url = json['url'] as String? ?? '';
-    final String resolvedType = _detectType(serverType, originalName.isNotEmpty ? originalName : name, url);
+    final String extension = json['extension'] as String? ?? '';
+    final String resolvedType = _detectType(
+      serverType,
+      extension,
+      originalName.isNotEmpty ? originalName : name,
+      url,
+    );
 
     return ChatAttachment(
       id: json['id'] as int? ?? 0,
@@ -64,6 +93,56 @@ class ChatAttachment {
       downloadUrl: json['download_url'] as String? ?? '',
       previewUrl: json['preview_url'] as String?,
       size: json['size'] as int?,
+    );
+  }
+}
+
+/// One emoji reaction on a message, already grouped by the API.
+///
+/// The server collapses every reaction row into per-emoji buckets, so the
+/// bubble only has to render `emoji × count` plus whether *I* am one of them
+/// ([mine]) to decide the highlighted style.
+class ChatReaction {
+  const ChatReaction({
+    required this.emoji,
+    required this.count,
+    this.mine = false,
+    this.users = const <String>[],
+    this.userIds = const <int>[],
+  });
+
+  final String emoji;
+  final int count;
+
+  /// True when the signed-in member is one of the people who reacted — tapping
+  /// the same emoji again clears it server-side.
+  final bool mine;
+
+  /// Display names of the reactors, for the "who reacted" tooltip. Parallel to
+  /// [userIds] (same index = same person).
+  final List<String> users;
+
+  /// Ids of the reactors. A realtime reaction names the person who reacted but
+  /// not the emoji they dropped, so the local patch needs the ids to take that
+  /// member out of whatever bucket they were in before.
+  final List<int> userIds;
+
+  factory ChatReaction.fromJson(Map<String, dynamic> json) {
+    final List<dynamic> rawUsers = json['users'] as List<dynamic>? ?? <dynamic>[];
+    final List<Map<String, dynamic>> people =
+        rawUsers.whereType<Map<String, dynamic>>().toList();
+    return ChatReaction(
+      emoji: json['emoji'] as String? ?? '',
+      count: json['count'] as int? ?? 0,
+      mine: json['mine'] as bool? ?? false,
+      users: people
+          .map((Map<String, dynamic> u) => u['name'] as String? ?? '')
+          .where((String name) => name.isNotEmpty)
+          .toList(),
+      userIds: people
+          .map((Map<String, dynamic> u) => u['id'] as int? ?? 0)
+          .where((int id) => id > 0)
+          .toList(),
     );
   }
 }
@@ -82,7 +161,7 @@ enum MessageDelivery {
   /// The server has it — the normal state for everything read back from the API.
   sent,
 
-  /// The POST failed. Kept on screen so the text is not lost and can be retried.
+  /// The server has it, the POST failed. Kept on screen so the text is not lost and can be retried.
   failed,
 }
 
@@ -103,6 +182,12 @@ class ChatMessage {
     this.delivery = MessageDelivery.sent,
     this.localId,
     this.localAttachmentPaths = const <String>[],
+    this.deliveredAt,
+    this.readAt,
+    this.seen = false,
+    this.metadata,
+    this.expiresAt,
+    this.reactions = const <ChatReaction>[],
   });
 
   final int id;
@@ -128,6 +213,62 @@ class ChatMessage {
   /// File paths for an optimistic message whose attachments are still
   /// uploading, so the bubble can preview them before the server has URLs.
   final List<String> localAttachmentPaths;
+
+  /// When the recipient's app acknowledged having this message on device —
+  /// the sender's single tick becomes a double tick at this moment.
+  final DateTime? deliveredAt;
+
+  /// When the recipient opened the conversation — the blue double tick.
+  final DateTime? readAt;
+
+  /// Server's read flag (kept alongside [readAt]; older rows set it without
+  /// the timestamp).
+  final bool seen;
+
+  /// Free-form server extras. For a voice note: `{duration: seconds,
+  /// waveform: [int, …]}` — everything the player bubble needs to draw.
+  final Map<String, dynamic>? metadata;
+
+  /// When this disappearing message will vanish from the thread (null =
+  /// keep forever). The server hides+deletes rows past this moment.
+  final DateTime? expiresAt;
+
+  /// Emoji reactions on this message, grouped per emoji by the API.
+  final List<ChatReaction> reactions;
+
+  /// True once the disappearing deadline has passed on-device — the bubble
+  /// renders as a tombstone until the next fetch removes it.
+  bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
+
+  /// Ticks for one of MY messages, resolved from the server's own flags:
+  /// sending → clock, failed → alert, read → blue double, delivered → double,
+  /// otherwise single.
+  bool get serverRead => readAt != null || seen;
+  bool get serverDelivered => deliveredAt != null || serverRead;
+
+  /// True when this message is a voice note: typed as one by the sender, or an
+  /// audio attachment arrived from the website.
+  bool get isVoice =>
+      messageType == 'voice' ||
+      (messageType == 'audio') ||
+      (attachments.isNotEmpty && attachments.every((ChatAttachment a) => a.isAudio));
+
+  /// Length in seconds recorded with a voice note (null when unknown).
+  /// Tolerant of strings: older rows and web-sent notes stored "7", not 7.
+  int? get voiceDuration {
+    final dynamic raw = metadata?['duration'];
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
+  /// Amplitude bars recorded with a voice note (0–15ish each; empty when the
+  /// client that sent it did not capture one). String-tolerant for the same
+  /// reason as [voiceDuration].
+  List<int> get voiceWaveform =>
+      ((metadata?['waveform'] as List<dynamic>?) ?? const <dynamic>[])
+          .map((dynamic e) => e is num ? e.toInt() : int.tryParse('$e') ?? 0)
+          .toList();
 
   bool get isPending => delivery == MessageDelivery.sending;
   bool get isFailed => delivery == MessageDelivery.failed;
@@ -175,6 +316,13 @@ class ChatMessage {
     int? threadId,
     bool? deletedForMe,
     MessageDelivery? delivery,
+    DateTime? deliveredAt,
+    DateTime? readAt,
+    bool? seen,
+    Map<String, dynamic>? metadata,
+    List<ChatReaction>? reactions,
+    String? localId,
+    List<String>? localAttachmentPaths,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -190,8 +338,14 @@ class ChatMessage {
       senderName: senderName,
       senderPhoto: senderPhoto,
       delivery: delivery ?? this.delivery,
-      localId: localId,
-      localAttachmentPaths: localAttachmentPaths,
+      localId: localId ?? this.localId,
+      localAttachmentPaths: localAttachmentPaths ?? this.localAttachmentPaths,
+      deliveredAt: deliveredAt ?? this.deliveredAt,
+      readAt: readAt ?? this.readAt,
+      seen: seen ?? this.seen,
+      metadata: metadata ?? this.metadata,
+      expiresAt: expiresAt,
+      reactions: reactions ?? this.reactions,
     );
   }
 
@@ -230,6 +384,17 @@ class ChatMessage {
       deletedForMe: json['deleted_for_me'] as bool? ?? false,
       senderName: senderName,
       senderPhoto: senderPhoto,
+      deliveredAt: DateTime.tryParse(json['delivered_at'] as String? ?? ''),
+      readAt: DateTime.tryParse(json['read_at'] as String? ?? ''),
+      seen: json['seen'] as bool? ?? false,
+      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? ''),
+      metadata: json['metadata'] is Map<String, dynamic>
+          ? json['metadata'] as Map<String, dynamic>
+          : null,
+      reactions: (json['reactions'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(ChatReaction.fromJson)
+          .toList(),
     );
   }
 }
@@ -241,12 +406,17 @@ class ChatParticipant {
     required this.name,
     this.photo,
     this.isOnline = false,
+    this.lastActiveAt,
   });
 
   final int id;
   final String name;
   final String? photo;
   final bool isOnline;
+
+  /// The member's last active moment from the server's presence stamp. Null
+  /// when the server has not seen them (never active / older app version).
+  final DateTime? lastActiveAt;
 
   bool get hasPhoto => photo != null && photo!.isNotEmpty;
 
@@ -269,6 +439,7 @@ class ChatParticipant {
           (json['user'] is Map ? json['user']['photo'] as String? : null) ??
           (json['member'] is Map ? json['member']['photo'] as String? : null),
       isOnline: json['is_online'] as bool? ?? json['online'] as bool? ?? false,
+      lastActiveAt: DateTime.tryParse(json['last_active_at'] as String? ?? ''),
     );
   }
 }
@@ -288,6 +459,9 @@ class ChatThread {
     this.messageRequestStatus,
     this.lastMessage,
     this.lastMessageAt,
+    this.disappearAfter = 0,
+    this.isArchived = false,
+    this.isMuted = false,
   });
 
   final int id;
@@ -303,10 +477,41 @@ class ChatThread {
   final ChatMessage? lastMessage;
   final DateTime? lastMessageAt;
 
+  /// Remembered disappearing-message TTL for this thread (seconds; 0 = off).
+  /// New messages default to it; the composer's timer chip reflects it.
+  final int disappearAfter;
+
+  /// Archived into the Archived tab for *this* member only — archive is per
+  /// side, so the other person keeps seeing the chat in their inbox.
+  final bool isArchived;
+
+  /// Notifications silenced for this member only; messages keep arriving.
+  final bool isMuted;
+
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
-    if (lastMessage!.isAttachmentOnly) return '📎 Attachment';
-    return lastMessage!.message;
+    // Voice notes first: an audio-only message has no text, so the generic
+    // attachment label below read "📎 Attachment" for what is really a voice
+    // note. Same for other media kinds — the preview should say WHAT it is.
+    final ChatMessage last = lastMessage!;
+    if (last.isVoice) {
+      final int? secs = last.voiceDuration;
+      return secs != null && secs > 0
+          ? '🎤 Voice message (${secs ~/ 60}:${(secs % 60).toString().padLeft(2, '0')})'
+          : '🎤 Voice message';
+    }
+    if (last.isCallInvite) return last.callDisplayName;
+    if (last.isCallDecline) return last.callDisplayName;
+    if (last.isAttachmentOnly) {
+      if (last.attachments.every((ChatAttachment a) => a.isImage)) {
+        return '📷 Photo';
+      }
+      if (last.attachments.every((ChatAttachment a) => a.isVideo)) {
+        return '🎬 Video';
+      }
+      return '📎 Attachment';
+    }
+    return last.message;
   }
 
   ChatThread copyWith({
@@ -321,6 +526,9 @@ class ChatThread {
     String? messageRequestStatus,
     ChatMessage? lastMessage,
     DateTime? lastMessageAt,
+    int? disappearAfter,
+    bool? isArchived,
+    bool? isMuted,
   }) {
     return ChatThread(
       id: id ?? this.id,
@@ -335,6 +543,9 @@ class ChatThread {
       messageRequestStatus: messageRequestStatus ?? this.messageRequestStatus,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+      disappearAfter: disappearAfter ?? this.disappearAfter,
+      isArchived: isArchived ?? this.isArchived,
+      isMuted: isMuted ?? this.isMuted,
     );
   }
 
@@ -386,6 +597,9 @@ class ChatThread {
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.tryParse(json['last_message_at'] as String)
           : (json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null),
+      disappearAfter: json['disappear_after'] as int? ?? 0,
+      isArchived: json['archived'] as bool? ?? false,
+      isMuted: json['muted'] as bool? ?? false,
     );
   }
 }

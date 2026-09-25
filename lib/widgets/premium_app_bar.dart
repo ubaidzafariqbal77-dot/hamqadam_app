@@ -50,7 +50,7 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: Color(0x33D6185E),
+              color: Color(0x33D63F73), // primaryDark @ 20%
               blurRadius: 18,
               offset: Offset(0, 6),
               spreadRadius: -2,

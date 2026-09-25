@@ -61,7 +61,9 @@ class InvoiceDetailSheet extends StatelessWidget {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -83,9 +85,9 @@ class InvoiceDetailSheet extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
+                      Text(
                         'OFFICIAL PAYMENT INVOICE',
-                        style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: Colors.grey),
+                        style: TextStyle(fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold, color: theme.hintColor),
                       ),
                     ],
                   ),
@@ -160,9 +162,9 @@ class InvoiceDetailSheet extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.08),
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : AppColors.lightSurfaceAlt,
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                  border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +248,7 @@ class InvoiceDetailSheet extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const Text('Payment Method', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text('Payment Method', style: TextStyle(fontSize: 11, color: theme.hintColor)),
                           Text(
                             invoice.paymentMethod.replaceAll('_', ' ').toUpperCase(),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),

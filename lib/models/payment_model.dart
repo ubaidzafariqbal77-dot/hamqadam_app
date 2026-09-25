@@ -372,6 +372,30 @@ class CouponValidationResult {
   }
 }
 
+/// Response from `GET /payments/coins/pricing` — admin-configured per-coin charge.
+class CoinPricing {
+  const CoinPricing({
+    required this.unitPrice,
+    required this.currency,
+    this.minCoins = 1,
+    this.maxCoins = 1000000,
+  });
+
+  final num unitPrice;
+  final String currency;
+  final int minCoins;
+  final int maxCoins;
+
+  factory CoinPricing.fromJson(Map<String, dynamic> json) {
+    return CoinPricing(
+      unitPrice: json['unit_price'] as num? ?? 1,
+      currency: json['currency'] as String? ?? 'PKR',
+      minCoins: _asInt(json['min_coins'], fallback: 1),
+      maxCoins: _asInt(json['max_coins'], fallback: 1000000),
+    );
+  }
+}
+
 /// Response from `POST /payments/checkout`.
 class CheckoutResult {
   const CheckoutResult({

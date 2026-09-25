@@ -14,6 +14,7 @@ import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 15 — Interests & hobbies, the API's step 14
 /// (`POST /auth/register/step/14` → `{"hobbies": ["Reading", …]}`, skippable).
@@ -41,6 +42,15 @@ class Step15Controller extends StepController {
   void restore() {
     lookup.ensure(LookupKeys.hobbies);
     selected.assignAll(buffer.getStringList('interests'));
+  }
+
+  /// Options not yet chosen, capped at a dozen — enough to invite a tap
+  /// without turning the step into the full catalogue (that is the sheet's job).
+  List<String> get suggestions {
+    final List<String> all = <String>[
+      for (final List<String> group in categories.values) ...group,
+    ];
+    return all.where((String s) => !selected.contains(s)).take(12).toList();
   }
 
   void toggle(String chip) {
@@ -91,6 +101,8 @@ class _Step15ViewState extends State<Step15View> {
       stepNumber: 15,
       totalSteps: 18,
       title: 'What are your interests?',
+      art: RegIcons.step15Interests,
+      artIcon: Icons.interests_rounded,
       subtitle: 'Select up to ${RegOptions.maxInterests} interests to make your '
           'profile stand out!',
       busy: c.busy,
@@ -115,6 +127,38 @@ class _Step15ViewState extends State<Step15View> {
                   alignment: WrapAlignment.center,
                   children: sel
                       .map((String s) => _SelectedChip(label: s, onRemove: () => c.toggle(s)))
+                      .toList(),
+                ),
+              ],
+              // Suggested interests, on the page rather than behind the sheet.
+              // The reference puts this grid in front of the member: with only
+              // the field above, the step opens with nothing to react to and
+              // reads as an empty screen. Tapping one runs the same toggle the
+              // sheet does — the sheet is still there for the full list.
+              if (c.suggestions.isNotEmpty) ...<Widget>[
+                const SizedBox(height: AppSpacing.xl),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: BiText(
+                    'Suggested interests',
+                    style: AppTextStyles.label.copyWith(
+                      fontSize: 13,
+                      letterSpacing: 0.4,
+                      color: Theme.of(context).hintColor,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: c.suggestions
+                      .map(
+                        (String s) => _SuggestionChip(
+                          label: s,
+                          onTap: () => c.toggle(s),
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -159,14 +203,14 @@ class _Step15ViewState extends State<Step15View> {
                       Expanded(child: BiText('What are your interests?', style: AppTextStyles.subtitle)),
                       Obx(() => Text(
                             '${c.selected.length}/${RegOptions.maxInterests}',
-                            style: AppTextStyles.bodyStrong.copyWith(color: AppColors.primary),
+                            style: AppTextStyles.bodyStrong.copyWith(color: AppColors.regAccent),
                           )),
                       const SizedBox(width: AppSpacing.md),
                       GestureDetector(
                         onTap: () => Navigator.of(ctx).pop(),
                         child: BiText.inline(
                           'Done',
-                          style: AppTextStyles.button.copyWith(color: AppColors.primary),
+                          style: AppTextStyles.button.copyWith(color: AppColors.regAccent),
                         ),
                       ),
                     ],
@@ -281,7 +325,7 @@ class _InterestsField extends StatelessWidget {
                       )
                     : Text(
                         '$count selected',
-                        style: AppTextStyles.body.copyWith(color: AppColors.primary),
+                        style: AppTextStyles.body.copyWith(color: AppColors.regAccent),
                       ),
               ),
               Icon(Icons.expand_more_rounded, color: hintColor),
@@ -294,6 +338,43 @@ class _InterestsField extends StatelessWidget {
 }
 
 /// A selected-interest chip with a remove button, shown under the field.
+/// An unchosen interest: the outline counterpart of [_SelectedChip], so the
+/// two read as the same control in two states.
+class _SuggestionChip extends StatelessWidget {
+  const _SuggestionChip({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: dark ? AppColors.darkSurface : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: dark ? AppColors.darkBorder : AppColors.roseFieldBorder,
+            ),
+          ),
+          child: Text(
+            RegOptions.plain(label),
+            style: AppTextStyles.caption.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.regAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SelectedChip extends StatelessWidget {
   const _SelectedChip({required this.label, required this.onRemove});
   final String label;
@@ -304,7 +385,7 @@ class _SelectedChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 14, right: 8, top: 8, bottom: 8),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: AppColors.brandGradient),
+        gradient: const LinearGradient(colors: AppColors.regPrimaryGradient),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(

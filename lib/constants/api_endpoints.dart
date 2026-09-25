@@ -20,6 +20,12 @@ class ApiEndpoints {
   static const String authEmailVerificationCode = '/auth/email/verification-code';
   static const String authEmailVerify = '/auth/email/verify';
 
+  /// Manual-review gate (`GET` status, `POST` contact). Both are explicitly
+  /// allowed by the backend's `ManualReviewReadOnly` middleware, so they work
+  /// while every other mutating endpoint answers 423.
+  static const String manualReviewStatus = '/auth/manual-review/status';
+  static const String manualReviewContact = '/auth/manual-review/contact';
+
   // ---- Registration (single complete submission + email OTP) ----------------
   /// The whole 18-step payload in ONE `multipart/form-data` request. Public:
   /// it creates the draft account and returns the Sanctum token.
@@ -103,6 +109,15 @@ class ApiEndpoints {
 
   /// Compatibility score against another member.
   static String profileCompatibility(int id) => '/profiles/$id/compatibility';
+
+  /// `GET /profiles/{id}/trust` — the server-computed Trust & Verification
+  /// checklist for a public profile. Lightweight: no view-coin is consumed.
+  static String profileTrust(int id) => '/profiles/$id/trust';
+
+  /// Guest (no-auth) discover feed for the pre-login preview screen.
+  /// Lives outside every auth group on purpose — the server only returns the
+  /// public marketing slice of each profile.
+  static const String publicDiscover = '/public/discover';
 
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
@@ -190,6 +205,27 @@ class ApiEndpoints {
   static const String matchesFeedback = '/matches/feedback';
   static const String matchesRecalculate = '/matches/recalculate';
 
+  // ---- Discover filters / matching ------------------------------------------
+  /// `GET /matches/interest-based` — recommendations ranked by shared
+  /// hobbies/interests/values, each with `interest_score` + `shared_interests`.
+  static const String matchesInterestBased = '/matches/interest-based';
+
+  /// `GET /matches/swipe-deck` — the Swipe Matching stack.
+  static const String matchesSwipeDeck = '/matches/swipe-deck';
+
+  /// `POST /matches/swipe` — records one like/pass, answers `is_match`.
+  static const String matchesSwipe = '/matches/swipe';
+
+  /// `DELETE /matches/swipe/last` — puts the last card back.
+  static const String matchesSwipeUndo = '/matches/swipe/last';
+
+  /// `GET /matches/swipe-summary` — like/pass/match counters.
+  static const String matchesSwipeSummary = '/matches/swipe-summary';
+
+  /// `DELETE /search/history/{id}` — removes one entry. (Clearing the whole
+  /// history is a DELETE on [searchHistory] itself.)
+  static String searchHistoryDelete(int id) => '/search/history/$id';
+
   // ---- Chat -----------------------------------------------------------------
   /// List all conversation threads for the authenticated user.
   static const String chatThreads = '/chat/threads';
@@ -202,6 +238,15 @@ class ApiEndpoints {
 
   /// Typing indicator.
   static String chatTyping(int threadId) => '/chat/threads/$threadId/typing';
+
+  /// `POST /chat/threads/{thread}/delivered` — recipient acknowledges having
+  /// the messages on device (sender's single tick becomes a double tick).
+  static String chatDelivered(int threadId) => '/chat/threads/$threadId/delivered';
+
+  /// `POST /chat/threads/{thread}/disappear` — sets the thread's
+  /// disappearing-message TTL (seconds; 0 = off). New messages on both
+  /// clients inherit it.
+  static String chatDisappear(int threadId) => '/chat/threads/$threadId/disappear';
 
   /// Block a thread.
   static String chatBlock(int threadId) => '/chat/threads/$threadId/block';
@@ -218,6 +263,21 @@ class ApiEndpoints {
   /// Delete a single message (for the current user only).
   static String chatDeleteMessage(int messageId) => '/chat/messages/$messageId';
 
+  /// `POST /chat/threads/{thread}/archive` — body `{archived: true|false}`.
+  /// Per side: archiving hides the chat from MY inbox only.
+  static String chatArchive(int threadId) => '/chat/threads/$threadId/archive';
+
+  /// `POST /chat/threads/{thread}/mute` — body `{muted: true|false}`.
+  /// Per side: silences push/tray notifications for me only.
+  static String chatMute(int threadId) => '/chat/threads/$threadId/mute';
+
+  /// `GET /chat/threads/{thread}/export` — full JSON backup of the chat.
+  static String chatExport(int threadId) => '/chat/threads/$threadId/export';
+
+  /// `POST /chat/messages/{message}/reaction` — body `{emoji: '❤️'}`.
+  /// Sending the same emoji again (or null) clears the reaction.
+  static String chatMessageReaction(int messageId) => '/chat/messages/$messageId/reaction';
+
   // ---- Payments & Subscriptions ---------------------------------------------
   /// List of available membership plans (`GET /payments/plans`).
   static const String paymentPlans = '/payments/plans';
@@ -233,6 +293,9 @@ class ApiEndpoints {
 
   /// Available payment gateways (`GET /payments/gateways`).
   static const String paymentGateways = '/payments/gateways';
+
+  /// Custom coin pricing — admin-configured per-coin charge (`GET /payments/coins/pricing`).
+  static const String paymentCoinPricing = '/payments/coins/pricing';
 
   /// Gateway details (`GET /payments/gateways/{gateway}`).
   static String paymentGatewayDetail(String gateway) => '/payments/gateways/$gateway';
@@ -321,6 +384,13 @@ class ApiEndpoints {
 
   /// Call history for one conversation (`GET /chat/threads/{thread}/calls`).
   static String threadCalls(int threadId) => '/chat/threads/$threadId/calls';
+
+  // ---- Help Center (support chat) ------------------------------------------
+  /// The member's Help Center conversation (created on first use).
+  static const String helpChatThread = '/help-chat/thread';
+
+  /// Messages of that conversation (`GET` list / `POST` send).
+  static const String helpChatMessages = '/help-chat/messages';
 
   // ---- Bridge (Pusher / Realtime Config) ----------------------------------
   static const String bridgeConnectorA = '/bridge/connector-a';

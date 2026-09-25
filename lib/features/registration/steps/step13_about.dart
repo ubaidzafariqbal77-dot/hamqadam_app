@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/step_scaffold.dart';
@@ -50,6 +51,8 @@ class _Step13ViewState extends State<Step13View> {
       stepNumber: 13,
       totalSteps: 18,
       title: 'About yourself',
+      art: RegIcons.step13About,
+      artIcon: Icons.favorite_outline_rounded,
       subtitle: 'Write a short introduction (max 300 characters).',
       busy: c.busy,
       error: c.error,
@@ -59,6 +62,7 @@ class _Step13ViewState extends State<Step13View> {
       onBack: c.back,
       children: <Widget>[
         AppTextFormField(
+              insetLabel: true,
           label: 'About yourself',
           controller: c.aboutMe,
           hint: 'Tell potential matches a little about who you are…',

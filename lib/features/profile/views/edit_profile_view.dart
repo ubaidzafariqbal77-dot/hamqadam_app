@@ -755,6 +755,23 @@ class _EditProfileViewState extends State<EditProfileView> {
                       value: c.allowProfileViewNotifications.value,
                       onChanged: (bool v) => c.allowProfileViewNotifications.value = v,
                     )),
+                Obx(() => AppSwitchTile(
+                      title: 'Invisible mode',
+                      subtitle: 'Hide from Discover, search, recommendations and '
+                          'the swipe deck. Members who already know your ID can '
+                          'still open your profile.',
+                      icon: Icons.visibility_off_rounded,
+                      value: c.invisibleMode.value,
+                      onChanged: (bool v) => c.invisibleMode.value = v,
+                    )),
+                Obx(() => AppSwitchTile(
+                      title: 'Do not disturb',
+                      subtitle: 'Pause incoming interests and proposals until '
+                          'you turn this off',
+                      icon: Icons.do_not_disturb_on_rounded,
+                      value: c.doNotDisturb.value,
+                      onChanged: (bool v) => c.doNotDisturb.value = v,
+                    )),
               ],
             ),
           ],

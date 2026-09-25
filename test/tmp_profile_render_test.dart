@@ -1,5 +1,10 @@
 // TEMPORARY visual harness — renders ProfileView with a realistic
 // `GET /profile` payload so the layout can be inspected without a login.
+//
+// It used to render the dark theme; the app is light-only now (see
+// AppTheme), so the goldens were regenerated as `profile_light_*.png`.
+// Run `flutter test --update-goldens test/tmp_profile_render_test.dart`
+// after a design change instead of comparing against stale images.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -8,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hamqadam/controllers/lookup_controller.dart';
 import 'package:hamqadam/controllers/profile_controller.dart';
+import 'package:hamqadam/controllers/verification_controller.dart';
 import 'package:hamqadam/core/api/api_client.dart';
 import 'package:hamqadam/core/api/api_response.dart';
 import 'package:hamqadam/core/network/network_info.dart';
@@ -18,6 +24,7 @@ import 'package:hamqadam/features/profile/views/profile_view.dart';
 import 'package:hamqadam/models/profile_model.dart';
 import 'package:hamqadam/repositories/lookup_repository.dart';
 import 'package:hamqadam/repositories/profile_repository.dart';
+import 'package:hamqadam/repositories/verification_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const Map<String, dynamic> _payload = <String, dynamic>{
@@ -174,8 +181,13 @@ void main() {
         await lookup.ensure(key);
       }
 
-      completion = ProfileCompletionService(prefs);
-      pc = ProfileController(ProfileRepository(client), lookup, completion);
+    completion = ProfileCompletionService(prefs);
+    pc = ProfileController(ProfileRepository(client), lookup, completion);
+
+    // _VerificationCard reads VerificationController from GetX.
+    Get.put<VerificationController>(
+      VerificationController(VerificationRepository(client)),
+    );
     });
 
     Get.put<ProfileCompletionService>(completion);
@@ -190,7 +202,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.dark,
+        theme: AppTheme.light,
         home: const Scaffold(body: ProfileView()),
       ),
     );
@@ -205,15 +217,15 @@ void main() {
 
     await expectLater(
       find.byType(ProfileView),
-      matchesGoldenFile('goldens/profile_dark_1.png'),
+      matchesGoldenFile('goldens/profile_light_1.png'),
     );
     for (int i = 2; i <= 5; i++) {
-      await tester.drag(find.byType(CustomScrollView), const Offset(0, -1150));
+      await tester.drag(find.byType(ListView).first, const Offset(0, -1150));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       await expectLater(
         find.byType(ProfileView),
-        matchesGoldenFile('goldens/profile_dark_$i.png'),
+        matchesGoldenFile('goldens/profile_light_$i.png'),
       );
     }
   });

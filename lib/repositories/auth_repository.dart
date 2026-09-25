@@ -2,6 +2,7 @@ import '../constants/api_endpoints.dart';
 import '../constants/app_constants.dart';
 import '../core/api/api_client.dart';
 import '../models/auth_response_model.dart';
+import '../models/manual_review_state.dart';
 import '../models/user_model.dart';
 
 /// All authentication API calls. Controllers depend on this, never on Dio.
@@ -37,6 +38,23 @@ class AuthRepository {
     final ApiEnvelope res = await _client.get(ApiEndpoints.me);
     final dynamic user = res.dataMap['user'] ?? res.data;
     return user is Map<String, dynamic> ? UserModel.fromJson(user) : null;
+  }
+
+  /// `GET /auth/manual-review/status` — the authoritative gate state for the
+  /// signed-in member. Allowed by the 423 middleware while under review.
+  Future<ManualReviewState> manualReviewStatus() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.manualReviewStatus);
+    return ManualReviewState.fromJson(res.dataMap);
+  }
+
+  /// `POST /auth/manual-review/contact` — the one support channel that stays
+  /// open while every other mutating endpoint answers 423.
+  Future<String> submitManualReviewContact(String message) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.manualReviewContact,
+      body: <String, dynamic>{'message': message},
+    );
+    return res.message;
   }
 
   /// Request an OTP to a mobile number.

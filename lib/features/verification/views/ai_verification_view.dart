@@ -11,6 +11,7 @@ import '../../../models/ai_verification_model.dart';
 import '../../../widgets/app_button.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 
 /// AI identity verification screen.
@@ -34,7 +35,15 @@ class AiVerificationView extends StatelessWidget {
         switch (s.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return ListView(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(AppSpacing.md),
+              children: const <Widget>[
+                Skeleton(width: double.infinity, height: 140, radius: 20),
+                SizedBox(height: AppSpacing.md),
+                Skeleton(width: double.infinity, height: 180, radius: 20),
+              ],
+            );
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: c.load);
           case ApiStatus.unauthorized:

@@ -135,13 +135,94 @@ class PublicProfileModel {
 }
 
 /// `GET /profiles/{id}/compatibility`.
+/// One scored criterion behind a compatibility percentage.
+class CompatibilityCriterion {
+  const CompatibilityCriterion({
+    required this.name,
+    this.status,
+    this.score,
+    this.reason,
+    this.candidateValue,
+    this.preferenceValue,
+    this.isHardConstraint = false,
+    this.isApplicable = true,
+  });
+
+  final String name;
+
+  /// `match`, `partial`, `mismatch` or `unknown` from the model. Null for the
+  /// map shape, where only a score is available.
+  final String? status;
+
+  final int? score;
+  final String? reason;
+  final String? candidateValue;
+  final String? preferenceValue;
+  final bool isHardConstraint;
+
+  /// False when the criterion did not apply to this pair at all.
+  final bool isApplicable;
+
+  bool get isMatch => status == 'match' || (status == null && (score ?? 0) >= 70);
+  bool get isUnknown => status == 'unknown';
+
+  /// `religious_practice` -> `Religious practice`.
+  String get label {
+    if (name.isEmpty) return name;
+    final String spaced = name.replaceAll('_', ' ');
+    return spaced[0].toUpperCase() + spaced.substring(1);
+  }
+
+  /// Accepts either shape the backend may send. Anything unrecognised yields
+  /// an empty list rather than throwing — a breakdown is never load-bearing.
+  static List<CompatibilityCriterion> parseBreakdown(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map<dynamic, dynamic>>()
+          .map(CompatibilityCriterion._fromMap)
+          .where((CompatibilityCriterion c) => c.name.isNotEmpty)
+          .toList(growable: false);
+    }
+    if (raw is Map) {
+      return raw.entries
+          .where((MapEntry<dynamic, dynamic> e) => e.value is num || e.value is String)
+          .map((MapEntry<dynamic, dynamic> e) => CompatibilityCriterion(
+                name: '${e.key}',
+                score: _asIntOrNull(e.value),
+              ))
+          .toList(growable: false);
+    }
+    return const <CompatibilityCriterion>[];
+  }
+
+  static CompatibilityCriterion _fromMap(Map<dynamic, dynamic> m) {
+    String? str(String key) {
+      final Object? v = m[key];
+      if (v == null) return null;
+      final String s = v is List ? v.join(', ') : '$v';
+      return s.trim().isEmpty ? null : s.trim();
+    }
+
+    return CompatibilityCriterion(
+      name: str('criterion') ?? str('name') ?? '',
+      status: str('status')?.toLowerCase(),
+      score: _asIntOrNull(m['score']),
+      reason: str('reason'),
+      candidateValue: str('candidate_value'),
+      preferenceValue: str('preference_value'),
+      isHardConstraint: _asBool(m['is_hard_constraint']),
+      isApplicable: m['applicable'] == null || _asBool(m['applicable']),
+    );
+  }
+}
+
 class CompatibilityModel {
   const CompatibilityModel({
     required this.profileId,
     this.percentage = 0,
     this.explanation,
     this.reasons = const <String>[],
-    this.breakdown = const <String, dynamic>{},
+    this.breakdown = const <CompatibilityCriterion>[],
     this.calculatedAt,
     this.source,
   });
@@ -151,16 +232,40 @@ class CompatibilityModel {
   final String? explanation;
   final List<String> reasons;
 
-  /// Per-dimension scores. Shape is set by the scoring service and changes as
-  /// dimensions are added, so it stays raw.
-  final Map<String, dynamic> breakdown;
+  /// Per-criterion detail behind [percentage].
+  ///
+  /// The backend sends two different shapes here and both have to work: the AI
+  /// model returns `score_breakdown` as a LIST of criterion objects, while a
+  /// stored rule-based row returns a MAP of dimension -> score. Parsing only
+  /// the map shape silently dropped every AI breakdown.
+  final List<CompatibilityCriterion> breakdown;
 
   final DateTime? calculatedAt;
 
-  /// `stored` when read from a precomputed match row, `live_rule_based` when
-  /// scored on the fly — worth surfacing, because a live score has not had the
-  /// collaborative-filtering boosts applied.
+  /// Where the score came from: `ai_sidecar` (the matchmaking model),
+  /// `stored` (a precomputed row) or `rule_based_integrated` (scored on the
+  /// fly). Worth surfacing — only the AI path explains both directions.
   final String? source;
+
+  /// True when the matchmaking model produced this score.
+  bool get isAi => source == 'ai_sidecar' || source == 'sidecar';
+
+  /// Human label for [source].
+  String get sourceLabel => switch (source) {
+        'ai_sidecar' || 'sidecar' => 'AI matchmaking',
+        'stored' => 'Saved score',
+        'rule_based_integrated' || 'live_rule_based' => 'Rule-based score',
+        _ => 'Compatibility',
+      };
+
+  /// Criteria the candidate satisfied.
+  List<CompatibilityCriterion> get matched =>
+      breakdown.where((CompatibilityCriterion c) => c.isMatch).toList(growable: false);
+
+  /// Criteria that were not met — the honest half of the score.
+  List<CompatibilityCriterion> get unmatched => breakdown
+      .where((CompatibilityCriterion c) => c.isApplicable && !c.isMatch && !c.isUnknown)
+      .toList(growable: false);
 
   factory CompatibilityModel.fromJson(Map<String, dynamic> json) {
     return CompatibilityModel(
@@ -174,9 +279,7 @@ class CompatibilityModel {
               .map((dynamic e) => '$e'.trim())
               .where((String e) => e.isNotEmpty)
               .toList(growable: false),
-      breakdown: json['score_breakdown'] is Map<String, dynamic>
-          ? json['score_breakdown'] as Map<String, dynamic>
-          : <String, dynamic>{},
+      breakdown: CompatibilityCriterion.parseBreakdown(json['score_breakdown']),
       calculatedAt: _asDate(json['calculated_at']),
       source: json['source']?.toString(),
     );

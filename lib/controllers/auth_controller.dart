@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/app_strings.dart';
+import '../constants/storage_keys.dart';
 import '../core/routes/app_routes.dart';
 import '../core/services/permissions_service.dart';
 import '../core/services/push_token_service.dart';
@@ -12,10 +13,12 @@ import '../core/storage/secure_storage_service.dart';
 import '../core/utils/app_logger.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/auth_response_model.dart';
+import '../models/manual_review_state.dart';
 import '../models/user_model.dart';
 import '../repositories/auth_repository.dart';
 import '../widgets/app_snackbar.dart';
 import 'chat_controller.dart';
+import 'help_chat_controller.dart';
 import 'lookup_controller.dart';
 import 'notification_controller.dart';
 import 'payment_controller.dart';
@@ -139,6 +142,9 @@ class AuthController extends GetxController {
     if (Get.isRegistered<ChatController>()) {
       Get.find<ChatController>().reset();
     }
+    if (Get.isRegistered<HelpChatController>()) {
+      Get.find<HelpChatController>().reset();
+    }
     if (Get.isRegistered<PushTokenService>()) {
       Get.find<PushTokenService>().forgetSync();
     }
@@ -184,7 +190,7 @@ class AuthController extends GetxController {
     } catch (e) {
       AppLogger.w('Logout API failed (ignored): $e');
     }
-    await _clearAndGoLogin();
+    await _clearAndGoOnboarding();
   }
 
   /// Logs out from every device/session.
@@ -194,14 +200,14 @@ class AuthController extends GetxController {
     } catch (e) {
       AppLogger.w('Logout-all API failed (ignored): $e');
     }
-    await _clearAndGoLogin();
+    await _clearAndGoOnboarding();
   }
 
   /// Deactivates the account then clears the session.
   Future<bool> deactivateAccount() async {
     try {
       await authRepository.deactivateAccount();
-      await _clearAndGoLogin();
+      await _clearAndGoOnboarding();
       return true;
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
@@ -222,7 +228,74 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> _clearAndGoLogin() async {
+  // ---- Manual-review gate ---------------------------------------------------
+
+  /// True when the last [checkManualReview] found the account under review.
+  /// Also lets the review screen re-open on resume without re-fetching.
+  final RxBool underManualReview = false.obs;
+
+  /// The latest gate state received from the server.
+  final Rxn<ManualReviewState> manualReview = Rxn<ManualReviewState>();
+
+  /// Asks the server whether this member is under manual review and routes to
+  /// the review screen when it is.
+  ///
+  /// Returns true when the caller must STOP (the review screen is now in
+  /// front); false means the normal flow may continue.
+  Future<bool> checkManualReview({bool navigate = true}) async {
+    try {
+      final ManualReviewState state = await authRepository.manualReviewStatus();
+      manualReview.value = state;
+      underManualReview.value = state.isActive;
+      if (state.isActive && navigate) {
+        await Get.offAllNamed<dynamic>(AppRoutes.manualReview);
+      }
+      return state.isActive;
+    } on AppException catch (e) {
+      // Status unreachable → never trap the member on a guess. If the account
+      // really is gated, the next mutating call 423s and [enterManualReview]
+      // handles it with the response's own review node.
+      AppLogger.w('manual-review status check failed (ignored): $e');
+      return false;
+    }
+  }
+
+  /// Enters the review screen from a 423 response — the response itself carried
+  /// the state, so no extra round trip is needed.
+  Future<void> enterManualReview(ManualReviewState state) async {
+    manualReview.value = state;
+    underManualReview.value = state.isActive;
+    if (Get.currentRoute != AppRoutes.manualReview) {
+      await Get.offAllNamed<dynamic>(AppRoutes.manualReview);
+    }
+  }
+
+  /// Leaves the gate: called when the review clears (member retakes the AI
+  /// verification and is approved) or on explicit logout from the gate screen.
+  void clearManualReview() {
+    underManualReview.value = false;
+    manualReview.value = null;
+  }
+
+  /// Explicit logout / deactivation: session data is wiped, the "onboarding
+  /// seen" flag resets, and the member lands on the ONBOARDING flow — the
+  /// same first-look experience a fresh install gets. (A forced 401
+  /// re-authentication keeps the plain login shortcut in
+  /// [handleUnauthorized] — there the session died behind the app's back.)
+  Future<void> _clearAndGoOnboarding() async {
+    await _clearSessionData();
+    await _clearOnboardingSeen();
+    Get.offAllNamed(AppRoutes.onboarding);
+  }
+
+  /// Wipes everything a signed-in session owns. Fingerprint-login credentials
+  /// deliberately SURVIVE logout: the whole point for the member is signing
+  /// back in with a fingerprint after logging out. They are device-protected
+  /// (OS keystore/Keychain + a live biometric scan), so leaving them is safe —
+  /// and if the server later rejects them (password changed elsewhere),
+  /// LoginController drops them automatically so a dead fingerprint path can
+  /// never linger.
+  Future<void> _clearSessionData() async {
     if (Get.isRegistered<NotificationController>()) {
       await Get.find<NotificationController>().deletePushToken();
     }
@@ -237,6 +310,17 @@ class AuthController extends GetxController {
     }
     isAuthenticated.value = false;
     user.value = null;
-    Get.offAllNamed(AppRoutes.login);
+  }
+
+  /// Resets the "onboarding seen" flag so the next launch replays the full
+  /// onboarding instead of jumping straight to login (product decision:
+  /// logout = back to the welcome experience).
+  Future<void> _clearOnboardingSeen() async {
+    try {
+      final SharedPreferences prefs = Get.find<SharedPreferences>();
+      await prefs.remove(StorageKeys.onboardingSeen);
+    } catch (e) {
+      AppLogger.w('onboarding-seen reset failed (ignored): $e');
+    }
   }
 }

@@ -2,12 +2,14 @@ import 'dart:collection';
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/help_chat_controller.dart';
 import '../../controllers/interest_controller.dart';
 import '../../controllers/notification_controller.dart';
 import '../../controllers/payment_controller.dart';
@@ -15,6 +17,7 @@ import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
+import '../../features/help_center/views/help_chat_view.dart';
 import '../../features/interests/views/interests_view.dart';
 
 import '../../features/notifications/views/notifications_view.dart';
@@ -24,6 +27,23 @@ import '../../features/profile_views/views/profile_views_view.dart';
 import '../../features/proposals/views/proposals_view.dart';
 import '../../models/chat_model.dart';
 import '../utils/app_logger.dart';
+
+/// A ring the FCM background isolate wrote down while the app was not running.
+///
+/// Carries enough to draw the ringing screen immediately, so a call that
+/// arrives at a killed app does not make the member sit through the splash
+/// while the app asks the server who is calling.
+class PendingCall {
+  const PendingCall({
+    required this.callId,
+    required this.callerName,
+    required this.isVideo,
+  });
+
+  final int callId;
+  final String callerName;
+  final bool isVideo;
+}
 
 /// Central service for displaying local and push notifications in the device tray.
 ///
@@ -44,6 +64,12 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
+
+  /// Reads the two Android grants that decide whether a sleeping phone rings.
+  /// Implemented in `MainActivity.kt`; see [canRingFullScreen] and
+  /// [isIgnoringBatteryOptimizations].
+  static const MethodChannel _reliabilityChannel =
+      MethodChannel('com.app.hamqadam/call_reliability');
 
   /// The incoming-call ringtone, used for audio and video calls alike.
   ///
@@ -113,6 +139,11 @@ class NotificationService {
   static const String callAcceptAction = 'call_accept';
   static const String callRejectAction = 'call_reject';
 
+  /// "End call" on the *ongoing*-call notification — the one that stands for a
+  /// call already in progress, not an offer. Android's copy of that entry is
+  /// owned by `CallForegroundService`; this id is for the iOS one.
+  static const String callEndAction = 'call_end';
+
   /// Where a ringing call is left for the app to pick up.
   ///
   /// The FCM background isolate is the only thing running when a call arrives
@@ -140,6 +171,9 @@ class NotificationService {
   static int _activityNotificationId(int notificationId) =>
       800000 + (notificationId.abs() % 90000);
   static int _callNotificationId(int callId) => 900000 + (callId.abs() % 90000);
+
+  /// One at a time, so a second call cannot leave a stale "on a call" entry.
+  static const int _ongoingCallNotificationId = 918274;
 
   static String _threadGroupKey(int threadId) => 'com.app.hamqadam.THREAD_$threadId';
 
@@ -280,9 +314,18 @@ class NotificationService {
       // Not const: `DarwinNotificationAction.plain` is a factory.
       final DarwinInitializationSettings iosSettings =
           DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
+        // All false on purpose. These flags make `initialize()` raise the iOS
+        // authorization prompt, and [init] runs before `runApp()` — so on a
+        // fresh iPhone the very first thing a member saw was a permission
+        // alert over a blank window, the same defect that was just removed on
+        // Android. Verified in the simulator log: "Requesting authorization
+        // with options 7" fired from inside `initialize()`.
+        //
+        // The prompt is raised instead from `_requestStartupPermissions()` in
+        // `main()`, after the first frame, where the app is behind it.
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
         notificationCategories: <DarwinNotificationCategory>[
           // iOS needs the Accept / Decline pair declared up front; a category
           // that is not registered here shows as a plain alert with no buttons.
@@ -299,6 +342,23 @@ class NotificationService {
               DarwinNotificationAction.plain(
                 callRejectAction,
                 'Decline',
+                options: <DarwinNotificationActionOption>{
+                  DarwinNotificationActionOption.destructive,
+                  DarwinNotificationActionOption.foreground,
+                },
+              ),
+            ],
+            options: <DarwinNotificationCategoryOption>{
+              DarwinNotificationCategoryOption.hiddenPreviewShowTitle,
+            },
+          ),
+          // The call already in progress: one button, and it hangs up.
+          DarwinNotificationCategory(
+            'hamqadam_ongoing_call',
+            actions: <DarwinNotificationAction>[
+              DarwinNotificationAction.plain(
+                callEndAction,
+                'End call',
                 options: <DarwinNotificationActionOption>{
                   DarwinNotificationActionOption.destructive,
                   DarwinNotificationActionOption.foreground,
@@ -339,7 +399,6 @@ class NotificationService {
     }
 
     await _createChannels();
-    await _requestPermissionsQuietly();
   }
 
   /// Creates the Android channels. Safe to repeat — Android treats a second
@@ -358,32 +417,108 @@ class NotificationService {
       try {
         await android.createNotificationChannel(channel);
       } catch (e) {
-        AppLogger.w('Could not create the ${channel.id} channel: $e');
+        AppLogger.push('FAILED to create the ${channel.id} channel: $e');
       }
     }
   }
 
-  /// Asks for the notification permissions, each independently.
+  /// Whether Android will honour the full-screen intent that turns a call push
+  /// into a ringing screen on a locked phone.
   ///
-  /// Both of these need an Activity, so both throw in the FCM background
-  /// isolate — where they are also pointless, since nothing there can show a
-  /// system prompt. They are attempted anyway rather than gated on a guess
-  /// about which isolate we are in, and each failure is swallowed on its own.
-  Future<void> _requestPermissionsQuietly() async {
+  /// On Android 14+ this is a separate grant from POST_NOTIFICATIONS, and it is
+  /// off by default for anything Android does not already recognise as a
+  /// calling app. Without it `fullScreenIntent` is downgraded to a heads-up
+  /// banner behind the lock screen — a call the member never sees.
+  /// Answered by `MainActivity` over [_reliabilityChannel]: the plugin has a
+  /// `requestFullScreenIntentPermission` but no way to *read* the grant, and
+  /// `permission_handler` does not model it either.
+  Future<bool> get canRingFullScreen async {
+    if (!GetPlatform.isAndroid) return true; // iOS rings via its call category
+    try {
+      return await _reliabilityChannel.invokeMethod<bool>(
+            'canUseFullScreenIntent',
+          ) ??
+          true;
+    } catch (_) {
+      return true; // pre-14, or the channel is not attached (background isolate)
+    }
+  }
+
+  /// Whether Android has stopped battery-optimising this app.
+  ///
+  /// Read from `PowerManager` rather than `permission_handler`, so it reports
+  /// the real OS state even when the app never asked. A battery-optimised app
+  /// is the one the OEM cleaner force-stops, and a force-stopped app receives
+  /// no FCM at all until it is launched by hand — no code can work around that.
+  Future<bool> get isIgnoringBatteryOptimizations async {
+    if (!GetPlatform.isAndroid) return true;
+    try {
+      return await _reliabilityChannel.invokeMethod<bool>(
+            'isIgnoringBatteryOptimizations',
+          ) ??
+          false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Turns the activity into a call surface: over the lock screen, screen held
+  /// on. Must be paired with [endCallScreen].
+  ///
+  /// These flags are no longer in the manifest. Declaring them there applied
+  /// them to every launch of the launcher activity, and an activity that says
+  /// it wakes the screen gets a short user-activity timeout on several OEMs —
+  /// which is why the display went dark a few seconds into using the app
+  /// whatever the member's sleep setting was. `MainActivity.onCreate` applies
+  /// them when it finds a ringing call; this is for a call that starts while
+  /// the activity already exists, where `onCreate` never runs.
+  Future<void> beginCallScreen() async {
+    if (!GetPlatform.isAndroid) return;
+    try {
+      await _reliabilityChannel.invokeMethod<bool>('beginCallScreen');
+    } catch (e) {
+      AppLogger.d('Could not raise the screen over the keyguard: $e');
+    }
+  }
+
+  /// Hands the screen back to the system when the call is over, so the phone
+  /// sleeps on its normal timeout again.
+  Future<void> endCallScreen() async {
+    if (!GetPlatform.isAndroid) return;
+    try {
+      await _reliabilityChannel.invokeMethod<bool>('endCallScreen');
+    } catch (e) {
+      AppLogger.d('Could not release the call-screen flags: $e');
+    }
+  }
+
+  /// Asks the system to take the lock screen away after the member answers.
+  Future<void> dismissKeyguard() async {
+    if (!GetPlatform.isAndroid) return;
+    try {
+      await _reliabilityChannel.invokeMethod<bool>('dismissKeyguard');
+    } catch (e) {
+      AppLogger.d('Could not dismiss the keyguard: $e');
+    }
+  }
+
+  /// Asks Android for the full-screen-intent grant.
+  ///
+  /// **Only ever call this from an explicit member action.** On Android 14+ the
+  /// plugin implements it as
+  /// `startActivityForResult(ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)` — it
+  /// does not show a dialog, it navigates the member out to a Settings page.
+  ///
+  /// It used to be called from [init], which `main()` awaited *before*
+  /// `runApp()`. So a clean install could be thrown out to a system Settings
+  /// screen before the app had drawn a single frame, with no route to come back
+  /// to; backing out of it killed the process. See the comment in `main()`.
+  Future<void> requestFullScreenIntentPermission() async {
     final AndroidFlutterLocalNotificationsPlugin? android =
         _localNotifications.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return;
-
     try {
-      await android.requestNotificationsPermission();
-    } catch (e) {
-      AppLogger.d('Notification permission request skipped: $e');
-    }
-
-    try {
-      // Without this, `fullScreenIntent` is downgraded to a heads-up banner on
-      // Android 14+, so a call cannot wake a locked phone.
       await android.requestFullScreenIntentPermission();
     } catch (e) {
       AppLogger.d('Full-screen-intent permission request skipped: $e');
@@ -651,6 +786,17 @@ class NotificationService {
       interruptionLevel: InterruptionLevel.timeSensitive,
     );
 
+    // Written BEFORE the notification, and that order is load-bearing.
+    //
+    // `show()` is what raises the full-screen intent, and the full-screen
+    // intent launches the activity *synchronously* from Android's point of
+    // view — so `main()` can be running, and reading this record, while the
+    // `show()` above has not returned yet. With the write after the show, the
+    // race was lost almost every time: the app cold-started, found no pending
+    // call, and booted to Discover with the tray ringing beside it. Writing it
+    // first means the record is always there before anything can launch.
+    await _rememberPendingCall(callId, callerName: callerName, isVideo: isVideo);
+
     try {
       await _localNotifications.show(
         _callNotificationId(callId),
@@ -664,25 +810,78 @@ class NotificationService {
           'is_video': isVideo,
         }),
       );
-      await _rememberPendingCall(callId);
+      AppLogger.push('incoming-call notification posted for call $callId');
     } catch (e) {
-      AppLogger.w('Could not show the incoming-call notification: $e');
+      // Release-visible: this is the exact line that stayed silent while the
+      // resource shrinker was stripping `res/raw/ringtone` out of release
+      // builds. `show()` threw, the tray stayed empty, and the only record of
+      // it was a debug-only log that testers' builds never emitted.
+      AppLogger.push('FAILED to show the incoming-call notification: $e');
     }
   }
 
   /// Notes that [callId] is ringing, for an app that is not running yet.
-  Future<void> _rememberPendingCall(int callId) async {
+  ///
+  /// The caller's name and the audio/video flag are stored alongside the id so
+  /// a cold start can paint the ringing screen on its **first frame**, before
+  /// any network call. `CallController.ringFromPush` still re-reads the call
+  /// from the server and hangs the screen up if the offer is already over — but
+  /// it does that behind a screen the member is already looking at, instead of
+  /// making them watch a splash while it happens.
+  Future<void> _rememberPendingCall(
+    int callId, {
+    required String callerName,
+    required bool isVideo,
+  }) async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         _pendingCallKey,
         jsonEncode(<String, dynamic>{
           'call_id': callId,
+          'caller_name': callerName,
+          'is_video': isVideo,
           'at': DateTime.now().millisecondsSinceEpoch,
         }),
       );
     } catch (e) {
       AppLogger.d('Could not record the pending call: $e');
+    }
+  }
+
+  /// Reads the pending ring **without consuming it**, for `main()` to decide
+  /// the app's first route before `runApp`.
+  ///
+  /// Separate from [takePendingIncomingCall] on purpose: that one clears the
+  /// record, and clearing it here would leave the recovery pass in
+  /// `AppLifecycleService` with nothing to act on.
+  Future<PendingCall?> peekPendingIncomingCall() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      // Written by the FCM background isolate, so this isolate's cache is stale.
+      await prefs.reload();
+
+      final String? raw = prefs.getString(_pendingCallKey);
+      if (raw == null || raw.isEmpty) return null;
+
+      final Map<String, dynamic> data =
+          jsonDecode(raw) as Map<String, dynamic>;
+      final int? callId = int.tryParse((data['call_id'] ?? '').toString());
+      final int at = int.tryParse((data['at'] ?? '').toString()) ?? 0;
+      if (callId == null) return null;
+
+      final Duration age =
+          DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(at));
+      if (age > _pendingCallTtl) return null;
+
+      return PendingCall(
+        callId: callId,
+        callerName: (data['caller_name'] ?? 'HamQadam Member').toString(),
+        isVideo: data['is_video'] == true,
+      );
+    } catch (e) {
+      AppLogger.d('Could not peek at the pending call: $e');
+      return null;
     }
   }
 
@@ -745,6 +944,58 @@ class NotificationService {
     await _forgetPendingCall();
   }
 
+  // ---- The call already in progress ---------------------------------------
+
+  /// Shows the "you are on a call" entry, so a minimised call can be tapped
+  /// back open instead of being lost behind whatever the member opened next.
+  ///
+  /// **iOS only.** On Android the same entry is the foreground notification of
+  /// `CallForegroundService` — see [CallWindowService.startOngoingCall] —
+  /// because there it has a second job that a plain notification cannot do:
+  /// a backgrounded process without a foreground service records silence
+  /// rather than audio from Android 9 onwards.
+  Future<void> showOngoingCall({
+    required int callId,
+    required String peerName,
+    required bool isVideo,
+    required String status,
+  }) async {
+    if (!GetPlatform.isIOS) return;
+    await init();
+    try {
+      await _localNotifications.show(
+        _ongoingCallNotificationId,
+        peerName,
+        status,
+        const NotificationDetails(
+          iOS: DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: false,
+            presentSound: false,
+            categoryIdentifier: 'hamqadam_ongoing_call',
+            interruptionLevel: InterruptionLevel.passive,
+          ),
+        ),
+        payload: jsonEncode(<String, dynamic>{
+          'type': 'call_ongoing',
+          'call_id': callId,
+          'is_video': isVideo,
+        }),
+      );
+    } catch (e) {
+      AppLogger.d('Could not show the ongoing-call notification: $e');
+    }
+  }
+
+  /// Takes the ongoing-call entry down when the call is over.
+  Future<void> cancelOngoingCall() async {
+    try {
+      await _localNotifications.cancel(_ongoingCallNotificationId);
+    } catch (_) {
+      // Nothing showing.
+    }
+  }
+
   /// Plays the ringtone in a loop for incoming calls.
   ///
   /// Single point of control for in-app ringing, and it deliberately does
@@ -777,7 +1028,21 @@ class NotificationService {
   /// action and has been dealt with.
   bool _handleCallAction(NotificationResponse response) {
     final String? action = response.actionId;
-    if (action != callAcceptAction && action != callRejectAction) return false;
+    if (action != callAcceptAction &&
+        action != callRejectAction &&
+        action != callEndAction) {
+      return false;
+    }
+
+    // Ending a call in progress needs no id: there is only ever one, and the
+    // controller already knows which.
+    if (action == callEndAction) {
+      cancelOngoingCall();
+      if (Get.isRegistered<CallController>()) {
+        Get.find<CallController>().hangUp();
+      }
+      return true;
+    }
 
     final int? callId = _callIdFrom(response.payload);
     if (callId == null) return true; // it was ours; nothing usable in it
@@ -866,6 +1131,39 @@ class NotificationService {
 
     if (body == null || body.isEmpty) {
       _refreshCorrespondingController(data);
+      return;
+    }
+
+    // ── Help Center ──────────────────────────────────────────────────────
+    // Checked before the chat matcher below: `help_chat` contains "chat" and
+    // would otherwise be treated as a member-to-member message. A support
+    // reply while the conversation is open is silent; otherwise it is a tray
+    // entry that opens the Help Center on tap.
+    if (type == 'help_chat') {
+      final int? helpMessageId = int.tryParse((data['message_id'] ?? '').toString());
+      final bool viewingHelp = Get.isRegistered<HelpChatController>() &&
+          appInForeground &&
+          Get.currentRoute == '/help-chat';
+
+      if (!viewingHelp) {
+        final String key = 'help:$helpMessageId';
+        if (claim(key)) {
+          await showNotification(
+            id: _activityNotificationId(helpMessageId ?? key.hashCode),
+            title: title,
+            body: body,
+            payload: jsonEncode(<String, dynamic>{
+              'type': 'help_chat',
+              'thread_id': data['thread_id'] ?? '',
+              'message_id': data['message_id'] ?? '',
+            }),
+          );
+        }
+      }
+
+      if (Get.isRegistered<HelpChatController>()) {
+        Get.find<HelpChatController>().syncFromPush();
+      }
       return;
     }
 
@@ -1065,6 +1363,19 @@ class NotificationService {
         }
       }
 
+      // 0b. The call already in progress. Tapping it only has to bring the app
+      // forward — the call screen is still the top route, and routing anywhere
+      // would push a screen over the call the member asked to go back to.
+      if (type == 'call_ongoing') return;
+
+      // 1. Help Center — checked before the chat matcher below, because
+      // `help_chat` also contains "chat" and would otherwise open the
+      // member-to-member inbox instead of the support conversation.
+      if (type == 'help_chat') {
+        Get.to<void>(() => const HelpChatView());
+        return;
+      }
+
       // 1. Chat messages
       if (type.contains('message') || type.contains('chat')) {
         if (threadId != null && threadId > 0) {
@@ -1101,7 +1412,9 @@ class NotificationService {
             return;
           }
         }
-        Get.to(() => const ChatInboxView());
+        // Standalone: the inbox pushed as its own route over whatever is on
+        // screen — it carries its own back-capable header in this mode.
+        Get.to(() => const ChatInboxView(standalone: true));
         return;
       }
 

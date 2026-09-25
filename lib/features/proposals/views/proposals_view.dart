@@ -11,6 +11,7 @@ import '../../../core/api/api_response.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/proposal_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 import '../../chat/views/chat_conversation_view.dart';
@@ -73,8 +74,8 @@ class _ProposalsViewState extends State<ProposalsView> with SingleTickerProvider
             color: Theme.of(context).cardColor,
             child: TabBar(
               controller: _tabController,
-              indicatorColor: AppColors.primary,
-              labelColor: AppColors.primary,
+              indicatorColor: AppColors.regAccent,
+              labelColor: AppColors.regAccent,
               unselectedLabelColor: theme.hintColor,
               labelStyle: AppTextStyles.bodyStrong.copyWith(fontSize: 14),
               tabs: <Widget>[
@@ -114,7 +115,7 @@ class _ProposalsViewState extends State<ProposalsView> with SingleTickerProvider
               switch (s.status) {
                 case ApiStatus.initial:
                 case ApiStatus.loading:
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                  return const SkeletonList();
                 case ApiStatus.noInternet:
                   return NoInternetWidget(onRetry: () => _controller.loadProposals());
                 case ApiStatus.unauthorized:
@@ -177,7 +178,7 @@ class _ProposalList extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      color: AppColors.primary,
+      color: AppColors.regAccent,
       onRefresh: onRefresh,
       child: ListView.separated(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -303,7 +304,7 @@ class _ProposalCard extends StatelessWidget {
                 // Status Pill
                 StatusPill(
                   label: proposal.statusLabel,
-                  color: _statusColor(proposal),
+                  color: _statusColor(context, proposal),
                 ),
               ],
             ),
@@ -411,10 +412,12 @@ class _ProposalCard extends StatelessWidget {
                 children: <Widget>[
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.primary),
-                      label: const Text('Profile', style: TextStyle(fontSize: 13)),
+                      icon: const Icon(Icons.person_outline_rounded, size: 16, color: AppColors.regAccent),
+                      label: const Text('Profile', style: TextStyle(fontSize: 13, color: AppColors.regAccent)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 9),
+                        side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
+                        backgroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                       ),
                       onPressed: () {
@@ -435,7 +438,7 @@ class _ProposalCard extends StatelessWidget {
                       icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.white),
                       label: const Text('Chat', style: TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold)),
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.regAccent,
                         padding: const EdgeInsets.symmetric(vertical: 9),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
                       ),
@@ -534,19 +537,19 @@ class _ProposalCard extends StatelessWidget {
     }
   }
 
-  Color _statusColor(ProposalModel p) {
+  Color _statusColor(BuildContext context, ProposalModel p) {
     switch (p.parsedStatus) {
       case ProposalStatus.pending:
-        return Colors.amber.shade800;
+        return AppColors.warning;
       case ProposalStatus.accepted:
         return AppColors.success;
       case ProposalStatus.rejected:
       case ProposalStatus.cancelled:
         return AppColors.error;
       case ProposalStatus.withdrawn:
-        return Colors.grey;
+        return Theme.of(context).hintColor;
       case ProposalStatus.unknown:
-        return Colors.grey;
+        return Theme.of(context).hintColor;
     }
   }
 

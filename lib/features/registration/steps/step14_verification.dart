@@ -12,6 +12,7 @@ import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/media_upload_card.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Step 14 — Identity verification. The member uploads the CNIC front, the CNIC
 /// back and a selfie — each either shot with the camera or picked from the
@@ -121,7 +122,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_camera_rounded,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
                 title: Text('Take a photo', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: true),
@@ -129,7 +130,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_library_rounded,
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                 ),
                 title: Text('Choose from gallery', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: false),
@@ -192,6 +193,8 @@ class _Step14ViewState extends State<Step14View> {
       stepNumber: 14,
       totalSteps: 18,
       title: 'Identity verification',
+      art: RegIcons.step14Verification,
+      artIcon: Icons.verified_user_outlined,
       subtitle: 'Verify your identity to earn a trusted badge.',
       busy: c.busy,
       error: c.error,
@@ -205,6 +208,7 @@ class _Step14ViewState extends State<Step14View> {
         // 1 — CNIC number, typed by the member. Always visible: it no longer
         // depends on a photo having been read.
         AppTextFormField(
+              insetLabel: true,
           label: 'CNIC number',
           controller: c.cnicCtrl,
           hint: 'XXXXX-XXXXXXX-X',

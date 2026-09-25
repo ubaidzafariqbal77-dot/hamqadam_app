@@ -47,3 +47,8 @@ app.*.map.json
 # Local-only dependency overrides (e.g. the iOS-Simulator ML Kit stub).
 # Never commit: it silently disables real OCR.
 pubspec_overrides.yaml
+
+# Release signing — never commit secrets
+android/key.properties
+android/app/*.jks
+android/app/*.keystore

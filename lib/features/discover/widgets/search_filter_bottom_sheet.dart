@@ -6,12 +6,22 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/lookup_controller.dart';
+import '../../../controllers/search_extra_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_button.dart';
+import '../../../widgets/app_snackbar.dart';
 
 /// Modal bottom sheet for configuring search and filter options.
+///
+/// Filter contract note: the backend (`ProfileSearchRequest`) validates and
+/// applies a fixed set of parameters. Anything it does not know about is
+/// SILENTLY IGNORED — which is how `latest`/`age_asc`/`age_desc` sorts and
+/// `marital_status_id` once looked "applied" while changing nothing. The app
+/// now only sends sorts the server accepts (`newest`, `compatibility`,
+/// `recently_active`); marital status and the keyword search are applied
+/// client-side by [SearchProfilesController] over the fetched pages.
 class SearchFilterBottomSheet extends StatefulWidget {
   const SearchFilterBottomSheet({super.key});
 
@@ -39,6 +49,13 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late bool _verifiedOnly;
   late bool _photoOnly;
   late bool _nearby;
+  // The four flags the API has supported all along and the sheet never
+  // exposed: who is new, who I have not opened yet, mutual interests and who
+  // is online. Without these the endpoints were unreachable from the app.
+  late bool _excludeViewed;
+  late bool _newProfiles;
+  late bool _mutualMatch;
+  late bool _onlineNow;
   late String? _selectedSort;
   /// Carried through untouched so applying the sheet cannot drop the
   /// opposite-gender rule. There is no control that edits it.
@@ -62,6 +79,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _verifiedOnly = f.verifiedOnly;
     _photoOnly = f.photoOnly;
     _nearby = f.nearby;
+    _excludeViewed = f.excludeViewed;
+    _newProfiles = f.newProfiles;
+    _mutualMatch = f.mutualMatch;
+    _onlineNow = f.onlineNow;
     _selectedSort = f.sort;
     _selectedGender = f.gender;
     _maritalStatusId = f.maritalStatusId;
@@ -70,6 +91,18 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _countryId = f.countryId;
     _stateId = f.stateId;
     _cityId = f.cityId;
+
+    // Warm every lookup the sheet uses. Without this, a cold session opened
+    // the sheet with EMPTY dropdowns and pickers ("0 results") — one of the
+    // reported "filters do not function" symptoms. `ensure` fetches only what
+    // is missing, and the reactive sections below pick the lists up the
+    // moment they land.
+    _lookup.ensure(LookupKeys.maritalStatuses);
+    _lookup.ensure(LookupKeys.religions);
+    _lookup.ensure(LookupKeys.castes);
+    _lookup.ensure(LookupKeys.countries);
+    _lookup.ensure(LookupKeys.states);
+    _lookup.ensure(LookupKeys.cities);
   }
 
   void _resetAll() {
@@ -79,6 +112,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       _verifiedOnly = false;
       _photoOnly = false;
       _nearby = false;
+      _excludeViewed = false;
+      _newProfiles = false;
+      _mutualMatch = false;
+      _onlineNow = false;
       _selectedSort = null;
       // `_selectedGender` deliberately survives a reset — it is the
       // opposite-gender rule, not one of the filters being cleared.
@@ -92,13 +129,25 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   }
 
   void _apply() {
+    // The age slider spans 18–70 and the backend accepts up to 100, so the
+    // maximum is only "unset" at the very top of the slider. (It used to be
+    // dropped at >= 60, so dragging past 60 silently searched to 100 while
+    // the chip claimed 60–70 — one of the reported broken combinations.)
+    final int ageMax = _ageRange.end.round();
     final SearchFilterModel updated = SearchFilterModel(
       ageMin: _ageRange.start.round() > 18 ? _ageRange.start.round() : null,
-      ageMax: _ageRange.end.round() < 60 ? _ageRange.end.round() : null,
+      ageMax: ageMax >= 70 ? null : ageMax,
       verifiedOnly: _verifiedOnly,
       photoOnly: _photoOnly,
       compatibilityMin: _minCompatibility.round() > 0 ? _minCompatibility.round() : null,
       nearby: _nearby,
+      excludeViewed: _excludeViewed,
+      newProfiles: _newProfiles,
+      mutualMatch: _mutualMatch,
+      onlineNow: _onlineNow,
+      // Only sorts the API validates: newest | compatibility | recently_active.
+      // `latest`/`age_asc`/`age_desc` used to 422 the whole request, killing
+      // the search the moment one of them was applied.
       sort: _selectedSort,
       gender: _selectedGender,
       maritalStatusId: _maritalStatusId,
@@ -108,10 +157,63 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       stateId: _stateId,
       cityId: _cityId,
       searchQuery: _controller.filter.value.searchQuery,
+      // The partner-preference toggle lives OUTSIDE this sheet (Discover's
+      // heart button); rebuilding the model here used to silently switch it
+      // off, so applying any filter combination also dropped that filter.
+      partnerPreferenceFilter: _controller.filter.value.partnerPreferenceFilter,
     );
 
     _controller.applyFilter(updated);
     Navigator.of(context).pop();
+    // The sheet is gone; ask (once) whether to keep this combination.
+    _offerSave(updated);
+  }
+
+  /// Offers to save the current filter combination as a named saved search
+  /// (re-runnable from the Saved Searches screen). Shown right after Apply.
+  Future<void> _offerSave(SearchFilterModel saved) async {
+    final TextEditingController nameCtrl = TextEditingController();
+    final bool? shouldSave = await Get.dialog<bool>(
+      AlertDialog(
+        title: Text('Save this search?', style: AppTextStyles.bodyStrong),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Re-run these filters any time from Saved Searches.',
+              style: AppTextStyles.caption.copyWith(color: Get.theme.hintColor),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                hintText: 'e.g. Lahore 25-35',
+                border: OutlineInputBorder(borderRadius: AppRadius.mdAll),
+              ),
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Get.back<bool>(result: false), child: const Text('Not now')),
+          TextButton(
+            onPressed: () => Get.back<bool>(result: true),
+            child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave != true) return;
+    final String name = nameCtrl.text.trim();
+    if (Get.isRegistered<SearchExtraController>()) {
+      await Get.find<SearchExtraController>().saveSearch(
+        name.isEmpty ? 'My search' : name,
+        saved,
+      );
+      AppSnackbar.success('Search saved.');
+    }
   }
 
   @override
@@ -266,9 +368,48 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     value: _nearby,
                     onChanged: (bool v) => setState(() => _nearby = v),
                   ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Exclude Previously Viewed',
+                    subtitle: 'Skip every profile you have already opened',
+                    icon: Icons.visibility_off_rounded,
+                    iconColor: AppColors.regAccent,
+                    value: _excludeViewed,
+                    onChanged: (bool v) => setState(() => _excludeViewed = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'New Profiles',
+                    subtitle: 'Only members who joined in the last 14 days',
+                    icon: Icons.fiber_new_rounded,
+                    iconColor: AppColors.primary,
+                    value: _newProfiles,
+                    onChanged: (bool v) => setState(() => _newProfiles = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Mutual Matches Only',
+                    subtitle: 'Only members whose interest was accepted both ways',
+                    icon: Icons.favorite_rounded,
+                    iconColor: AppColors.error,
+                    value: _mutualMatch,
+                    onChanged: (bool v) => setState(() => _mutualMatch = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Online Now',
+                    subtitle: 'Only members active in the last few minutes',
+                    icon: Icons.bolt_rounded,
+                    iconColor: AppColors.success,
+                    value: _onlineNow,
+                    onChanged: (bool v) => setState(() => _onlineNow = v),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
 
                   // ---- Sort By ----
+                  // Only the sorts the API validates. Anything else was
+                  // rejected server-side with a 422 that took the whole
+                  // search down with it.
                   _sectionTitle('Sort By', null),
                   const SizedBox(height: 6),
                   Wrap(
@@ -276,10 +417,8 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     runSpacing: 8,
                     children: <Map<String, String>>[
                       <String, String>{'id': 'compatibility', 'label': 'Best Match'},
-                      <String, String>{'id': 'latest', 'label': 'Recently Active'},
                       <String, String>{'id': 'newest', 'label': 'Newest'},
-                      <String, String>{'id': 'age_asc', 'label': 'Young to Old'},
-                      <String, String>{'id': 'age_desc', 'label': 'Old to Young'},
+                      <String, String>{'id': 'recently_active', 'label': 'Recently Active'},
                     ].map((Map<String, String> item) {
                       final bool selected = _selectedSort == item['id'];
                       return ChoiceChip(
@@ -303,7 +442,10 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                   // gender, so offering "All / Male / Female" here let a member
                   // browse their own gender. SearchProfilesController pins it.
 
-                  // ---- Marital Status (small list — safe as dropdown) ----
+                  // ---- Marital Status ----
+                  // The backend does not (yet) apply marital_status_id, so the
+                  // controller filters the fetched pages client-side. Keeping
+                  // the control is still correct: it visibly narrows results.
                   _dropdownSection(
                     title: 'Marital Status',
                     lookupKey: LookupKeys.maritalStatuses,
@@ -784,7 +926,7 @@ class _SearchablePickerState extends State<_SearchablePicker> {
                             dense: true,
                             leading: isSelected
                                 ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
-                                : const Icon(Icons.circle_outlined, size: 22, color: Colors.grey),
+                                : Icon(Icons.circle_outlined, size: 22, color: theme.hintColor),
                             title: Text(
                               item.name,
                               style: TextStyle(

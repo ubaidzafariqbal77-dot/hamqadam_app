@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../constants/api_options.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_styles.dart';
 import '../../../constants/registration_options.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../constants/reg_icons.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../widgets/app_card_selector.dart';
 import '../../../widgets/app_picker_field.dart';
+import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
 
 /// Step 9 — `POST /auth/register/step/9` → `{height, diet}`.
@@ -18,7 +21,8 @@ class Step09Controller extends StepController {
   final Rxn<int> heightCm = Rxn<int>();
   final RxnString diet = RxnString();
 
-  List<String> get heightLabels => heights.map((LookupItem e) => e.name).toList();
+  List<String> get heightLabels =>
+      heights.map((LookupItem e) => e.name).toList();
 
   String? get heightLabel {
     for (final LookupItem h in heights) {
@@ -89,13 +93,17 @@ class _Step09ViewState extends State<Step09View> {
       stepNumber: 9,
       totalSteps: 18,
       title: 'Physical information',
+      // Reference has no illustration slot here — an empty art string renders
+      // nothing above the title.
+      art: '',
       subtitle: 'Your height and dietary preference.',
       busy: c.busy,
       error: c.error,
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
-      note: 'These details help us show you matches with compatible lifestyles '
+      note:
+          'These details help us show you matches with compatible lifestyles '
           'and preferences.',
       children: <Widget>[
         Obx(
@@ -105,14 +113,49 @@ class _Step09ViewState extends State<Step09View> {
             options: c.heightLabels,
             hint: 'Select your height',
             onChanged: c.onHeight,
+            image: RegIcons.heightRuler,
+            icon: Icons.height_rounded,
           ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            BiText(
+              'Dietary Preference',
+              style: AppTextStyles.display.copyWith(
+                fontSize: 25,
+                fontWeight: FontWeight.w800,
+                color: AppColors.regAccent,
+              ),
+            ),
+            const SizedBox(height: 4),
+            BiText(
+              'Select your dietary preference',
+              style: AppTextStyles.body.copyWith(
+                fontSize: 15.5,
+                color: AppColors.lightTextSecondary,
+              ),
+            ),
+          ],
         ),
         Obx(
           () => AppCardSelector(
-            label: 'Diet',
-            options: ApiOptions.diet
-                .map((LookupItem d) => CardOption(d.code!, d.name))
-                .toList(),
+            options: const <CardOption>[
+              CardOption(
+                'Vegetarian',
+                'Vegetarian',
+                photo: 'assets/registration/physical-info/file_3.png',
+                photoIcon: Icons.eco_outlined,
+                description: 'Plant-based diet',
+              ),
+              CardOption(
+                'Non-Vegetarian',
+                'Non-Vegetarian',
+                photo: 'assets/registration/physical-info/file_4.png',
+                photoIcon: Icons.kebab_dining_rounded,
+                description: 'Meat & poultry',
+              ),
+            ],
             selected: c.diet.value,
             onSelect: (CardOption o) => c.diet.value = o.value as String,
           ),

@@ -8,6 +8,9 @@ import 'package:dio/dio.dart';
 
 import '../../constants/app_constants.dart';
 import '../../exceptions/app_exceptions.dart';
+
+// ServerException is thrown for HTML-instead-of-JSON responses.
+import '../../models/manual_review_state.dart';
 import '../network/network_info.dart';
 import '../storage/secure_storage_service.dart';
 import '../utils/app_logger.dart';
@@ -60,6 +63,13 @@ class ApiClient {
   FutureOr<void> Function()? onUnauthorized;
   bool _handlingUnauthorized = false;
 
+  /// Invoked when the server answers `423 manual_review_read_only` — the
+  /// account is under manual review and the request was refused. Carries the
+  /// `review` node from the response so the UI can open the gate screen
+  /// without a second round trip.
+  FutureOr<void> Function(ManualReviewState review)? onManualReview;
+  bool _handlingManualReview = false;
+
   Dio get raw => _dio;
 
   /// Whether a bearer token is available. Callers use this to skip requests to
@@ -98,7 +108,18 @@ class ApiClient {
         },
         onResponse: (Response<dynamic> response, ResponseInterceptorHandler handler) {
           AppLogger.i('⬅️ ${response.statusCode} ${response.requestOptions.uri}');
-          AppLogger.body('response', response.data);
+          // Never dump an HTML document into the log: a misrouted SPA fallback
+          // once pushed ~260 KB of the homepage into the console on every
+          // launch, drowning the useful lines.
+          if (response.data is String) {
+            AppLogger.w(
+              '⬅️ ${response.statusCode} ${response.requestOptions.uri} returned '
+              'text instead of JSON (${(response.data as String).length} chars) — '
+              'route probably missing on the server.',
+            );
+          } else {
+            AppLogger.body('response', response.data);
+          }
           handler.next(response);
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
@@ -110,6 +131,8 @@ class ApiClient {
           }
           if (error.response?.statusCode == 401) {
             await _fireUnauthorized();
+          } else if (error.response?.statusCode == 423) {
+            await _fireManualReview(error.response);
           }
           handler.next(error);
         },
@@ -131,6 +154,29 @@ class ApiClient {
       // Small window so a burst of parallel 401s only triggers one logout.
       Future<void>.delayed(const Duration(seconds: 2), () {
         _handlingUnauthorized = false;
+      });
+    }
+  }
+
+  /// Extracts the review state from a 423 body and hands it to the app once
+  /// per wave — parallel refused requests must not stack gate navigations.
+  Future<void> _fireManualReview(Response<dynamic>? response) async {
+    final dynamic body = response?.data;
+    ManualReviewState state = const ManualReviewState(
+      underReview: true,
+      status: 'manual_review',
+    );
+    if (body is Map<String, dynamic>) {
+      final dynamic review = body['review'];
+      if (review is Map<String, dynamic>) state = ManualReviewState.fromJson(review);
+    }
+    if (_handlingManualReview) return;
+    _handlingManualReview = true;
+    try {
+      await onManualReview?.call(state);
+    } finally {
+      Future<void>.delayed(const Duration(seconds: 2), () {
+        _handlingManualReview = false;
       });
     }
   }
@@ -235,6 +281,22 @@ class ApiClient {
   }
 
   ApiEnvelope _envelope(dynamic body) {
+    // A wrong/removed backend route falls through Laravel's web middleware and
+    // the SPA fallback answers with the homepage HTML — often with HTTP 200
+    // after dio followed a 302. Treating that as success made callers read
+    // profile fields out of `<html>` and silently render fallback data. The
+    // JSON API only ever produces maps/lists/strings, so HTML here always
+    // means "hit the wrong route" and must surface as a server error.
+    if (body is String) {
+      final String trimmed = body.trimLeft().toLowerCase();
+      if (trimmed.startsWith('<!doctype html') || trimmed.startsWith('<html')) {
+        throw const ServerException(
+          'API route missing — the server answered with an HTML page instead '
+          'of JSON. Deploy the matching backend patch.',
+          502,
+        );
+      }
+    }
     if (body is Map<String, dynamic>) {
       return ApiEnvelope(
         success: body['success'] == true || body['success'] == 1 || body['data'] != null,

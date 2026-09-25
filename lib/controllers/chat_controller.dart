@@ -2,10 +2,14 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../core/api/api_response.dart';
+import '../exceptions/app_exceptions.dart';
 import 'call_controller.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/pusher_chat_service.dart';
@@ -64,6 +68,14 @@ class ChatController extends GetxController {
   final Rx<ApiState<List<ChatThread>>> threadsState =
       const ApiState<List<ChatThread>>.initial().obs;
 
+  /// The member's archived conversations (`GET /chat/threads?archived=1`).
+  ///
+  /// Kept apart from [threadsState] because archiving is per side: the API puts
+  /// a thread in exactly one of the two lists for the person looking at it.
+  final Rx<ApiState<List<ChatThread>>> archivedThreadsState =
+      const ApiState<List<ChatThread>>.initial().obs;
+  bool _loadingArchived = false;
+
   /// Search query filtering the local thread list.
   final RxString searchQuery = ''.obs;
   final TextEditingController searchController = TextEditingController();
@@ -98,6 +110,12 @@ class ChatController extends GetxController {
 
   /// Newest first — the conversation list is drawn with `reverse: true`.
   final RxList<ChatMessage> messages = <ChatMessage>[].obs;
+
+  /// Messages that have not yet hit their disappearing deadline.
+  /// Expired ones stay in `messages` (so optimistic bookkeeping is simple)
+  /// but never render again.
+  List<ChatMessage> get visibleMessages =>
+      messages.where((ChatMessage m) => !m.isExpired).toList();
   final Rx<ApiStatus> messagesStatus = ApiStatus.initial.obs;
   final RxBool isLoadingMore = false.obs;
   final RxBool hasMore = false.obs;
@@ -107,9 +125,24 @@ class ChatController extends GetxController {
   Timer? _typingResetTimer;
   Timer? _typingThrottle;
 
+  // ---- Voice notes ----------------------------------------------------------
+  final AudioRecorder _recorder = AudioRecorder();
+
+  /// A recording is live right now (the composer shows the recording bar).
+  final RxBool isRecording = false.obs;
+
+  /// Live seconds counter shown while recording.
+  final RxInt recordingSeconds = 0.obs;
+  String? _recordingPath;
+  bool _cancelRecordingSend = false;
+  Timer? _recordingTimer;
+
   final Rxn<ChatMessage> replyingTo = Rxn<ChatMessage>();
   final RxBool isSending = false.obs;
   final RxList<String> pendingAttachments = <String>[].obs;
+
+  /// A chat export is being built (the sheet shows a spinner while it is).
+  final RxBool isExportingChat = false.obs;
 
   final TextEditingController messageInputController = TextEditingController();
 
@@ -182,9 +215,11 @@ class ChatController extends GetxController {
     messageInputController.dispose();
     _typingResetTimer?.cancel();
     _typingThrottle?.cancel();
+    _recordingTimer?.cancel();
     _threadRefreshTimer?.cancel();
     _fallbackTimer?.cancel();
     _statusSub?.cancel();
+    _recorder.dispose();
     // IMPORTANT: Do NOT disconnect the socket here.
     // It must stay connected for the whole app lifecycle so call-incoming
     // events, typing indicators and new messages arrive on ANY screen — not
@@ -216,14 +251,34 @@ class ChatController extends GetxController {
 
     _pusher.onThreadMessage = _handleThreadEvent;
 
+    // Emoji reactions arrive as their own `message-reaction` broadcast. They
+    // must NOT go through the message handler: the payload carries a
+    // `message_id`, so the generic parser used to turn each reaction into an
+    // empty phantom bubble.
+    _pusher.onThreadReaction = _handleThreadReaction;
+
     _pusher.onThreadTyping = (Map<String, dynamic> data) {
       // Defensive parse: the backend has sent this key as both an int and a
       // string, and a hard cast in a socket callback takes the stream with it.
-      final int senderId = _asInt(data['sender_id'] ?? data['user_id']) ?? 0;
+      // The sender object arrives under `user` (ChatTypingIndicator event) or
+      // `sender` — check both before giving up.
+      final int senderId = _asInt(data['sender_id'] ?? data['user_id']) ??
+          _asInt(data['user'] is Map ? (data['user'] as Map)['id'] : null) ??
+          _asInt(data['sender'] is Map ? (data['sender'] as Map)['id'] : null) ??
+          0;
       if (senderId == 0 || senderId == myUserId) return;
+      // The backend broadcasts is_typing:false when the other side stops —
+      // without honouring it the “typing…” pill stuck around for the full
+      // 6-second reset window after they had clearly stopped.
+      final bool typing = data['is_typing'] as bool? ?? true;
+      if (!typing) {
+        _typingResetTimer?.cancel();
+        isOtherTyping.value = false;
+        return;
+      }
       isOtherTyping.value = true;
       _typingResetTimer?.cancel();
-      _typingResetTimer = Timer(const Duration(seconds: 4), () {
+      _typingResetTimer = Timer(const Duration(seconds: 6), () {
         isOtherTyping.value = false;
       });
     };
@@ -282,10 +337,29 @@ class ChatController extends GetxController {
       return;
     }
 
-    if (event.contains('read')) {
-      // Nothing to draw yet — there are no read ticks in the bubble. Kept as an
-      // explicit branch so it does not fall through and get mistaken for a new
-      // message, which is what used to append an empty bubble.
+    if (event.contains('delivered') || event.contains('read')) {
+      // Ticks on MY OWN outgoing messages. `message-delivered` upgrades the
+      // single tick to a double; `message-read` turns them blue.
+      final List<int> ids = <int>[
+        ...((data['message_ids'] as List<dynamic>?) ?? const <dynamic>[])
+            .map(_asInt)
+            .whereType<int>(),
+      ];
+      final DateTime at = DateTime.tryParse(
+            (data['read_at'] ?? data['delivered_at'] ?? '').toString(),
+          ) ??
+          DateTime.now();
+      for (int i = 0; i < messages.length; i++) {
+        final ChatMessage m = messages[i];
+        if (m.senderId != myUserId) continue;
+        if (ids.isNotEmpty && !ids.contains(m.id)) continue;
+        if (event.contains('read')) {
+          if (!m.serverRead) messages[i] = m.copyWith(readAt: at, seen: true);
+        } else if (!m.serverDelivered) {
+          messages[i] = m.copyWith(deliveredAt: at);
+        }
+      }
+      messages.refresh();
       return;
     }
 
@@ -699,6 +773,20 @@ class ChatController extends GetxController {
           ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
           : ApiState<List<ChatThread>>.success(list);
 
+      // Keep the open conversation's header honest: the refreshed inbox row
+      // carries the other member's presence stamp (Online / Last seen …).
+      final ChatThread? open = activeThread.value;
+      if (open != null) {
+        final int index = list.indexWhere((ChatThread t) => t.id == open.id);
+        if (index >= 0) {
+          final ChatParticipant fresh = list[index].participant;
+          if (fresh.isOnline != open.participant.isOnline ||
+              fresh.lastActiveAt != open.participant.lastActiveAt) {
+            activeThread.value = open.copyWith(participant: fresh);
+          }
+        }
+      }
+
       // Announce anything the socket and the pushes did not deliver.
       _noticeThreadPreviews(list);
 
@@ -750,6 +838,11 @@ class ChatController extends GetxController {
 
       await loadMessages(thread.id);
 
+      // This device has the thread — tell the server so the other side's
+      // single tick becomes a double tick. Reading (blue) happens server-side
+      // because the messages fetch marks read.
+      _repo.markThreadDelivered(thread.id);
+
       // Reset unread count locally for instant UI feedback
       if (thread.unreadCount > 0) {
         _markThreadReadLocally(thread.id);
@@ -776,7 +869,8 @@ class ChatController extends GetxController {
         return;
       }
     }
-    Get.to(() => const ChatInboxView());
+    // Standalone: the inbox pushed as its own route (back-capable header).
+    Get.to(() => const ChatInboxView(standalone: true));
   }
 
   /// Returns the active thread with [userId] if already created on server, else null.
@@ -946,6 +1040,9 @@ class ChatController extends GetxController {
         replyToChatId: replyId,
         recipientUserId: recipientUserId,
         attachmentPaths: attachments,
+        // Disappearing-messages TTL (0 = off). The thread's remembered value
+        // is the default so both sides stay consistent without re-picking.
+        disappearAfter: activeThread.value?.disappearAfter ?? 0,
       );
 
       _replaceLocal(localId, sent);
@@ -1009,6 +1106,186 @@ class ChatController extends GetxController {
     if (_typingThrottle?.isActive ?? false) return;
     _typingThrottle = Timer(const Duration(milliseconds: 2500), () {});
     _repo.sendTyping(activeThreadId);
+  }
+
+  // --------------------------------------------------------------------------
+  // Disappearing messages + emoji (composer helpers)
+  // --------------------------------------------------------------------------
+
+  /// Persists the thread's disappearing TTL (seconds; 0 = off) on the server
+  /// and mirrors it locally so the composer chip and outgoing messages use it.
+  Future<void> setDisappearTimer(int seconds) async {
+    final int threadId = activeThreadId;
+    if (threadId <= 0) return;
+    final int value = seconds.clamp(0, 31536000);
+    try {
+      final int stored = await _repo.setDisappearAfter(threadId, value);
+      final ChatThread? thread = activeThread.value;
+      if (thread != null && thread.id == threadId) {
+        activeThread.value = thread.copyWith(disappearAfter: stored);
+      }
+      AppSnackbar.success(
+        stored > 0 ? 'New messages will disappear automatically.' : 'Disappearing messages off.',
+      );
+    } on AppException catch (e) {
+      AppSnackbar.error(e.message);
+    }
+  }
+
+  /// Appends an emoji to the composer at the cursor (or the end) — used by
+  /// the emoji panel so members don't have to switch keyboards.
+  void appendEmoji(String emoji) {
+    final TextEditingController ctrl = messageInputController;
+    final TextSelection sel = ctrl.selection;
+    final String base = ctrl.text;
+    if (!sel.isValid || sel.baseOffset < 0 || sel.extentOffset < 0) {
+      ctrl.text = '$base$emoji';
+      ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
+      return;
+    }
+    final int start = sel.start < sel.end ? sel.start : sel.end;
+    ctrl.text = base.replaceRange(start, sel.end, emoji);
+    ctrl.selection = TextSelection.collapsed(offset: start + emoji.length);
+    onTextChanged(ctrl.text);
+  }
+
+  // --------------------------------------------------------------------------
+  // Voice notes
+  // --------------------------------------------------------------------------
+
+  /// Starts recording a voice note. The composer swaps to the recording bar
+  /// until [stopRecording] / [cancelRecording] is called.
+  Future<void> startRecording() async {
+    if (isRecording.value || activeThreadId <= 0) return;
+    try {
+      if (!await _recorder.hasPermission()) {
+        AppSnackbar.error('Microphone permission is required for voice notes.');
+        return;
+      }
+      final Directory dir = await getTemporaryDirectory();
+      final String path =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100),
+        path: path,
+      );
+      _recordingPath = path;
+      _cancelRecordingSend = false;
+      recordingSeconds.value = 0;
+      isRecording.value = true;
+      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+        recordingSeconds.value = t.tick;
+        // Safety cap: 5 minutes.
+        if (t.tick >= 300) stopRecordingAndSend();
+      });
+    } catch (e) {
+      AppLogger.w('Voice record start failed: $e');
+      AppSnackbar.error('Could not start recording.');
+    }
+  }
+
+  /// Slide/tap cancel: the recording is discarded, nothing is sent.
+  Future<void> cancelRecording() async {
+    _cancelRecordingSend = true;
+    await stopRecordingAndSend();
+  }
+
+  /// Stops the recorder. When not cancelled, the clip is uploaded as a voice
+  /// message with its duration + a small waveform so the other side gets a
+  /// proper player bubble.
+  Future<void> stopRecordingAndSend() async {
+    if (!isRecording.value) return;
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    isRecording.value = false;
+
+    final String? path = _recordingPath;
+    final int seconds = recordingSeconds.value;
+    _recordingPath = null;
+    recordingSeconds.value = 0;
+
+    try {
+      await _recorder.stop();
+    } catch (_) {}
+
+    if (_cancelRecordingSend) {
+      _cancelRecordingSend = false;
+      if (path != null) File(path).delete().catchError((_) => File(path));
+      return;
+    }
+    if (path == null || seconds < 1) {
+      // A tap shorter than a second produces an empty clip — drop it silently
+      // rather than send a broken note.
+      if (path != null) File(path).delete().catchError((_) => File(path));
+      return;
+    }
+
+    await _sendVoiceNote(path: path, seconds: seconds);
+  }
+
+  /// Uploads a recorded clip as a `voice` message with duration + waveform.
+  Future<void> _sendVoiceNote({required String path, required int seconds}) async {
+    if (activeThread.value == null || activeThreadId <= 0 || isSending.value) return;
+
+    final int targetId = activeThread.value!.id;
+    final int? replyId = replyingTo.value?.id;
+    final ChatMessage? replySource = replyingTo.value;
+
+    final String localId = 'local-${DateTime.now().microsecondsSinceEpoch}-${_localIdSeed++}';
+    final ChatMessage optimistic = ChatMessage(
+      id: 0,
+      threadId: targetId,
+      senderId: myUserId,
+      message: '',
+      messageType: 'voice',
+      createdAt: DateTime.now(),
+      replyToChatId: replyId,
+      replyToMessage: replySource,
+      delivery: MessageDelivery.sending,
+      localId: localId,
+      localAttachmentPaths: <String>[path],
+      metadata: <String, dynamic>{'duration': seconds, 'waveform': _mockWave(seconds)},
+    );
+    messages.insert(0, optimistic);
+    replyingTo.value = null;
+
+    isSending.value = true;
+    try {
+      final ChatMessage sent = await _repo.sendMessage(
+        threadId: targetId,
+        message: '',
+        messageType: 'voice',
+        replyToChatId: replyId,
+        recipientUserId: activeThread.value!.participant.id,
+        attachmentPaths: <String>[path],
+        metadata: <String, dynamic>{
+          'duration': seconds,
+          'waveform': _waveOf(path, seconds),
+        },
+      );
+      _replaceLocal(localId, sent);
+      _patchThreadPreview(sent, incrementUnread: false);
+    } catch (e) {
+      _markLocalFailed(localId);
+      AppSnackbar.error('Voice note not sent. Tap to retry.');
+      AppLogger.w('Voice send failed: $e');
+    } finally {
+      isSending.value = false;
+    }
+  }
+
+  /// Waveform sent with the clip. Amplitudes are read by the player on the
+  /// other side only as a visual hint, so a coarse deterministic pattern keyed
+  /// on the clip length is enough when live amplitude capture is unavailable.
+  List<int> _waveOf(String path, int seconds) => _mockWave(seconds);
+
+  List<int> _mockWave(int seconds) {
+    final int bars = seconds.clamp(6, 24);
+    final List<int> wave = <int>[];
+    for (int i = 0; i < bars; i++) {
+      wave.add(3 + ((i * 7 + seconds * 3) % 11));
+    }
+    return wave;
   }
 
   void setReplyTo(ChatMessage message) {
@@ -1088,6 +1365,256 @@ class ChatController extends GetxController {
     }
   }
 
+  // --------------------------------------------------------------------------
+  // Archive / Mute
+  // --------------------------------------------------------------------------
+
+  /// Fetches the member's archived conversations.
+  Future<void> loadArchivedThreads({bool silent = false}) async {
+    if (myUserId <= 0) {
+      if (!silent) {
+        archivedThreadsState.value =
+            const ApiState<List<ChatThread>>.empty(message: 'No archived chats.');
+      }
+      return;
+    }
+    if (_loadingArchived) return;
+    _loadingArchived = true;
+    if (!silent && (archivedThreadsState.value.data?.isEmpty ?? true)) {
+      archivedThreadsState.value = const ApiState<List<ChatThread>>.loading();
+    }
+    try {
+      final List<ChatThread> list = await _repo.fetchThreads(archived: true);
+      archivedThreadsState.value = list.isEmpty
+          ? const ApiState<List<ChatThread>>.empty(message: 'No archived chats.')
+          : ApiState<List<ChatThread>>.success(list);
+    } catch (e) {
+      if (!silent) {
+        archivedThreadsState.value = ApiState<List<ChatThread>>.serverError(e.toString());
+      }
+    } finally {
+      _loadingArchived = false;
+    }
+  }
+
+  /// Moves a conversation between the inbox and the Archived tab.
+  ///
+  /// The thread is dropped from its old list straight away — the two lists are
+  /// separate server-side, so leaving it visible until the next refresh would
+  /// show the same chat in both places.
+  Future<void> archiveThread(ChatThread thread, {required bool archived}) async {
+    if (thread.id <= 0) return;
+    try {
+      await _repo.archiveThread(thread.id, archived: archived);
+      _removeThreadLocally(thread.id);
+      if (activeThread.value?.id == thread.id) {
+        activeThread.value = activeThread.value!.copyWith(isArchived: archived);
+      }
+      AppSnackbar.success(archived ? 'Chat archived.' : 'Chat moved back to inbox.');
+      await loadThreads(silent: true);
+      await loadArchivedThreads(silent: true);
+    } catch (e) {
+      AppSnackbar.error('Could not archive this chat: $e');
+    }
+  }
+
+  /// Silences (or un-silences) notifications for one conversation. Messages
+  /// keep arriving — the server only skips its push/tray step.
+  Future<void> toggleMuteThread(ChatThread thread) async {
+    if (thread.id <= 0) return;
+    final bool next = !thread.isMuted;
+    try {
+      await _repo.muteThread(thread.id, muted: next);
+      _patchThreadLocally(thread.id, isMuted: next);
+      if (activeThread.value?.id == thread.id) {
+        activeThread.value = activeThread.value!.copyWith(isMuted: next);
+      }
+      AppSnackbar.info(next
+          ? 'Notifications muted for this chat.'
+          : 'Notifications turned back on.');
+    } catch (e) {
+      AppSnackbar.error('Could not change notifications: $e');
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // Emoji reactions
+  // --------------------------------------------------------------------------
+
+  /// Sets, swaps or clears my emoji reaction on a message.
+  ///
+  /// [emoji] null (or the emoji I already had) clears it, matching the server's
+  /// toggle. The server's response replaces the local row so the counts are
+  /// always its own, not a guess.
+  Future<void> reactToMessage(ChatMessage message, String? emoji) async {
+    if (message.id <= 0) return;
+    try {
+      final ChatMessage? updated = await _repo.reactToMessage(message.id, emoji);
+      if (updated != null) {
+        _replaceMessage(updated);
+      } else {
+        _applyReactionLocally(message.id, myUserId, emoji);
+      }
+    } catch (e) {
+      AppSnackbar.error('Could not save that reaction: $e');
+    }
+  }
+
+  /// A `message-reaction` broadcast from the other member.
+  void _handleThreadReaction(Map<String, dynamic> data) {
+    final int? messageId =
+        _asInt(data['message_id'] ?? data['chat_id'] ?? data['id']);
+    final int userId = _asInt(data['user_id'] ?? data['sender_id']) ?? 0;
+    if (messageId == null || messageId <= 0 || userId <= 0) return;
+    if (userId == myUserId) return; // already applied from my own POST
+
+    final dynamic rawEmoji = data['emoji'];
+    _applyReactionLocally(
+      messageId,
+      userId,
+      rawEmoji is String && rawEmoji.isNotEmpty ? rawEmoji : null,
+      userName: data['user_name'] as String?,
+    );
+  }
+
+  /// Applies one member's reaction to the open conversation, moving them out of
+  /// whatever emoji bucket they were in first — a member only ever holds one
+  /// reaction per message, which is what the server's unique key enforces.
+  void _applyReactionLocally(
+    int messageId,
+    int userId,
+    String? emoji, {
+    String? userName,
+  }) {
+    final int index = messages.indexWhere((ChatMessage m) => m.id == messageId);
+    if (index < 0) return;
+    final ChatMessage message = messages[index];
+
+    final List<ChatReaction> next = <ChatReaction>[];
+    for (final ChatReaction reaction in message.reactions) {
+      final List<int> ids = <int>[];
+      final List<String> names = <String>[];
+      for (int i = 0; i < reaction.userIds.length; i++) {
+        if (reaction.userIds[i] == userId) continue;
+        ids.add(reaction.userIds[i]);
+        if (i < reaction.users.length) names.add(reaction.users[i]);
+      }
+      if (ids.length == reaction.count) {
+        next.add(reaction);
+        continue;
+      }
+      if (ids.isEmpty) continue; // that was the only reaction in the bucket
+      next.add(ChatReaction(
+        emoji: reaction.emoji,
+        count: ids.length,
+        mine: reaction.mine && userId != myUserId,
+        users: names,
+        userIds: ids,
+      ));
+    }
+
+    if (emoji != null && emoji.isNotEmpty) {
+      final int at = next.indexWhere((ChatReaction r) => r.emoji == emoji);
+      if (at >= 0) {
+        final ChatReaction bucket = next[at];
+        next[at] = ChatReaction(
+          emoji: bucket.emoji,
+          count: bucket.count + 1,
+          mine: bucket.mine || userId == myUserId,
+          users: <String>[...bucket.users, if (userName != null) userName],
+          userIds: <int>[...bucket.userIds, userId],
+        );
+      } else {
+        next.add(ChatReaction(
+          emoji: emoji,
+          count: 1,
+          mine: userId == myUserId,
+          users: <String>[if (userName != null) userName],
+          userIds: <int>[userId],
+        ));
+      }
+    }
+
+    messages[index] = message.copyWith(reactions: next);
+  }
+
+  /// Swaps a message for the server's fresh copy (used after a reaction POST).
+  void _replaceMessage(ChatMessage fresh) {
+    final int index = messages.indexWhere((ChatMessage m) =>
+        m.id == fresh.id ||
+        (fresh.localId != null && m.localId == fresh.localId));
+    if (index < 0) return;
+    messages[index] = fresh.copyWith(
+      delivery: MessageDelivery.sent,
+      localId: messages[index].localId,
+      localAttachmentPaths: messages[index].localAttachmentPaths,
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Backup / export
+  // --------------------------------------------------------------------------
+
+  /// `GET /chat/threads/{thread}/export` — the full JSON backup the export
+  /// sheet writes to a file. Returns null (after telling the member) on failure.
+  Future<Map<String, dynamic>?> fetchChatExport() async {
+    final ChatThread? thread = activeThread.value;
+    if (thread == null || thread.id <= 0) return null;
+    if (isExportingChat.value) return null;
+    isExportingChat.value = true;
+    try {
+      return await _repo.exportThread(thread.id);
+    } catch (e) {
+      AppSnackbar.error('Export failed: $e');
+      return null;
+    } finally {
+      isExportingChat.value = false;
+    }
+  }
+
+  /// Drops a thread from both inbox and archive lists — used after archiving so
+  /// the row leaves the list it just left, without waiting for a refetch.
+  void _removeThreadLocally(int threadId) {
+    final List<ChatThread>? inbox = threadsState.value.data;
+    if (inbox != null) {
+      final List<ChatThread> filtered =
+          inbox.where((ChatThread t) => t.id != threadId).toList();
+      if (filtered.length != inbox.length) {
+        threadsState.value = filtered.isEmpty
+            ? const ApiState<List<ChatThread>>.empty(message: 'No conversations yet.')
+            : ApiState<List<ChatThread>>.success(filtered);
+      }
+    }
+    final List<ChatThread>? archived = archivedThreadsState.value.data;
+    if (archived != null) {
+      final List<ChatThread> filtered =
+          archived.where((ChatThread t) => t.id != threadId).toList();
+      if (filtered.length != archived.length) {
+        archivedThreadsState.value = filtered.isEmpty
+            ? const ApiState<List<ChatThread>>.empty(message: 'No archived chats.')
+            : ApiState<List<ChatThread>>.success(filtered);
+      }
+    }
+  }
+
+  /// Flips one flag on one thread in both cached lists.
+  void _patchThreadLocally(int threadId, {bool? isMuted, bool? isArchived}) {
+    ChatThread patch(ChatThread t) => t.id == threadId
+        ? t.copyWith(isMuted: isMuted, isArchived: isArchived)
+        : t;
+
+    final List<ChatThread>? inbox = threadsState.value.data;
+    if (inbox != null) {
+      threadsState.value =
+          ApiState<List<ChatThread>>.success(inbox.map(patch).toList());
+    }
+    final List<ChatThread>? archived = archivedThreadsState.value.data;
+    if (archived != null) {
+      archivedThreadsState.value =
+          ApiState<List<ChatThread>>.success(archived.map(patch).toList());
+    }
+  }
+
   /// Clears this member's session state — called on logout so the next member
   /// does not inherit the previous one's inbox.
   void reset() {
@@ -1100,6 +1627,8 @@ class ChatController extends GetxController {
     _fallbackTimer = null;
     _fallbackPeriod = null;
     threadsState.value = const ApiState<List<ChatThread>>.initial();
+    archivedThreadsState.value = const ApiState<List<ChatThread>>.initial();
+    isExportingChat.value = false;
     activeThread.value = null;
     messages.clear();
     pendingAttachments.clear();
@@ -1130,14 +1659,25 @@ class ChatController extends GetxController {
   /// thread id is some other kind of event and must not be turned into a bubble.
   ChatMessage? _messageFrom(Map<String, dynamic> data) {
     final dynamic raw = data['message'] ?? data['chat'] ?? data;
-    if (raw is! Map<String, dynamic>) return null;
-    final int? id = _asInt(raw['id']);
-    final int? threadId = _asInt(raw['thread_id'] ?? raw['threadId'] ?? raw['chat_thread_id']);
+    // The backend broadcasts FLAT payloads: on `message-sent`, `data['message']`
+    // is the TEXT of the message (a String), not a nested object. Treating a
+    // String there as "wrong shape" silently dropped every realtime message —
+    // the socket stayed connected, the logs stayed quiet, and the conversation
+    // only moved when the fallback poller happened to run. When the field is a
+    // String it IS the flat payload, so parse the envelope itself.
+    final bool flatPayload = raw is String || raw is! Map<String, dynamic>;
+    final dynamic envelope = flatPayload ? data : raw;
+    if (envelope is! Map<String, dynamic>) return null;
+    final Map<String, dynamic> source = envelope;
+    final int? id = _asInt(source['id'] ?? source['chat_id'] ?? source['message_id']);
+    final int? threadId =
+        _asInt(source['thread_id'] ?? source['threadId'] ?? source['chat_thread_id']);
     if (id == null || id <= 0 || threadId == null || threadId <= 0) return null;
     try {
       final ChatMessage parsed = ChatMessage.fromJson(<String, dynamic>{
-        ...raw,
+        ...source,
         'thread_id': threadId,
+        'id': id,
       });
       return parsed;
     } catch (e) {

@@ -137,6 +137,13 @@ class EditProfileController extends GetxController {
   final RxBool showLocation = false.obs;
   final RxBool allowProfileViewNotifications = false.obs;
 
+  /// Focus switches. `invisible_mode` takes the member out of search, Discover,
+  /// recommendations and the swipe deck; `do_not_disturb` stops proposals
+  /// arriving. Both are enforced server-side and now echoed back by
+  /// GET /profile, so these reflect what is stored rather than what was tapped.
+  final RxBool invisibleMode = false.obs;
+  final RxBool doNotDisturb = false.obs;
+
   // ---- Preserved (not user-editable in this form) ---------------------------
   String? _videoIntroduction;
   String? _voiceIntroduction;
@@ -274,6 +281,8 @@ class EditProfileController extends GetxController {
     showPhone.value = pr.showPhone;
     showLocation.value = pr.showLocation;
     allowProfileViewNotifications.value = pr.allowProfileViewNotifications;
+    invisibleMode.value = pr.invisibleMode;
+    doNotDisturb.value = pr.doNotDisturb;
     _privacyAtOpen = _currentPrivacy();
 
     _videoIntroduction = m.videoIntroduction;
@@ -292,6 +301,8 @@ class EditProfileController extends GetxController {
     showPhone: showPhone.value,
     showLocation: showLocation.value,
     allowProfileViewNotifications: allowProfileViewNotifications.value,
+    invisibleMode: invisibleMode.value,
+    doNotDisturb: doNotDisturb.value,
   );
 
   // ---- Dependent-dropdown handlers ------------------------------------------

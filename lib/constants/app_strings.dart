@@ -3,7 +3,7 @@ class AppStrings {
   const AppStrings._();
 
   static const String appName = 'HamQadam';
-  static const String tagline = 'A respectful path to marriage';
+  static const String tagline = 'Rishtu Ki Dunya';
 
   // Generic
   static const String retry = 'Retry';

@@ -565,14 +565,89 @@ class RegistrationController extends GetxController {
     }
   }
 
+  /// Entry routing right after a successful login (email, fingerprint or
+  /// mobile OTP).
+  ///
+  /// The same decisions as [resume], plus the two things a login can leave
+  /// behind that a launch never sees:
+  ///
+  ///  * the cached user is fetched when the login response carried none, so
+  ///    there is a `registration_completed` verdict to read — without it an
+  ///    abandoned local draft wins again;
+  ///  * a draft whose email is not the signed-in member's is discarded — those
+  ///    answers belong to a signup this session is not continuing.
+  Future<void> resumeAfterLogin() async {
+    if (!authController.hasToken) {
+      Get.offAllNamed(AppRoutes.login);
+      return;
+    }
+    if (_serverRegistrationComplete == null) {
+      await authController.refreshUser();
+    }
+    await _dropForeignDraft();
+    await resume();
+  }
+
+  /// Throws away a draft that belongs to a different email than the session
+  /// just opened. Same email (or nothing typed yet) → the draft is this
+  /// member's own and [resume] continues it.
+  Future<void> _dropForeignDraft() async {
+    if (buffer.registrationDone) return; // this device already finished it
+    final String draft =
+        (buffer.getString('email') ?? '').trim().toLowerCase();
+    final String signedIn =
+        (authController.user.value?.email ??
+                authController.currentUser.user?.email ??
+                '')
+            .trim()
+            .toLowerCase();
+    if (draft.isEmpty || signedIn.isEmpty || draft == signedIn) return;
+    AppLogger.i('Registration draft belongs to another account — discarded.');
+    await buffer.clear();
+  }
+
+  /// `registration_completed` exactly as the API reported it on the user
+  /// payload of `/auth/login` and `/auth/me` — kept verbatim in the cached
+  /// user, so it survives restarts. `null` when nothing has reported yet.
+  bool? get _serverRegistrationComplete {
+    final Map<String, dynamic> fromSession =
+        authController.user.value?.raw ?? const <String, dynamic>{};
+    final Map<String, dynamic> fromDisk =
+        authController.currentUser.rawJson ?? const <String, dynamic>{};
+    final dynamic flag = fromSession.containsKey('registration_completed')
+        ? fromSession['registration_completed']
+        : fromDisk['registration_completed'];
+    if (flag is bool) return flag;
+    if (flag is num) return flag != 0;
+    if (flag is String) {
+      return flag.toLowerCase() == 'true' || flag == '1';
+    }
+    return null;
+  }
+
   /// Decides the entry screen on launch.
   ///
   /// Progress now lives on the device until the single submission, so the local
-  /// buffer — not the server — decides where the user lands:
+  /// buffer decides where the user lands:
   /// verified account → home, submitted but unverified → the OTP screen,
   /// part-way through the steps → the furthest screen reached.
+  ///
+  /// One verdict outranks all of that: a session the server already calls fully
+  /// registered. The draft is device-local and can outlive the signup that
+  /// created it (back out of every step → login → sign in with a finished
+  /// account), so before this check the member was dropped back into an
+  /// abandoned step instead of the app.
   Future<void> resume() async {
     if (buffer.registrationDone) {
+      Get.offAllNamed(AppRoutes.home);
+      return;
+    }
+
+    // The account is registered server-side → this device's draft is over.
+    // Cleared, not kept: any answers it holds would resurface as prefill on
+    // the next "Create Account".
+    if (authController.hasToken && _serverRegistrationComplete == true) {
+      await buffer.clear();
       Get.offAllNamed(AppRoutes.home);
       return;
     }

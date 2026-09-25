@@ -11,6 +11,7 @@ import '../../../core/api/api_response.dart';
 import '../../../models/interest_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 import '../../discover/widgets/public_profile_detail_sheet.dart';
@@ -20,8 +21,16 @@ import '../../discover/widgets/public_profile_detail_sheet.dart';
 /// Sending costs coins; accepting, rejecting and withdrawing are free. The cost
 /// is admin-configurable, so it is always read from the server rather than
 /// assumed.
+///
+/// Runs in two contexts: embedded under the shell's gradient "Matches" header
+/// (HomeView tab) or standalone with its own header (pushed from the drawer or
+/// a push notification). [embedded] suppresses the duplicated app bar that used
+/// to stack a second pink header under the shell's.
 class InterestsView extends StatelessWidget {
-  const InterestsView({super.key});
+  const InterestsView({super.key, this.embedded = false});
+
+  /// True when hosted inside the home shell (which already draws the header).
+  final bool embedded;
 
   @override
   Widget build(BuildContext context) {
@@ -29,27 +38,22 @@ class InterestsView extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: PremiumAppBar(
-          title: 'Interests',
-          subtitle: 'Proposals sent and received',
-          actions: <Widget>[
-            IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: c.refreshAll,
-            ),
-          ],
-        ),
+        appBar: embedded ? null : _ownAppBar(c),
+        backgroundColor: embedded ? Colors.transparent : null,
         body: Column(
           children: <Widget>[
-            const _CoinBar(),
+            const _CoinWalletCard(),
             Material(
               color: Theme.of(context).cardColor,
               child: Obx(
                 () => TabBar(
-                  labelColor: AppColors.primary,
+                  labelColor: AppColors.regAccent,
                   unselectedLabelColor: Theme.of(context).hintColor,
-                  indicatorColor: AppColors.primary,
+                  indicatorColor: AppColors.regAccent,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  dividerColor: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                  labelStyle: AppTextStyles.bodyStrong.copyWith(fontWeight: FontWeight.w800),
+                  unselectedLabelStyle: AppTextStyles.body,
                   tabs: <Widget>[
                     Tab(
                       // The pending count is the number that matters — it is
@@ -74,33 +78,111 @@ class InterestsView extends StatelessWidget {
       ),
     );
   }
+
+  PreferredSizeWidget _ownAppBar(InterestController c) => PremiumAppBar(
+        title: 'Interests',
+        subtitle: 'Proposals sent and received',
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Refresh',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: c.refreshAll,
+          ),
+        ],
+      );
 }
 
-/// Coin wallet strip. Reads the cost from the server; never hardcodes it.
-class _CoinBar extends StatelessWidget {
-  const _CoinBar();
+/// Coin wallet card. Reads the cost from the server; never hardcodes it.
+///
+/// Designed as a real wallet summary — balance, unit cost and remaining sends
+/// with distinct weights — instead of the old one-line warning strip.
+class _CoinWalletCard extends StatelessWidget {
+  const _CoinWalletCard();
 
   @override
   Widget build(BuildContext context) {
     final InterestController c = Get.find<InterestController>();
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Obx(() {
       final InterestCoinBalance b = c.coinBalance.value;
       final bool low = !b.canSend;
-      final Color color = low ? AppColors.warning : AppColors.primary;
+      final Color tone = low ? AppColors.warning : AppColors.primary;
+
       return Container(
-        width: double.infinity,
+        margin: const EdgeInsets.fromLTRB(
+            AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-        color: color.withValues(alpha: 0.08),
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : AppColors.lightSurface,
+          borderRadius: AppRadius.mdAll,
+          border: Border.all(
+            color: tone.withValues(alpha: dark ? 0.45 : 0.30),
+          ),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: tone.withValues(alpha: 0.10),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+              spreadRadius: -6,
+            ),
+          ],
+        ),
         child: Row(
           children: <Widget>[
-            Icon(Icons.monetization_on_rounded, color: color, size: AppDimensions.iconMd),
-            const SizedBox(width: AppSpacing.xs),
+            // Coin medallion.
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: tone.withValues(alpha: dark ? 0.18 : 0.10),
+              ),
+              child: Icon(Icons.monetization_on_rounded, color: tone, size: 22),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            // Balance + context.
             Expanded(
-              child: Text(
-                low
-                    ? 'You need ${b.costPerInterest} coin(s) per interest and have ${b.remainingInterest}.'
-                    : '${b.remainingInterest} coins  ·  ${b.costPerInterest} per interest  ·  ${b.affordable} left to send',
-                style: AppTextStyles.caption.copyWith(color: color),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: <Widget>[
+                      Text(
+                        '${b.remainingInterest}',
+                        style: AppTextStyles.title.copyWith(
+                          color: tone,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        b.remainingInterest == 1 ? 'coin' : 'coins',
+                        style: AppTextStyles.caption.copyWith(
+                          color: Theme.of(context).hintColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '· ${b.costPerInterest} per interest',
+                        style: AppTextStyles.caption
+                            .copyWith(color: Theme.of(context).hintColor),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    low
+                        ? 'Not enough to send an interest — top up to continue.'
+                        : '${b.affordable} more ${b.affordable == 1 ? 'interest' : 'interests'} you can send',
+                    style: AppTextStyles.caption.copyWith(
+                      color: low ? tone : Theme.of(context).hintColor,
+                      fontWeight: low ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -127,7 +209,7 @@ class _InterestList extends StatelessWidget {
       switch (s.status) {
         case ApiStatus.initial:
         case ApiStatus.loading:
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          return const SkeletonList();
         case ApiStatus.noInternet:
           return NoInternetWidget(onRetry: reload);
         case ApiStatus.unauthorized:
@@ -157,7 +239,8 @@ class _InterestList extends StatelessWidget {
                   color: AppColors.primary,
                   onRefresh: reload,
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xxxl),
                     // One extra row for the "load more" button when paginated.
                     itemCount: page.interests.length + (page.hasMore ? 1 : 0),
                     itemBuilder: (BuildContext context, int i) {
@@ -165,11 +248,12 @@ class _InterestList extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                           child: Center(
-                            child: TextButton(
+                            child: TextButton.icon(
                               onPressed: received
                                   ? controller.loadMoreReceived
                                   : controller.loadMoreSent,
-                              child: const Text('Load more'),
+                              icon: const Icon(Icons.expand_more_rounded, size: 18),
+                              label: const Text('Load more'),
                             ),
                           ),
                         );
@@ -218,6 +302,12 @@ class _FilterRow extends StatelessWidget {
               child: ChoiceChip(
                 label: Text(o.label),
                 selected: selected,
+                showCheckmark: false,
+                labelStyle: AppTextStyles.caption.copyWith(
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: selected ? Colors.white : Theme.of(context).hintColor,
+                ),
+                selectedColor: AppColors.regAccent,
                 onSelected: (_) => received
                     ? controller.loadReceived(status: o.value)
                     : controller.loadSent(status: o.value),
@@ -260,6 +350,7 @@ class _InterestTile extends StatelessWidget {
               },
               borderRadius: BorderRadius.circular(AppRadius.md),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   _Avatar(url: m?.photoUrl, initial: m?.initial ?? 'H'),
                   const SizedBox(width: AppSpacing.sm),
@@ -267,15 +358,30 @@ class _InterestTile extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
+                        // "Sara Khan, 26" — name joined with the age, the way
+                        // the reference card draws its headline.
                         Row(
                           children: <Widget>[
                             Flexible(
                               child: Text(
                                 m?.displayName ?? 'HamQadam Member',
-                                style: AppTextStyles.bodyStrong,
+                                style: AppTextStyles.bodyStrong.copyWith(
+                                  fontSize: 15.5,
+                                  color: AppColors.roseTitleInk,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if ((m?.age ?? 0) > 0) ...<Widget>[
+                              const SizedBox(width: 5),
+                              Text(
+                                ', ${m!.age}',
+                                style: AppTextStyles.bodyStrong.copyWith(
+                                  fontSize: 15.5,
+                                  color: AppColors.roseTitleInk,
+                                ),
+                              ),
+                            ],
                             if (m?.isVerified ?? false) ...<Widget>[
                               const SizedBox(width: 6),
                               const Icon(Icons.verified_rounded, size: 16, color: AppColors.success),
@@ -283,7 +389,12 @@ class _InterestTile extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Row(
+                        // Status + Shortlisted chips, exactly as before but
+                        // sitting under the headline like the reference chips.
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: <Widget>[
                             StatusPill(
                               label: interest.statusLabel ?? _fallbackLabel(interest),
@@ -294,7 +405,6 @@ class _InterestTile extends StatelessWidget {
                                 final bool isShortlisted = shortlistCtrl.isShortlisted(m.id);
                                 if (!isShortlisted) return const SizedBox.shrink();
                                 return Container(
-                                  margin: const EdgeInsets.only(left: 6),
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppColors.gold.withValues(alpha: 0.15),
@@ -316,7 +426,6 @@ class _InterestTile extends StatelessWidget {
                                     ],
                                   ),
                                 );
-
                               }),
                           ],
                         ),
@@ -343,14 +452,38 @@ class _InterestTile extends StatelessWidget {
                         onPressed: () => shortlistCtrl.toggleShortlist(m.id, displayName: m.displayName),
                       );
                     }),
-                  Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor, size: 20),
                 ],
               ),
             ),
+            // The reference card's detail lines: city, education, profession
+            // and income, each with its little glyph — only the lines the API
+            // actually filled in are drawn.
+            if (_hasDetailLines(m))
+              ..._detailLines(m),
 
             if ((interest.initialNote ?? '').isNotEmpty) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
-              Text(interest.initialNote!, style: AppTextStyles.body),
+              // The note reads as a quoted message, not bare body text.
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.darkSurfaceAlt
+                      : AppColors.lightSurfaceAlt,
+                  borderRadius: AppRadius.smAll,
+                  border: Border(
+                    left: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.5),
+                      width: 2.5,
+                    ),
+                  ),
+                ),
+                child: Text(
+                  interest.initialNote!,
+                  style: AppTextStyles.body.copyWith(fontStyle: FontStyle.italic),
+                ),
+              ),
             ],
             if (interest.canRespond || interest.canWithdraw) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
@@ -374,6 +507,8 @@ class _InterestTile extends StatelessWidget {
                           label: const Text('Accept'),
                         ),
                       ),
+                      // The Accept pill keeps the theme's regAccent fill via
+                      // FilledButtonThemeData, so no per-widget color here.
                     ],
                   );
                 }
@@ -390,9 +525,17 @@ class _InterestTile extends StatelessWidget {
             if (interest.canChat)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xs),
-                child: Text(
-                  'Accepted — you can now chat with each other.',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.success),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(Icons.lock_open_rounded, size: 13, color: AppColors.success),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        'Accepted — you can now chat with each other.',
+                        style: AppTextStyles.caption.copyWith(color: AppColors.success),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -453,6 +596,53 @@ class _InterestTile extends StatelessWidget {
     if (i.isPending) return AppColors.info;
     return Theme.of(context).hintColor;
   }
+
+  /// True when the API sent at least one of the reference card's detail
+  /// lines — older cached payloads (and members with an empty profile) carry
+  /// none, and drawing an empty section would be worse than hiding it.
+  static bool _hasDetailLines(InterestMember? m) =>
+      m != null &&
+      ((m.city ?? '').isNotEmpty ||
+          (m.education ?? '').isNotEmpty ||
+          (m.profession ?? '').isNotEmpty ||
+          (m.income ?? '').isNotEmpty);
+
+  /// The reference card's glyph lines: 📍 city, 🎓 education, 💼 profession,
+  /// 💰 income — a quiet ink row under the headline.
+  List<Widget> _detailLines(InterestMember? m) {
+    final List<Widget> rows = <Widget>[];
+    void add(IconData icon, String? text) {
+      final String value = (text ?? '').trim();
+      if (value.isEmpty) return;
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: 13, color: AppColors.chatTimeInk),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  value,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 12,
+                    color: AppColors.chatPreviewInk,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    add(Icons.location_on_outlined, m?.city);
+    add(Icons.school_outlined, m?.education);
+    add(Icons.work_outline_rounded, m?.profession);
+    add(Icons.payments_outlined, m?.income);
+    return rows;
+  }
 }
 
 class _Avatar extends StatelessWidget {
@@ -476,9 +666,9 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _fallback() => ColoredBox(
-    color: AppColors.primary.withValues(alpha: 0.12),
+    color: AppColors.regAccent.withValues(alpha: 0.14),
     child: Center(
-      child: Text(initial, style: AppTextStyles.subtitle.copyWith(color: AppColors.primary)),
+      child: Text(initial, style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent)),
     ),
   );
 }

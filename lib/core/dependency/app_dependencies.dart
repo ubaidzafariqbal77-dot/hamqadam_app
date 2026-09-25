@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/help_chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
 import '../../controllers/interest_controller.dart';
@@ -16,16 +17,17 @@ import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/search_profiles_controller.dart';
 import '../../controllers/shortlist_controller.dart';
-import '../../controllers/theme_controller.dart';
 import '../../controllers/verification_controller.dart';
 import '../../core/services/app_lifecycle_service.dart';
 import '../../core/services/call_state_service.dart';
+import '../../core/services/push_readiness_service.dart';
 import '../../core/services/push_token_service.dart';
 import '../../core/services/pusher_chat_service.dart';
 import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/call_repository.dart';
 import '../../repositories/chat_repository.dart';
+import '../../repositories/help_chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
 import '../../repositories/interest_repository.dart';
@@ -41,6 +43,7 @@ import '../../repositories/shortlist_repository.dart';
 import '../../repositories/auth_extra_repository.dart';
 import '../../repositories/proposal_extra_repository.dart';
 import '../../repositories/search_extra_repository.dart';
+import '../../repositories/discover_extra_repository.dart';
 import '../../repositories/notification_extra_repository.dart';
 import '../../repositories/match_repository.dart';
 import '../../repositories/safety_repository.dart';
@@ -53,6 +56,7 @@ import '../../repositories/verification_repository.dart';
 import '../../controllers/match_controller.dart';
 import '../../controllers/safety_controller.dart';
 import '../../controllers/search_extra_controller.dart';
+import '../../controllers/swipe_controller.dart';
 import '../../controllers/proposal_extra_controller.dart';
 import '../../controllers/notification_extra_controller.dart';
 import '../../controllers/ai_helper_controller.dart';
@@ -74,6 +78,7 @@ import '../storage/profile_completion_service.dart';
 import '../storage/registration_buffer.dart';
 import '../storage/registration_draft_service.dart';
 import '../storage/secure_storage_service.dart';
+import '../services/biometric_auth_service.dart';
 
 /// Central dependency wiring — called once from `main()`. Uses plain
 /// `Get.put` registrations; deliberately NO `Bindings` classes anywhere.
@@ -93,11 +98,16 @@ class AppDependencies {
     await secureStorage.init(); // load cached token before first request
     Get.put<SecureStorageService>(secureStorage, permanent: true);
 
+    // Fingerprint login (capability is checked lazily per device).
+    Get.put<BiometricAuthService>(
+      BiometricAuthService(storage: secureStorage),
+      permanent: true,
+    );
+
     Get.put<RegistrationDraftService>(RegistrationDraftService(prefs), permanent: true);
     Get.put<RegistrationBuffer>(RegistrationBuffer(prefs), permanent: true);
     Get.put<ProfileCompletionService>(ProfileCompletionService(prefs), permanent: true);
     Get.put<CurrentUserService>(CurrentUserService(prefs), permanent: true);
-    Get.put<ThemeController>(ThemeController(prefs)..load(), permanent: true);
     Get.put<NetworkInfo>(NetworkInfo(), permanent: true);
     Get.put<MediaPickerHelper>(MediaPickerHelper(), permanent: true);
 
@@ -119,6 +129,7 @@ class AppDependencies {
     Get.put<PartnerPreferenceRepository>(PartnerPreferenceRepository(apiClient), permanent: true);
     Get.put<VerificationRepository>(VerificationRepository(apiClient), permanent: true);
     Get.put<ChatRepository>(ChatRepository(apiClient), permanent: true);
+    Get.put<HelpChatRepository>(HelpChatRepository(apiClient), permanent: true);
     Get.put<CallRepository>(CallRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
@@ -130,6 +141,7 @@ class AppDependencies {
     Get.put<MatchRepository>(MatchRepository(apiClient), permanent: true);
     Get.put<SafetyRepository>(SafetyRepository(apiClient), permanent: true);
     Get.put<SearchExtraRepository>(SearchExtraRepository(apiClient), permanent: true);
+    Get.put<DiscoverExtraRepository>(DiscoverExtraRepository(apiClient), permanent: true);
     Get.put<ProposalExtraRepository>(ProposalExtraRepository(apiClient), permanent: true);
     Get.put<NotificationExtraRepository>(NotificationExtraRepository(apiClient), permanent: true);
     Get.put<AiHelperRepository>(AiHelperRepository(apiClient), permanent: true);
@@ -164,6 +176,15 @@ class AppDependencies {
       permanent: true,
     );
 
+    // Reads the three device grants that decide whether a closed app can be
+    // reached at all. Registered permanently because the home screen checks it
+    // on the way in, and every one of them can change while the app is running
+    // (the member can revoke notifications from the tray at any time).
+    Get.put<PushReadinessService>(
+      PushReadinessService(prefs: prefs),
+      permanent: true,
+    );
+
     // Reconnect + catch-up on resume and on network change. Started from
     // `main()` once the first frame is on its way.
     Get.put<AppLifecycleService>(
@@ -185,6 +206,10 @@ class AppDependencies {
 
     // Centralised 401 handling (clears session, routes to login, no loops).
     apiClient.onUnauthorized = authController.handleUnauthorized;
+    // 423 manual_review_read_only → open the full-screen review gate. The
+    // refused action's own error still reaches its caller, but the member is
+    // taken out of the app into the one screen that explains the state.
+    apiClient.onManualReview = authController.enterManualReview;
 
     Get.put<LookupController>(LookupController(Get.find<LookupRepository>()), permanent: true);
 
@@ -220,6 +245,8 @@ class AppDependencies {
       () => SearchProfilesController(
         repository: Get.find<SearchRepository>(),
         lookupController: Get.find<LookupController>(),
+        // Backs the Discover screen's "AI Filtered" top-5 mode (GET /matches).
+        matchRepository: Get.find<MatchRepository>(),
       ),
       fenix: true,
     );
@@ -244,6 +271,18 @@ class AppDependencies {
     Get.put<ChatController>(
       ChatController(
         repository: Get.find<ChatRepository>(),
+        pusher: Get.find<PusherChatService>(),
+        currentUser: Get.find<CurrentUserService>(),
+      ),
+      permanent: true,
+    );
+
+    // Help Center controller. Permanent for the same reason as ChatController:
+    // a support reply can arrive over Pusher on any screen, and the
+    // controller that receives it must already exist.
+    Get.put<HelpChatController>(
+      HelpChatController(
+        repository: Get.find<HelpChatRepository>(),
         pusher: Get.find<PusherChatService>(),
         currentUser: Get.find<CurrentUserService>(),
       ),
@@ -302,7 +341,17 @@ class AppDependencies {
     Get.put<AuthExtraController>(AuthExtraController(Get.find<AuthExtraRepository>()), permanent: true);
 
     Get.lazyPut<MatchController>(() => MatchController(Get.find<MatchRepository>()), fenix: true);
-    Get.lazyPut<SearchExtraController>(() => SearchExtraController(Get.find<SearchExtraRepository>()), fenix: true);
+    Get.lazyPut<SearchExtraController>(
+      () => SearchExtraController(
+        Get.find<SearchExtraRepository>(),
+        Get.find<DiscoverExtraRepository>(),
+      ),
+      fenix: true,
+    );
+    Get.lazyPut<SwipeController>(
+      () => SwipeController(Get.find<DiscoverExtraRepository>()),
+      fenix: true,
+    );
     Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
     Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
     Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);

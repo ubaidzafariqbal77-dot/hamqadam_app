@@ -12,6 +12,7 @@ import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../../widgets/surface_card.dart';
 import '../widgets/checkout_bottom_sheet.dart';
+import '../widgets/custom_coins_sheet.dart';
 
 /// Screen showing current active subscription + available upgrade plans.
 class MembershipPlansView extends StatefulWidget {
@@ -82,6 +83,29 @@ class _MembershipPlansViewState extends State<MembershipPlansView> {
                 if (data == null) return const SizedBox.shrink();
                 return _CurrentPackageCard(data: data);
               }),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              // Buy Custom Coins entry
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  icon: const Icon(Icons.monetization_on_rounded, size: 20),
+                  label: const Text(
+                    'Need more coins? Buy Custom Coins',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onPressed: () => CustomCoinsSheet.show(context),
+                ),
+              ),
 
               const SizedBox(height: AppSpacing.lg),
 

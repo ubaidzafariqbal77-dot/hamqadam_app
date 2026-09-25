@@ -13,37 +13,37 @@ class PermissionsService {
   const PermissionsService._();
   static final PermissionsService instance = PermissionsService._();
 
-  /// Requests all permissions the app needs. Safe to call multiple times —
-  /// already-granted permissions are no-ops.
-  Future<void> requestAll() async {
+  /// Requests notification permission (Android 13+, iOS). Safe to call twice.
+  ///
+  /// This is the only permission asked at startup, and it is asked **after the
+  /// first frame** — never before `runApp()`, which is where the whole chain
+  /// used to run. See the comment in `main()` for what that cost.
+  Future<void> requestNotifications() async {
     try {
-      // 1. Notifications (Android 13+, iOS) — request first so tray works
       await _requestIfNeeded(Permission.notification);
-
-      // 2. Camera (profile photos, video calls, verification)
-      await _requestIfNeeded(Permission.camera);
-
-      // 3. Microphone (audio/video calls)
-      await _requestIfNeeded(Permission.microphone);
-
-      // 4. Photos / Storage (profile photos, gallery)
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        // Android 13+: granular media permissions
-        await _requestIfNeeded(Permission.photos);
-        await _requestIfNeeded(Permission.videos);
-      } else {
-        // iOS: single photo library permission
-        await _requestIfNeeded(Permission.photos);
-      }
-
-      // 5. Contacts (find people you know)
-      await _requestIfNeeded(Permission.contacts);
-
-      AppLogger.i('✅ All startup permissions requested');
     } catch (e) {
-      AppLogger.w('Permission request error: $e');
+      AppLogger.w('Notification permission request error: $e');
     }
   }
+
+  /// Whether the member has notifications switched off for this app.
+  ///
+  /// A denied POST_NOTIFICATIONS is silent and total: Android drops every tray
+  /// entry, so messages and calls only ever arrive while the app is open and
+  /// the socket is carrying them. Nothing in the app can re-prompt once it is
+  /// permanently denied — only the system settings page can change it — so the
+  /// UI has to say so rather than look broken. [openSettings] gets there.
+  Future<bool> get notificationsBlocked async {
+    try {
+      return !(await Permission.notification.status).isGranted;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens this app's system settings page, for the permissions that can no
+  /// longer be asked for from inside the app.
+  Future<bool> openSettings() => openAppSettings();
 
   /// Asks Android to stop battery-optimising this app.
   ///

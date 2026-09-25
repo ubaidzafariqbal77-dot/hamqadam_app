@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- ── Network ────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Fingerprint login (local_auth BiometricPrompt). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
 
@@ -9,11 +11,13 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
-    <!-- ── Storage / Photos ────────────────────────────────────────────── -->
+    <!-- ── Storage / Photos ──────────────────────────────────────────────
+         WRITE_EXTERNAL_STORAGE is intentionally NOT declared: the app only
+         saves into app-specific directories and galleries are read through
+         the system Photo Picker, both of which need no storage permission. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28"/>
 
     <!-- ── Notifications (Android 13+) ────────────────────────────────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -21,18 +25,31 @@
     <!-- ── Call Ringing (full-screen intent over lock screen) ──────────── -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <!-- ── Phone State (caller ID detection) ──────────────────────────── -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
-    <!-- ── Bluetooth (Agora audio routing) ────────────────────────────── -->
+    <!-- ── Bluetooth (Agora audio routing) ─────────────────────────────
+         BLUETOOTH_SCAN is intentionally absent: routing audio to a paired
+         headset only needs BLUETOOTH_CONNECT; scanning discovers new
+         devices, which the app never does. -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation"/>
 
     <!-- ── Wake Lock (keep device awake during calls) ─────────────────── -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- ── Ongoing-call foreground service ─────────────────────────────
+         Not cosmetic. Since Android 9 a process with no foreground activity
+         and no foreground service is handed *silence* from the microphone
+         rather than an error, so a minimised call keeps every "connected"
+         indicator lit while the other side hears nothing. CallForegroundService
+         is what keeps the capture real once the call screen is off screen —
+         and what puts the call in the notification tray so it can be tapped
+         back open. The typed permissions are required from Android 14. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
 
     <!-- ── Battery optimisation exemption ──────────────────────────────
          Measured on an Infinix X6853: FCM reaches the app in the foreground,
@@ -52,7 +69,7 @@
 
 
     <application
-        android:label="hamqadam"
+        android:label="Hamqadam"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
@@ -69,11 +86,30 @@
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/notification_accent" />
 
-        <!-- showWhenLocked / turnScreenOn: an incoming call raises a
-             full-screen intent, and both of these are required for it to
-             actually appear over the lock screen and light the display.
-             Without them Android downgrades the call to a heads-up banner
-             behind the lock, which is a call the member never sees. -->
+        <!-- showWhenLocked / turnScreenOn must be declared, and MainActivity
+             switches them straight back OFF unless a call is ringing.
+
+             Both halves are necessary. Android decides whether an activity may
+             appear over the keyguard when it launches it - before a line of our
+             code runs - so without the manifest attribute a full-screen intent
+             on a locked phone is simply refused and the member gets a silent
+             "New notification" line instead of a ringing screen. Verified: with
+             these removed, a locked phone never rang.
+
+             But leaving them on permanently makes the launcher activity a
+             lock-screen surface for every ordinary launch, and a window shown
+             over the keyguard is given the short keyguard display timeout
+             rather than the member's own sleep setting - the reported "jab bhi
+             app chalta hai screen 5 second me off ho jati hai".
+
+             So the manifest grants the *capability* and MainActivity.onCreate
+             revokes it at runtime (`setShowWhenLocked(false)`) whenever there is
+             no ringing call. See MainActivity.kt. -->
+        <!-- supportsPictureInPicture / resizeableActivity: a video call shrinks
+             into a floating window when the member leaves it (back, home or
+             recents) instead of ending. Both are needed — Android refuses PiP
+             outright without the first, and cannot draw a non-resizeable
+             activity at PiP size. See MainActivity.enterPip. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -82,6 +118,8 @@
             android:theme="@style/LaunchTheme"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
@@ -98,6 +136,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Holds the microphone (and the camera, on a video call) open while
+             the call is minimised, and owns the ongoing-call tray entry. -->
+        <service
+            android:name=".CallForegroundService"
+            android:exported="false"
+            android:stopWithTask="true"
+            android:foregroundServiceType="microphone|camera"/>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -11,6 +11,7 @@ import '../../../core/utils/media_picker_helper.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../constants/reg_icons.dart';
 
 /// Screen 12 — Photos, the API's step 11
 /// (`POST /auth/register/step/11`, `multipart/form-data`).
@@ -96,6 +97,8 @@ class _Step12ViewState extends State<Step12View> {
       stepNumber: 12,
       totalSteps: 18,
       title: 'Upload photos',
+      art: RegIcons.step12Photos,
+      artIcon: Icons.photo_camera_outlined,
       subtitle: 'You need to upload at least 3 photos to continue. '
           'You can change them later.',
       busy: c.busy,
@@ -164,16 +167,18 @@ class _PhotoCell extends StatelessWidget {
         onTap: disabled ? null : onTap,
         child: Stack(
           children: <Widget>[
-            DottedContainer(hasMedia: hasMedia, child: hasMedia ? Image.file(File(media!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity) : const Center(child: Icon(Icons.add_rounded, size: 30, color: AppColors.primary))),
+            DottedContainer(hasMedia: hasMedia, child: hasMedia ? Image.file(File(media!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity) : const Center(child: Icon(Icons.add_rounded, size: 30, color: AppColors.regAccent))),
             if (isMain)
               Positioned(
                 left: 0,
                 bottom: 0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: hasMedia ? Colors.black87 : AppColors.primary,
-                    borderRadius: const BorderRadius.only(
+                  decoration: const BoxDecoration(
+                    // Brand pink either way: on a photo the badge used to go
+                    // black, the one non-rose chip in the whole flow.
+                    color: AppColors.regAccent,
+                    borderRadius: BorderRadius.only(
                       topRight: Radius.circular(AppRadius.md),
                       bottomLeft: Radius.circular(AppRadius.md),
                     ),

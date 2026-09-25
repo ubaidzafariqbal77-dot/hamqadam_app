@@ -18,6 +18,8 @@ class AppOptionDropdown extends StatelessWidget {
     this.errorText,
     this.enabled = true,
     this.labelBuilder,
+    this.icon,
+    this.image,
   });
 
   final String label;
@@ -30,12 +32,17 @@ class AppOptionDropdown extends StatelessWidget {
   final bool enabled;
   final String Function(String)? labelBuilder;
 
+  /// Optional leading artwork rendered in a soft pink disc (reference style).
+  final IconData? icon;
+  final String? image;
+
   @override
   Widget build(BuildContext context) {
     // Renders as the same searchable bottom sheet as every other picker in the
     // flow, so no dropdown in registration is ever an unsearchable menu.
-    final List<String> labels =
-        labelBuilder == null ? options : options.map(labelBuilder!).toList();
+    final List<String> labels = labelBuilder == null
+        ? options
+        : options.map(labelBuilder!).toList();
     final String? shown = options.contains(value)
         ? (labelBuilder?.call(value!) ?? value)
         : null;
@@ -47,6 +54,8 @@ class AppOptionDropdown extends StatelessWidget {
       hint: hint,
       errorText: errorText,
       enabled: enabled,
+      icon: icon,
+      image: image,
       onChanged: (String? picked) {
         if (picked == null || labelBuilder == null) return onChanged(picked);
         // Map the chosen label back to the option it was built from.
@@ -73,6 +82,8 @@ class AppLookupDropdown extends StatelessWidget {
     this.errorText,
     this.enabled = true,
     this.disabledHint,
+    this.icon,
+    this.image,
   });
 
   final String label;
@@ -86,6 +97,10 @@ class AppLookupDropdown extends StatelessWidget {
   final String? errorText;
   final bool enabled;
   final String? disabledHint;
+
+  /// Optional leading artwork rendered in a soft pink disc (reference style).
+  final IconData? icon;
+  final String? image;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +118,8 @@ class AppLookupDropdown extends StatelessWidget {
       errorText: errorText,
       enabled: enabled,
       disabledHint: disabledHint,
+      icon: icon,
+      image: image,
     );
   }
 }

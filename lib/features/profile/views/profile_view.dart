@@ -58,6 +58,46 @@ class ProfileView extends StatelessWidget {
   }
 }
 
+/// Neutral ink for this screen.
+///
+/// The app's text colours are brand pink (`lightTextPrimary` is #FF3B6B), so
+/// every label, value and heading on the profile rendered in the same hue as
+/// the buttons and the app bar. A screen with no neutral reads as loud rather
+/// than considered, and it flattens hierarchy: when the field label, the value
+/// and the section title are all pink, nothing leads.
+///
+/// Pink stays, but as an accent — icons, progress, chips, calls to action.
+/// The words themselves are ink.
+class _Ink {
+  const _Ink._();
+
+  static bool _dark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
+
+  /// Headings and values — the things being read.
+  static Color strong(BuildContext c) =>
+      _dark(c) ? const Color(0xFFF2F3F5) : const Color(0xFF16181D);
+
+  /// Body copy.
+  static Color body(BuildContext c) =>
+      _dark(c) ? const Color(0xFFC9CCD2) : const Color(0xFF3D4350);
+
+  /// Field labels and captions.
+  static Color muted(BuildContext c) =>
+      _dark(c) ? const Color(0xFF8E939C) : const Color(0xFF767D8B);
+
+  /// Hairlines between rows.
+  static Color line(BuildContext c) =>
+      _dark(c) ? const Color(0xFF2A2C31) : const Color(0xFFECEDF0);
+
+  /// Card border.
+  static Color border(BuildContext c) =>
+      _dark(c) ? const Color(0xFF2E3036) : const Color(0xFFE8E9ED);
+
+  /// Quiet fill behind grouped content.
+  static Color wash(BuildContext c) =>
+      _dark(c) ? const Color(0xFF202126) : const Color(0xFFF7F8FA);
+}
+
 class _LoadingState extends StatelessWidget {
   const _LoadingState();
   @override
@@ -141,6 +181,8 @@ class _ProfileBody extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
+          _TrustChecklistCard(checks: profile.verification.checks),
+          const SizedBox(height: AppSpacing.md),
           _VerificationCard(verification: profile.verification),
           const SizedBox(height: AppSpacing.md),
           const _QuickActionsCard(),
@@ -179,32 +221,48 @@ class _HeroCard extends StatelessWidget {
       // the gender / on-behalf lists land.
       controller.lookupRevision;
 
-      final List<String> chips = <String?>[
-        controller.genderLabel(m.gender),
-        m.age != null ? '${m.age} years' : null,
-        controller.maritalLabel(m.maritalStatusId),
-        _city(controller, profile),
-      ].whereType<String>().toList();
+      final String? genderLabel = controller.genderLabel(m.gender);
+      final String? maritalLabel = controller.maritalLabel(m.maritalStatusId);
+      final String? cityLabel = _city(controller, profile);
+
+      // Four equal pills wrapped 3 + 1, which left the city stranded on a line
+      // of its own looking like an afterthought. The three facts that describe
+      // the person stay together on one meta line; where they live is a
+      // different kind of fact and gets its own line under it, with a pin.
+      final List<_HeroFact> facts = <_HeroFact>[
+        if (genderLabel != null)
+          _HeroFact(_genderIcon(genderLabel), genderLabel),
+        if (m.age != null) _HeroFact(Icons.cake_rounded, '${m.age} years'),
+        if (maritalLabel != null)
+          _HeroFact(Icons.favorite_rounded, maritalLabel),
+      ];
 
       return Container(
         decoration: BoxDecoration(
+          // Three stops ending in a deep plum. The old two-stop brand gradient
+          // was the same flat pink as the app bar directly above it, so the
+          // hero had no edge and the whole top of the screen read as one slab
+          // of colour. Falling into a darker tone gives the card a horizon and
+          // lets white type sit on something solid at the bottom, where the
+          // name and the stats are.
           gradient: const LinearGradient(
-            colors: AppColors.brandGradient,
+            colors: <Color>[Color(0xFFFF4E7D), Color(0xFFE81F5B), Color(0xFF8E1338)],
+            stops: <double>[0.0, 0.52, 1.0],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: AppRadius.xlAll,
+          borderRadius: BorderRadius.circular(26),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 14),
-              spreadRadius: -8,
+              color: const Color(0xFF8E1338).withValues(alpha: 0.30),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+              spreadRadius: -10,
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: AppRadius.xlAll,
+          borderRadius: BorderRadius.circular(26),
           child: Stack(
             children: <Widget>[
               // Soft light bloom, so the flat gradient reads as depth.
@@ -258,13 +316,34 @@ class _HeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     _StatusPill(gate: VerificationGate.of(profile.verification)),
-                    if (chips.isNotEmpty) ...<Widget>[
+                    if (facts.isNotEmpty) ...<Widget>[
                       const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: chips.map((String t) => _GlassChip(text: t)).toList(),
+                      _HeroMetaLine(facts: facts),
+                    ],
+                    if (cityLabel != null) ...<Widget>[
+                      const SizedBox(height: 7),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          Icon(
+                            Icons.place_rounded,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              cityLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.caption.copyWith(
+                                color: Colors.white.withValues(alpha: 0.82),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                     const SizedBox(height: AppSpacing.md),
@@ -284,6 +363,77 @@ class _HeroCard extends StatelessWidget {
   static String? _city(ProfileController c, ProfileModel p) {
     final dynamic city = p.location['city_id'];
     return c.displayValue('city_id', city);
+  }
+}
+
+/// One fact in the hero's meta line.
+class _HeroFact {
+  const _HeroFact(this.icon, this.text);
+  final IconData icon;
+  final String text;
+}
+
+IconData _genderIcon(String label) {
+  final String l = label.toLowerCase();
+  if (l.startsWith('f')) return Icons.female_rounded;
+  if (l.startsWith('m')) return Icons.male_rounded;
+  return Icons.person_rounded;
+}
+
+/// The three defining facts, on one line, separated by dots.
+///
+/// Pills gave four unrelated facts the same visual weight as each other and as
+/// the name above them. A single quiet meta line — the pattern every profile
+/// people actually admire uses — lets the name lead and the facts support it.
+class _HeroMetaLine extends StatelessWidget {
+  const _HeroMetaLine({required this.facts});
+
+  final List<_HeroFact> facts;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> run = <Widget>[];
+    for (int i = 0; i < facts.length; i++) {
+      if (i > 0) {
+        run.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 9),
+            child: Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.45),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+      }
+      run.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(facts[i].icon, size: 15, color: Colors.white.withValues(alpha: 0.80)),
+            const SizedBox(width: 5),
+            Text(
+              facts[i].text,
+              style: AppTextStyles.caption.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      runSpacing: 6,
+      children: run,
+    );
   }
 }
 
@@ -394,8 +544,17 @@ class _StatusPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool verified = gate == VerificationGate.verified;
 
+    // Only a settled verdict earns a pill under the name. "Not verified"
+    // already appears twice below this line - in the Identity stat and again
+    // in the verification card that actually offers the button - and telling a
+    // member their profile is deficient three times in one screenful is
+    // nagging, not information. A pending or rejected state still shows,
+    // because those are states they are waiting on; the plain not-yet-started
+    // case is left to the card that can do something about it.
+    if (gate == VerificationGate.notSubmitted) return const SizedBox.shrink();
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
         color: verified ? Colors.white : Colors.white.withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -459,11 +618,11 @@ class _StatStrip extends StatelessWidget {
         profile.photos.galleryUrls.length + (profile.photos.profilePhotoUrl != null ? 1 : 0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(vertical: 13),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.16),
-        borderRadius: AppRadius.mdAll,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        color: Colors.white.withValues(alpha: 0.13),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
       ),
       child: Row(
         children: <Widget>[
@@ -491,16 +650,21 @@ class _StatCell extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: AppTextStyles.bodyStrong.copyWith(
           color: Colors.white,
-          fontSize: 15,
+          fontSize: 17,
+          height: 1.1,
           fontWeight: FontWeight.w800,
+          letterSpacing: -0.3,
         ),
       ),
-      const SizedBox(height: 1),
+      const SizedBox(height: 3),
+      // Sentence case, not caps. Three shouty all-caps words under three
+      // values made the strip compete with the member's own name.
       Text(
-        label.toUpperCase(),
+        label,
         style: AppTextStyles.badge.copyWith(
-          color: Colors.white.withValues(alpha: 0.82),
-          letterSpacing: 0.7,
+          color: Colors.white.withValues(alpha: 0.72),
+          letterSpacing: 0.1,
+          fontWeight: FontWeight.w500,
         ),
       ),
     ],
@@ -629,13 +793,17 @@ class _ProfileViewsBanner extends StatelessWidget {
                     children: <Widget>[
                       Text(
                         'Profile Views & Visitors',
-                        style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w600,
+                          color: _Ink.strong(context),
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'See who viewed your profile & view allowance',
                         style: AppTextStyles.caption.copyWith(
-                          color: isDark ? Colors.white60 : AppColors.lightTextSecondary,
+                          color: _Ink.muted(context),
                         ),
                       ),
                     ],
@@ -1143,6 +1311,99 @@ class _SectionCard extends StatelessWidget {
 /// The per-document detail lives on `GET /verification/current`, so this reads
 /// [VerificationController]. It falls back to the summary block embedded in
 /// `GET /profile` while that request is still in flight.
+/// The "Trust & Verification" checklist — one row per thing a visitor (or the
+/// member themselves) wants to know is real, driven entirely by the
+/// server-computed `verification.checks` booleans on `GET /profile`.
+///
+/// Each row: label + short verdict + a state icon. A missing boolean (older
+/// payload) renders as unknown "—" instead of a wrong tick or cross.
+class _TrustChecklistCard extends StatelessWidget {
+  const _TrustChecklistCard({required this.checks});
+
+  final ProfileTrustChecks checks;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final Color muted = dark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    return _Surface(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const _CardHeader(icon: Icons.fact_check_rounded, title: 'Trust & Verification'),
+          const SizedBox(height: AppSpacing.xs),
+          _TrustRow(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
+          _TrustRow(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
+          _TrustRow(label: 'Intent', passed: checks.intent, passedText: 'Marriage intention confirmed', failedText: 'Not on record', ink: ink, muted: muted),
+        ],
+      ),
+    );
+  }
+}
+
+/// One checklist row: bold label, soft verdict, and a state icon that never
+/// relies on colour alone (tick / cross / dash carry the meaning).
+class _TrustRow extends StatelessWidget {
+  const _TrustRow({
+    required this.label,
+    required this.passed,
+    required this.passedText,
+    required this.failedText,
+    required this.ink,
+    required this.muted,
+  });
+
+  final String label;
+  final bool? passed;
+  final String passedText;
+  final String failedText;
+  final Color ink;
+  final Color muted;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData icon, Color color) = switch (passed) {
+      true => (Icons.check_circle_rounded, AppColors.success),
+      false => (Icons.cancel_rounded, AppColors.error),
+      null => (Icons.remove_circle_outline_rounded, muted),
+    };
+    final String text = passed == true ? passedText : failedText;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Row(
+        children: <Widget>[
+          SizedBox(
+            width: 86,
+            child: Text(
+              label,
+              style: AppTextStyles.bodyStrong.copyWith(color: ink, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTextStyles.caption.copyWith(
+                color: passed == true ? muted : ink,
+                fontWeight: passed == true ? FontWeight.w500 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VerificationCard extends StatelessWidget {
   const _VerificationCard({required this.verification});
   final ProfileVerification verification;
@@ -1349,64 +1610,257 @@ class _PrivacyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<_Priv> rows = <_Priv>[
-      _Priv('Show photo', privacy.showPhoto),
-      _Priv('Show gallery', privacy.showGallery),
-      _Priv('Show contact', privacy.showContact),
-      _Priv('Show email', privacy.showEmail),
-      _Priv('Show phone', privacy.showPhone),
-      _Priv('Show location', privacy.showLocation),
-      _Priv('Profile-view notifications', privacy.allowProfileViewNotifications),
+    final List<_Priv> all = <_Priv>[
+      _Priv('Profile photo', Icons.account_circle_rounded, privacy.showPhoto),
+      _Priv('Photo gallery', Icons.photo_library_rounded, privacy.showGallery),
+      _Priv('Contact details', Icons.contact_page_rounded, privacy.showContact),
+      _Priv('Email address', Icons.alternate_email_rounded, privacy.showEmail),
+      _Priv('Phone number', Icons.phone_rounded, privacy.showPhone),
+      _Priv('Location', Icons.place_rounded, privacy.showLocation),
+      _Priv(
+        'Profile-view alerts',
+        Icons.notifications_active_rounded,
+        privacy.allowProfileViewNotifications,
+      ),
     ];
+
+    // Grouped by state rather than listed flat. A single column with the
+    // answer repeated on every row made the reader compare seven pills to work
+    // out what a stranger actually sees; two headed groups answer that before
+    // the first row is read, and the per-row tag becomes redundant - so it
+    // goes, and the icon carries the state instead.
+    final List<_Priv> shown = all.where((_Priv p) => p.on).toList();
+    final List<_Priv> hidden = all.where((_Priv p) => !p.on).toList();
+
     return _Surface(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const _CardHeader(icon: Icons.lock_outline_rounded, title: 'Privacy & visibility'),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: rows.map((_Priv p) => _PrivChip(priv: p)).toList(),
+          Row(
+            children: <Widget>[
+              Container(
+                height: 34,
+                width: 34,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.lock_outline_rounded,
+                  size: AppDimensions.iconSm,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Privacy & visibility',
+                  style: AppTextStyles.subtitle.copyWith(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
+                    color: _Ink.strong(context),
+                  ),
+                ),
+              ),
+              _ManageLink(onTap: () => Get.to<void>(() => const EditProfileView())),
+            ],
           ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // What a stranger sees, stated once, in a sentence.
+          Text(
+            shown.isEmpty
+                ? 'Nothing on your profile is visible to other members.'
+                : '${shown.length} of ${all.length} details are visible to other members.',
+            style: AppTextStyles.caption.copyWith(
+              color: _Ink.muted(context),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _VisibilityMeter(shown: shown.length, total: all.length),
+          const SizedBox(height: AppSpacing.md),
+
+          if (shown.isNotEmpty)
+            _PrivGroup(title: 'Visible to members', items: shown, on: true),
+          if (shown.isNotEmpty && hidden.isNotEmpty)
+            const SizedBox(height: AppSpacing.sm),
+          if (hidden.isNotEmpty)
+            _PrivGroup(title: 'Kept private', items: hidden, on: false),
         ],
       ),
+    );
+  }
+}
+
+/// Seven segments, lit for each detail a stranger can see.
+///
+/// A count alone ("3 of 7") is a number to be parsed; the meter is the same
+/// fact as a shape, which is read without counting.
+class _VisibilityMeter extends StatelessWidget {
+  const _VisibilityMeter({required this.shown, required this.total});
+
+  final int shown;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: <Widget>[
+      for (int i = 0; i < total; i++) ...<Widget>[
+        if (i > 0) const SizedBox(width: 4),
+        Expanded(
+          child: Container(
+            height: 5,
+            decoration: BoxDecoration(
+              color: i < shown
+                  ? AppColors.success.withValues(alpha: 0.85)
+                  : _Ink.line(context),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+      ],
+    ],
+  );
+}
+
+class _PrivGroup extends StatelessWidget {
+  const _PrivGroup({required this.title, required this.items, required this.on});
+
+  final String title;
+  final List<_Priv> items;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color accent = on ? AppColors.success : _Ink.muted(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Icon(
+              on ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+              size: 14,
+              color: accent,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              title.toUpperCase(),
+              style: AppTextStyles.badge.copyWith(
+                color: accent,
+                letterSpacing: 0.7,
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: _Ink.wash(context),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: on
+                  ? AppColors.success.withValues(alpha: 0.18)
+                  : _Ink.border(context),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              for (int i = 0; i < items.length; i++) ...<Widget>[
+                if (i > 0)
+                  Divider(height: 1, thickness: 1, color: _Ink.line(context)),
+                _PrivRow(priv: items[i], accent: accent),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _Priv {
-  const _Priv(this.label, this.on);
+  const _Priv(this.label, this.icon, this.on);
   final String label;
+  final IconData icon;
   final bool on;
 }
 
-class _PrivChip extends StatelessWidget {
-  const _PrivChip({required this.priv});
+class _PrivRow extends StatelessWidget {
+  const _PrivRow({required this.priv, required this.accent});
+
   final _Priv priv;
+  final Color accent;
+
   @override
-  Widget build(BuildContext context) {
-    final Color color = priv.on ? AppColors.success : Theme.of(context).hintColor;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(priv.on ? Icons.check_rounded : Icons.lock_rounded, size: 13, color: color),
-          const SizedBox(width: 5),
-          Text(
-            priv.label,
-            style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Row(
+      children: <Widget>[
+        // The icon tile carries the state now, which is why the row needs no
+        // tag: a lit tile reads as "on" faster than a word does.
+        Container(
+          height: 30,
+          width: 30,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: priv.on ? 0.12 : 0.08),
+            borderRadius: BorderRadius.circular(9),
           ),
-        ],
+          child: Icon(priv.icon, size: 16, color: accent),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            priv.label,
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: _Ink.strong(context),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// The way out of a read-only card: these settings live on the edit screen.
+class _ManageLink extends StatelessWidget {
+  const _ManageLink({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.pill),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'Manage',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 2),
+            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.primary),
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -1436,73 +1890,94 @@ class _FieldGrid extends StatelessWidget {
   const _FieldGrid({required this.fields});
   final List<_Field> fields;
 
-  static const double _gap = AppSpacing.sm;
-
   @override
   Widget build(BuildContext context) {
     final List<_Field> shown = fields.where((_Field f) => !f.isEmpty).toList();
     if (shown.isEmpty) return const SizedBox.shrink();
 
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double full = constraints.maxWidth;
-        final double half = (full - _gap) / 2;
-        return Wrap(
-          spacing: _gap,
-          runSpacing: _gap,
-          children: shown
-              .map(
-                (_Field f) => SizedBox(
-                  width: f.isWide ? full : half,
-                  child: _FieldTile(field: f),
-                ),
-              )
-              .toList(),
-        );
-      },
+    // Rows, not tiles. Every field used to be its own outlined box, which made
+    // a profile look like a form someone had to fill in rather than a person
+    // worth reading: sixteen identical rectangles compete with each other and
+    // nothing stands out. A label-left / value-right row with a hairline
+    // between reads down the page in one movement, and the values line up so
+    // they can be compared at a glance.
+    return Container(
+      decoration: BoxDecoration(
+        color: _Ink.wash(context),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Column(
+        // Without this a stacked row (chips, long values) is centred by the
+        // Column's default and breaks the left edge every other row sits on.
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (int i = 0; i < shown.length; i++) ...<Widget>[
+            if (i > 0) Divider(height: 1, thickness: 1, color: _Ink.line(context)),
+            _FieldRow(field: shown[i]),
+          ],
+        ],
+      ),
     );
   }
 }
 
-class _FieldTile extends StatelessWidget {
-  const _FieldTile({required this.field});
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({required this.field});
   final _Field field;
 
   @override
   Widget build(BuildContext context) {
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: dark ? 0.07 : 0.04),
-        borderRadius: AppRadius.smAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.16 : 0.10)),
+    final bool stacked = field.isWide || field.chips.length > 1;
+
+    final Widget label = Text(
+      field.label,
+      style: AppTextStyles.caption.copyWith(
+        color: _Ink.muted(context),
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.3,
       ),
-      child: Column(
+    );
+
+    final Widget value = field.chips.length > 1
+        ? Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            alignment: stacked ? WrapAlignment.start : WrapAlignment.end,
+            children: field.chips.map((String c) => _ValueChip(text: c)).toList(),
+          )
+        : Text(
+            field.value!,
+            textAlign: stacked ? TextAlign.start : TextAlign.end,
+            style: AppTextStyles.bodyStrong.copyWith(
+              fontSize: 14.5,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+              color: _Ink.strong(context),
+            ),
+          );
+
+    // Long values and chip groups get their own line; short ones sit opposite
+    // the label, which is what makes the column of values scannable.
+    if (stacked) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[label, const SizedBox(height: 6), value],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 13),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            field.label.toUpperCase(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.badge.copyWith(
-              color: Theme.of(context).hintColor,
-              letterSpacing: 0.6,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          if (field.chips.length > 1)
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: field.chips.map((String c) => _ValueChip(text: c)).toList(),
-            )
-          else
-            Text(
-              field.value!,
-              style: AppTextStyles.bodyStrong.copyWith(fontSize: 14, height: 1.35),
-            ),
+          Expanded(flex: 4, child: label),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(flex: 6, child: value),
         ],
       ),
     );
@@ -1514,17 +1989,17 @@ class _ValueChip extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: AppColors.primary.withValues(alpha: 0.10),
+      color: Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      border: Border.all(color: AppColors.primary.withValues(alpha: 0.22)),
+      border: Border.all(color: _Ink.border(context)),
     ),
     child: Text(
       text,
       style: AppTextStyles.caption.copyWith(
-        color: AppColors.primary,
-        fontWeight: FontWeight.w700,
+        color: _Ink.body(context),
+        fontWeight: FontWeight.w600,
       ),
     ),
   );
@@ -1546,14 +2021,16 @@ class _MissingNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Icon(Icons.info_outline_rounded, size: 14, color: Theme.of(context).hintColor),
+          // `hintColor` is pink, so this quiet footnote shouted as loudly as the
+          // values above it. The icon keeps the accent; the sentence is ink.
+          Icon(Icons.info_outline_rounded, size: 14, color: AppColors.primary.withValues(alpha: 0.75)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               'Not added yet: ${labels.join(', ')}',
               style: AppTextStyles.caption.copyWith(
-                color: Theme.of(context).hintColor,
-                height: 1.35,
+                color: _Ink.muted(context),
+                height: 1.4,
               ),
             ),
           ),
@@ -1575,19 +2052,26 @@ class _Surface extends StatelessWidget {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _Ink.border(context)),
+        // Two shadows: a tight contact shadow that seats the card, and a wide
+        // soft one for lift. A single blurred pink glow read as a smudge.
         boxShadow: dark
             ? null
-            : <BoxShadow>[
+            : const <BoxShadow>[
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.06),
-                  blurRadius: 18,
-                  offset: const Offset(0, 8),
-                  spreadRadius: -8,
+                  color: Color(0x0A101828),
+                  blurRadius: 2,
+                  offset: Offset(0, 1),
+                ),
+                BoxShadow(
+                  color: Color(0x0F101828),
+                  blurRadius: 24,
+                  offset: Offset(0, 10),
+                  spreadRadius: -6,
                 ),
               ],
       ),
@@ -1609,15 +2093,26 @@ class _CardHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: <Widget>[
       Container(
-        padding: const EdgeInsets.all(7),
+        height: 34,
+        width: 34,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.10),
-          borderRadius: AppRadius.smAll,
+          color: AppColors.primary.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
       ),
-      const SizedBox(width: AppSpacing.xs),
-      Expanded(child: Text(title, style: AppTextStyles.subtitle.copyWith(fontSize: 16))),
+      const SizedBox(width: AppSpacing.sm),
+      Expanded(
+        child: Text(
+          title,
+          style: AppTextStyles.subtitle.copyWith(
+            fontSize: 16.5,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.2,
+            color: _Ink.strong(context),
+          ),
+        ),
+      ),
       if (trailing != null)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1774,13 +2269,43 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: AppColors.primary),
-      title: Text(title, style: AppTextStyles.body),
-      subtitle: Text(subtitle, style: AppTextStyles.caption),
-      trailing: Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor),
-      onTap: () => Get.toNamed(route),
+    // _Surface paints its background on a DecoratedBox, which would hide the
+    // tile's own Material — wrap the tile in a transparent Material so ink
+    // splashes render (the debug assertion flagged exactly this).
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        contentPadding: EdgeInsets.zero,
+        // Same rule as the rest of the screen: the icon and the chevron carry
+        // the accent, the words are ink. A pink title over a pink subtitle gave
+        // a navigation row the same urgency as a call to action.
+        leading: Container(
+          height: 34,
+          width: 34,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.primary),
+        ),
+        title: Text(
+          title,
+          style: AppTextStyles.body.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            color: _Ink.strong(context),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: Text(
+            subtitle,
+            style: AppTextStyles.caption.copyWith(color: _Ink.muted(context)),
+          ),
+        ),
+        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: _Ink.muted(context)),
+        onTap: () => Get.toNamed(route),
+      ),
     );
   }
 }

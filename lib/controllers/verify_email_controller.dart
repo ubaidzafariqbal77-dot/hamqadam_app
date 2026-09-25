@@ -112,8 +112,22 @@ class VerifyEmailController extends GetxController {
     error.value = '';
     try {
       await reg.verifyEmailOtp(code, email: email.value);
+      // Code accepted — but the account can still be sitting in the AI
+      // manual-review gate. Ask before declaring the flow finished: under
+      // review, the member lands on the full-screen review notice instead of
+      // the app (the server would 423 every mutation anyway).
+      final bool gated = await auth.checkManualReview();
+      if (gated) return;
       await reg.finishRegistration();
     } on AppException catch (e) {
+      // MANUAL REVIEW GATE: verify-otp is a POST, so a gated account gets
+      // `423 manual_review_read_only` here. The API client has already opened
+      // the review screen — stay quiet, no snackbar over it.
+      final String? code2 = e is ApiException ? e.code : null;
+      if (e.statusCode == 423 || code2 == 'manual_review_read_only') {
+        AppLogger.w('verify-otp blocked — account under manual review');
+        return;
+      }
       // KNOWN BACKEND DEFECT: verify-otp marks the account verified, consumes
       // the code, and THEN crashes applying the Basic Free package reward
       // (RegistrationReward::applyRegistrationDefaultPackage is undefined).

@@ -27,29 +27,53 @@ class _StateBase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color color = iconColor ?? AppColors.primary;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // Layered icon container: tinted halo ring + icon chip, so the
+            // state reads as part of the product rather than a default widget.
             Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              width: 104,
+              height: 104,
               decoration: BoxDecoration(
-                color: (iconColor ?? AppColors.primary).withValues(alpha: 0.1),
+                color: color.withValues(alpha: 0.07),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 40, color: iconColor ?? AppColors.primary),
+              alignment: Alignment.center,
+              child: Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 36, color: color),
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(title, style: AppTextStyles.title, textAlign: TextAlign.center),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.lg),
             Text(
-              message,
-              style: AppTextStyles.body.copyWith(
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+              title,
+              style: AppTextStyles.title.copyWith(
+                color: Theme.of(context).textTheme.titleLarge?.color,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                message,
+                style: AppTextStyles.body.copyWith(
+                  color: Theme.of(context).textTheme.bodyMedium?.color,
+                  fontSize: 14.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
             if (actionLabel != null && onAction != null) ...<Widget>[
               const SizedBox(height: AppSpacing.lg),
@@ -81,7 +105,7 @@ class EmptyStateWidget extends StatelessWidget {
     message: message ?? 'There is nothing to show right now.',
     actionLabel: onRefresh == null ? null : AppStrings.refresh,
     onAction: onRefresh,
-    iconColor: AppColors.optionalBadge,
+    iconColor: AppColors.primaryLight,
   );
 }
 

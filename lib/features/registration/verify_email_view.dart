@@ -70,7 +70,7 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
-                BiText('Verify your email', style: AppTextStyles.display),
+                BiText('Verify your email', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.xs),
                 Obx(
                   () => Text.rich(

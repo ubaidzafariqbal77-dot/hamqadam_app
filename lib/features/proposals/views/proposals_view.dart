@@ -560,7 +560,7 @@ class _ProposalCard extends StatelessWidget {
       child: Center(
         child: Text(
           initial,
-          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 20),
+          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 18),
         ),
       ),
     );

@@ -405,7 +405,7 @@ class _ShortlistCard extends StatelessWidget {
       child: Center(
         child: Text(
           profile.initial,
-          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 24),
+          style: AppTextStyles.subtitle.copyWith(color: AppColors.regAccent, fontSize: 20),
         ),
       ),
     );

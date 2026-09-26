@@ -47,7 +47,7 @@ class RegistrationCompletedView extends StatelessWidget {
                 Text(
                   AppStrings.registrationCompleteTitle,
                   textAlign: TextAlign.center,
-                  style: AppTextStyles.display.copyWith(color: Colors.white),
+                  style: AppTextStyles.title.copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(

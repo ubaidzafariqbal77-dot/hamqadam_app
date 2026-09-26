@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.2+3
 
 environment:
   sdk: ^3.12.1
@@ -106,7 +106,6 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-    - assets/lottie/
     - assets/animated_gifts/
     - assets/gift_thumbnail/
     # Offline copy of `GET /profile/dropdown-reference-data`. The endpoint is
@@ -115,7 +114,6 @@ flutter:
     - assets/lookups/
     - assets/registration/
     - assets/registration/physical-info/
-    - assets/registration/career-income/
     # Flutter does not recurse into asset folders: without this line the
     # Education field icons were in the repo but not in the bundle, so every
     # dropdown disc on that step rendered empty.
@@ -166,27 +164,6 @@ flutter:
         - asset: assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-ExtraBoldItalic.ttf
           weight: 800
           style: italic
-    # Poppins — available secondary family.
-    - family: Poppins
-      fonts:
-        - asset: assets/fonts/Poppins/Poppins-Thin.ttf
-          weight: 100
-        - asset: assets/fonts/Poppins/Poppins-ExtraLight.ttf
-          weight: 200
-        - asset: assets/fonts/Poppins/Poppins-Light.ttf
-          weight: 300
-        - asset: assets/fonts/Poppins/Poppins-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Poppins/Poppins-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Poppins/Poppins-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Poppins/Poppins-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Poppins/Poppins-ExtraBold.ttf
-          weight: 800
-        - asset: assets/fonts/Poppins/Poppins-Black.ttf
-          weight: 900
     # Noto Nastaliq Urdu — Urdu (RTL) text shown alongside English.
     - family: NotoNastaliqUrdu
       fonts:
@@ -198,27 +175,6 @@ flutter:
           weight: 600
         - asset: assets/fonts/Noto_Nastaliq_Urdu/NotoNastaliqUrdu-Bold.ttf
           weight: 700
-    # Montserrat — body, labels, buttons, fields, nav, dialogs, captions.
-    - family: Montserrat
-      fonts:
-        - asset: assets/fonts/Montserrat/Montserrat-Thin.ttf
-          weight: 100
-        - asset: assets/fonts/Montserrat/Montserrat-ExtraLight.ttf
-          weight: 200
-        - asset: assets/fonts/Montserrat/Montserrat-Light.ttf
-          weight: 300
-        - asset: assets/fonts/Montserrat/Montserrat-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Montserrat/Montserrat-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Montserrat/Montserrat-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Montserrat/Montserrat-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Montserrat/Montserrat-ExtraBold.ttf
-          weight: 800
-        - asset: assets/fonts/Montserrat/Montserrat-Black.ttf
-          weight: 900
     # Playfair Display — the reference designs' display serif. Used ONLY for the
     # large registration step headings ("Gender", "Marital status", "Caste" …);
     # every other word in the app stays Plus Jakarta Sans.

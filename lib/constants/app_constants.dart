@@ -6,7 +6,12 @@ class ApiConfig {
 
   /// Single source of truth for the site root. Uploaded media (photos, video /
   /// voice intros) are stored relative to this, e.g. `uploads/profile/…`.
-  static const String assetBaseUrl = 'https://hamqadam.com';
+  // DEMO-RECORDING OVERRIDE: points the app at the local backend so the
+  // Play declaration demo video does not touch production users.
+  // Android emulator reaches the host machine via 10.0.2.2.
+  static const String assetBaseUrl = bool.fromEnvironment('DEMO_LOCAL')
+      ? 'http://10.0.2.2/hamqadam_live/public'
+      : 'https://hamqadam.com';
 
   /// Single source of truth for the API base URL. `{{APP_URL}}/api/v1`.
   static const String baseUrl = '$assetBaseUrl/api/v1';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
+import '../exceptions/app_exceptions.dart';
 import '../features/discover/widgets/public_profile_detail_sheet.dart';
 import '../models/profile_view_model.dart';
 import '../repositories/profile_view_repository.dart';
@@ -84,7 +85,9 @@ class ProfileViewController extends GetxController {
           : ApiState<List<ProfileViewItem>>.success(List<ProfileViewItem>.from(_receivedList));
     } catch (e) {
       if (refresh || _receivedList.isEmpty) {
-        receivedState.value = ApiState<List<ProfileViewItem>>.serverError(e.toString());
+        receivedState.value = ApiState<List<ProfileViewItem>>.fromException(
+          e is AppException ? e : const ServerException(),
+        );
       }
     }
   }
@@ -133,7 +136,9 @@ class ProfileViewController extends GetxController {
           : ApiState<List<ProfileViewItem>>.success(List<ProfileViewItem>.from(_myViewsList));
     } catch (e) {
       if (refresh || _myViewsList.isEmpty) {
-        myViewsState.value = ApiState<List<ProfileViewItem>>.serverError(e.toString());
+        myViewsState.value = ApiState<List<ProfileViewItem>>.fromException(
+          e is AppException ? e : const ServerException(),
+        );
       }
     }
   }

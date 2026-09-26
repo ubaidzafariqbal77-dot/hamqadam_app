@@ -336,7 +336,7 @@ class _Step01ViewState extends State<Step01View> {
           textAlign: TextAlign.center,
           // Playfair Display, matching every step heading in the references.
           style: AppTextStyles.displaySerif.copyWith(
-            fontSize: 27,
+            fontSize: 22,
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppColors.darkTextPrimary
                 : AppColors.roseTitleInk,
@@ -398,7 +398,7 @@ class _Step01ViewState extends State<Step01View> {
           textAlign: TextAlign.center,
           // Playfair Display, matching every step heading in the references.
           style: AppTextStyles.displaySerif.copyWith(
-            fontSize: 27,
+            fontSize: 22,
             color: Theme.of(context).brightness == Brightness.dark
                 ? AppColors.darkTextPrimary
                 : (titleColor ?? AppColors.roseTitleInk),
@@ -690,7 +690,7 @@ class _GenderCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AppTextStyles.displaySerif.copyWith(
-                fontSize: 27,
+                fontSize: 22,
                 color: AppColors.roseTitleRose,
               ),
             ),

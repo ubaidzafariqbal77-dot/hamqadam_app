@@ -40,7 +40,7 @@ class _FinalizingViewState extends State<FinalizingView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 const SizedBox(height: AppSpacing.lg),
-                Text('Finalizing your profile', style: AppTextStyles.display),
+                Text('Finalizing your profile', style: AppTextStyles.title),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Sending your answers, photos and documents securely. Keep the '

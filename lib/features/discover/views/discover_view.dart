@@ -1088,7 +1088,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                             ],
                           ),
                           style: AppTextStyles.displaySerif.copyWith(
-                            fontSize: 20,
+                            fontSize: 17,
                             height: 1.25,
                             color: AppColors.roseTitleInk,
                           ),

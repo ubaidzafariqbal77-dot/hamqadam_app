@@ -428,7 +428,7 @@ class _PhotoHeader extends StatelessWidget {
                       name,
                       style: AppTextStyles.headline.copyWith(
                         color: Colors.white,
-                        fontSize: 26,
+                        fontSize: 21,
                         shadows: <Shadow>[
                           Shadow(
                             color: Colors.black.withValues(alpha: 0.35),

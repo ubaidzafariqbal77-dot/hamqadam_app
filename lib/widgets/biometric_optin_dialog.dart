@@ -93,7 +93,7 @@ class BiometricOptInDialog extends StatelessWidget {
               child: const Icon(Icons.fingerprint_rounded, color: Colors.white, size: 44),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text('Enable Fingerprint Login?', textAlign: TextAlign.center, style: AppTextStyles.headline),
+            Text('Enable Fingerprint Login?', textAlign: TextAlign.center, style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Next time, log in instantly with your fingerprint — no typing your email and password again.',

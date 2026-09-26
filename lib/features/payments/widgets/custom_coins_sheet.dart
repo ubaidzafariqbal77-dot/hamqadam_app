@@ -150,7 +150,7 @@ class _CustomCoinsSheetState extends State<CustomCoinsSheet> {
                             style: AppTextStyles.title.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
-                              fontSize: 20,
+                              fontSize: 18,
                             ),
                           ),
                         ],

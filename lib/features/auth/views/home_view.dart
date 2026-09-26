@@ -234,7 +234,7 @@ class _TabBody extends StatelessWidget {
               child: Icon(tab.activeIcon, size: 46, color: Colors.white),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text(tab.label, style: AppTextStyles.headline),
+            Text(tab.label, style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.xs),
             Text(
               tab.subtitle,
@@ -452,7 +452,7 @@ class _AppDrawer extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.displaySerif.copyWith(
                             color: Colors.white,
-                            fontSize: 21,
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -745,7 +745,7 @@ class _AppDrawer extends StatelessWidget {
             children: <Widget>[
               Icon(Icons.no_accounts_rounded, size: 18, color: AppColors.error),
               SizedBox(width: 10),
-              Text('Deactivate account', style: TextStyle(color: AppColors.error)),
+              Text('Delete Account', style: TextStyle(color: AppColors.error)),
             ],
           ),
         ),
@@ -929,9 +929,9 @@ class _AppDrawer extends StatelessWidget {
   Future<void> _confirmDeactivate(BuildContext context) async {
     if (await _confirm(
       context,
-      'Deactivate account',
-      'Your profile will be deactivated and hidden. You can reactivate by contacting support. Continue?',
-      'Deactivate',
+      'Delete Account',
+      'Your account will be deleted and your personal data removed: profile, photos, chats, gifts and wallet are erased permanently. This cannot be undone. Continue?',
+      'Delete',
       danger: true,
     )) {
       await auth.deactivateAccount();

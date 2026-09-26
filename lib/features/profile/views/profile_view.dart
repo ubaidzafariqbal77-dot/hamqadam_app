@@ -305,7 +305,7 @@ class _HeroCard extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: AppTextStyles.display.copyWith(
                               color: Colors.white,
-                              fontSize: 23,
+                              fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
                             maxLines: 1,

@@ -898,7 +898,7 @@ class _Step18ViewState extends State<Step18View> {
           textAlign: TextAlign.center,
           // Playfair Display, matching the Partner preferences references.
           style: AppTextStyles.displaySerif.copyWith(
-            fontSize: 25,
+            fontSize: 19,
             color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
           ),
         ),

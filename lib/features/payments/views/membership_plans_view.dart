@@ -239,7 +239,7 @@ class _CurrentPackageCard extends StatelessWidget {
             pkg.name,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 18,
               fontWeight: FontWeight.w900,
               letterSpacing: 0.5,
             ),

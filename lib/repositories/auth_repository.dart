@@ -108,7 +108,9 @@ class AuthRepository {
 
   Future<void> logoutAll() => _client.post(ApiEndpoints.logoutAll);
 
-  /// Deactivates (soft-deletes) the current account.
+  /// Deletes the current account (Google Play policy: the server hides the
+  /// account, revokes every session and destroys the member's personal data
+  /// immediately; only an anonymous tombstone remains for 30 days).
   Future<void> deactivateAccount() => _client.delete(ApiEndpoints.deleteAccount);
 
   /// Sends a password-reset OTP. The docs document a bare `email`; the live API

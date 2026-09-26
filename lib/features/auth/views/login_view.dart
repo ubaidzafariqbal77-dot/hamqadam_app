@@ -400,7 +400,7 @@ class _LoginHeader extends StatelessWidget {
             textAlign: TextAlign.center,
             // The registration serif heading in the deep rose ink.
             style: AppTextStyles.displaySerif.copyWith(
-              fontSize: 30,
+              fontSize: 24,
               color: AppColors.roseTitleInk,
             ),
             urduColor: AppColors.roseTitleInk,

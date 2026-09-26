@@ -249,7 +249,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                           child: const Icon(Icons.support_agent_rounded, size: 40, color: Colors.white),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Text('Assalam-o-Alaikum!', style: AppTextStyles.headline.copyWith(fontSize: 20)),
+                        Text('Assalam-o-Alaikum!', style: AppTextStyles.headline.copyWith(fontSize: 18)),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
                           'Describe your issue below and our support team will get back to you right here.',

@@ -67,11 +67,20 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
         crossAxisAlignment: centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(title, style: AppTextStyles.title.copyWith(color: Colors.white)),
+          Text(
+            title,
+            style: AppTextStyles.title.copyWith(
+              color: Colors.white,
+              fontSize: 18,
+            ),
+          ),
           if ((subtitle ?? '').isNotEmpty)
             Text(
               subtitle!,
-              style: AppTextStyles.caption.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+              style: AppTextStyles.caption.copyWith(
+                color: Colors.white.withValues(alpha: 0.85),
+                fontSize: 12,
+              ),
             ),
         ],
       ),

@@ -116,7 +116,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            const Text('Contact support', style: AppTextStyles.headline),
+            const Text('Contact support', style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Tell our team what you need help with — your message goes '
@@ -241,7 +241,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                       Text(
                         'Account under manual review',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.display.copyWith(color: Colors.white),
+                        style: AppTextStyles.title.copyWith(color: Colors.white),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(

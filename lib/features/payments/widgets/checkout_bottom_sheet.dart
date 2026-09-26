@@ -233,7 +233,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       style: AppTextStyles.title.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w900,
-                        fontSize: 20,
+                        fontSize: 18,
                       ),
                     ),
                   ],

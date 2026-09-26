@@ -160,7 +160,7 @@ class _Header extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         BiText(
           otpSent ? 'Enter OTP & new password' : 'Forgot your password?',
-          style: AppTextStyles.headline,
+          style: AppTextStyles.title,
         ),
         const SizedBox(height: 4),
         BiText(

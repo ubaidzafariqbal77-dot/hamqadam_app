@@ -123,7 +123,7 @@ class _Step09ViewState extends State<Step09View> {
             BiText(
               'Dietary Preference',
               style: AppTextStyles.display.copyWith(
-                fontSize: 25,
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: AppColors.regAccent,
               ),

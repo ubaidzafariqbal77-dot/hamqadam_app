@@ -231,7 +231,7 @@ class InboxHeader extends StatelessWidget {
                 textAlign: TextAlign.center,
                 // Playfair, like every other reference heading in the app.
                 style: AppTextStyles.displaySerif.copyWith(
-                  fontSize: 28,
+                  fontSize: 21,
                   color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
                 ),
               ),

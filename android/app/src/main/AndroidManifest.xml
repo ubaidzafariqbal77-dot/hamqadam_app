@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- ── Network ────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Fingerprint login (local_auth BiometricPrompt). -->
@@ -12,12 +13,11 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
     <!-- ── Storage / Photos ──────────────────────────────────────────────
-         WRITE_EXTERNAL_STORAGE is intentionally NOT declared: the app only
-         saves into app-specific directories and galleries are read through
-         the system Photo Picker, both of which need no storage permission. -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+         No media-read permissions at all: galleries are accessed through
+         the system Photo Picker (image_picker's photo_picker_activity on
+         Android 11+), which needs no READ_MEDIA_* permission, and camera
+         captures are handed to the app via a FileProvider. Google Play's
+         Photo & Video policy is satisfied by NOT holding these. -->
 
     <!-- ── Notifications (Android 13+) ────────────────────────────────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
@@ -49,7 +49,11 @@
          back open. The typed permissions are required from Android 14. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+    <!-- No FOREGROUND_SERVICE_CAMERA: a minimised video call keeps its audio
+         but drops its picture. VideoCallScreen stops the local camera when the
+         app leaves the foreground and restarts it on return, so the camera is
+         only ever held while the call is on screen — which needs no camera
+         foreground-service type at all. -->
 
     <!-- ── Battery optimisation exemption ──────────────────────────────
          Measured on an Infinix X6853: FCM reaches the app in the foreground,
@@ -62,6 +66,17 @@
          Google's policy permits this permission for apps whose core function
          is calling. See PermissionsService.requestCallReliability. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+    <!-- ── Screen sharing: not a feature of this app ───────────────────
+         agora_rtc_engine pulls in io.agora.rtc2.extensions:full-screen-sharing,
+         whose own manifest declares FOREGROUND_SERVICE_MEDIA_PROJECTION and a
+         mediaProjection service. Nothing in this app ever calls
+         startScreenCapture, so the permission only served to make Play ask for
+         a demo video of a feature that does not exist. Stripped here, together
+         with the service and helper activity it came with. -->
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+        tools:node="remove"/>
 
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
@@ -136,13 +151,23 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Holds the microphone (and the camera, on a video call) open while
-             the call is minimised, and owns the ongoing-call tray entry. -->
+        <!-- Holds the microphone open while the call is minimised, and owns
+             the ongoing-call tray entry. Audio only: the camera is released
+             when the call leaves the foreground. -->
         <service
             android:name=".CallForegroundService"
             android:exported="false"
             android:stopWithTask="true"
-            android:foregroundServiceType="microphone|camera"/>
+            android:foregroundServiceType="microphone"/>
+
+        <!-- The screen-sharing service and its helper activity arrive with
+             the same Agora module as the permission stripped above. -->
+        <service
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenSharingService"
+            tools:node="remove"/>
+        <activity
+            android:name="io.agora.rtc2.extensions.MediaProjectionMgr$LocalScreenCaptureAssistantActivity"
+            tools:node="remove"/>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

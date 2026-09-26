@@ -153,7 +153,7 @@ class StepScaffold extends StatelessWidget {
             // design references. Only the English line takes the serif — the
             // Urdu companion stays Nastaliq, which has no serif counterpart.
             style: AppTextStyles.displaySerif.copyWith(
-              fontSize: 27,
+              fontSize: 22,
               color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
             ),
           ),
@@ -320,7 +320,7 @@ class StepScaffold extends StatelessWidget {
                 title,
                 textAlign: TextAlign.left,
                 style: AppTextStyles.displaySerif.copyWith(
-                  fontSize: 32,
+                  fontSize: 24,
                   height: 1.1,
                   color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
                 ),

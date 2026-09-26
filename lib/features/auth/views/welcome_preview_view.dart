@@ -169,7 +169,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                         Text(
                           'Proposals for you',
                           style: AppTextStyles.display.copyWith(
-                            fontSize: 38,
+                            fontSize: 26,
                             fontWeight: FontWeight.w800,
                             color: AppColors.lightTextPrimary,
                             letterSpacing: -0.5,

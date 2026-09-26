@@ -694,17 +694,20 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     return 'Last seen ${DateFormat('d MMM').format(at)}';
   }
 
+  /// WhatsApp-style composer: ONE rounded pill holds the text field; the
+  /// attachment (+), emoji and mic/send buttons sit inside it. The timer lives
+  /// outside on the left of the pill. Everything is vertically centered and
+  /// the row never grows taller than the field itself.
   Widget _buildComposer(BuildContext context, bool isDark) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.xs,
-        AppSpacing.sm,
-        MediaQuery.of(context).padding.bottom + AppSpacing.xs,
+        8,
+        6,
+        8,
+        MediaQuery.of(context).padding.bottom + 6,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
-        border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
       ),
       child: Obx(() {
         // While recording, the whole composer becomes the recording bar.
@@ -718,133 +721,172 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
             if (_timerMenuOpen) _buildTimerMenu(isDark),
             Row(
-            // Vertically centered, not end-aligned: the field's contentPadding
-            // grows its intrinsic height, so CrossAxisAlignment.end pushed the
-            // mic/send bubble below the row's baseline (the screenshot bug).
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-          // Attachment Button
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
-            tooltip: 'Attach Media or Document',
-            onPressed: _showAttachmentOptions,
-          ),
-          // Emoji button — quick picker above the keyboard.
-          IconButton(
-            icon: Icon(
-              Icons.emoji_emotions_outlined,
-              color: _emojiPanelOpen ? AppColors.primary : AppColors.primary.withValues(alpha: 0.75),
-              size: 24,
-            ),
-            tooltip: 'Emoji',
-            onPressed: () {
-              setState(() {
-                _emojiPanelOpen = !_emojiPanelOpen;
-                _timerMenuOpen = false;
-              });
-            },
-          ),
-          // Text Input Box
-          Expanded(
-            child: Container(
-              // A minimum height matching the circular buttons (40dp) keeps the
-              // single-line field from rendering shorter than its neighbours —
-              // the box looked visually “floating” between them.
-              constraints: const BoxConstraints(minHeight: 44, maxHeight: 120),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: _timerActive
-                      ? AppColors.success
-                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
-                ),
-              ),
-              child: TextField(
-                controller: _controller.messageInputController,
-                onChanged: _controller.onTextChanged,
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                style: AppTextStyles.body,
-                decoration: InputDecoration(
-                  hintText: _timerActive ? 'Disappearing message…' : 'Type a message…',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: Theme.of(context).hintColor.withValues(alpha: 0.7),
-                    fontSize: 14,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                // Disappearing-message timer — small chip outside the pill.
+                SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.timer_outlined,
+                      size: 20,
+                      color: _timerActive
+                          ? AppColors.success
+                          : AppColors.primary.withValues(alpha: 0.7),
+                    ),
+                    tooltip: 'Disappearing messages',
+                    onPressed: () {
+                      setState(() {
+                        _timerMenuOpen = !_timerMenuOpen;
+                        _emojiPanelOpen = false;
+                      });
+                    },
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  isDense: true,
-                  border: InputBorder.none,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          // Disappearing-message timer — timer chip toggles the menu.
-          IconButton(
-            icon: Icon(
-              Icons.timer_outlined,
-              size: 22,
-              color: _timerActive
-                  ? AppColors.success
-                  : AppColors.primary.withValues(alpha: 0.75),
-            ),
-            tooltip: 'Disappearing messages',
-            onPressed: () {
-              setState(() {
-                _timerMenuOpen = !_timerMenuOpen;
-                _emojiPanelOpen = false;
-              });
-            },
-          ),
-          // Mic when the composer is empty, send otherwise — the WhatsApp
-          // pattern: one thumb, no mode switching.
-          Obx(() {
-            final bool hasText = _composerHasText.value;
-            final bool sending = _controller.isSending.value;
-            return Container(
-              // No bottom margin: the row is center-aligned now, so an offset
-              // here visibly dropped the mic/send bubble below the others.
-              decoration: BoxDecoration(
-                gradient: hasText || sending
-                    ? const LinearGradient(
-                        colors: AppColors.brandGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: hasText || sending
-                    ? null
-                    : AppColors.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: sending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : Icon(
-                        hasText ? Icons.send_rounded : Icons.mic_rounded,
-                        color: hasText || sending
-                            ? Colors.white
-                            : AppColors.primary,
-                        size: hasText ? 19 : 22,
+                const SizedBox(width: 2),
+                // THE pill: + / emoji / text field / mic-send, all inside.
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    constraints: const BoxConstraints(minHeight: 48),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: _timerActive
+                            ? AppColors.success.withValues(alpha: 0.6)
+                            : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
                       ),
-                tooltip: hasText ? 'Send' : 'Record voice note',
-                onPressed: sending
-                    ? null
-                    : hasText
-                        ? _controller.sendMessage
-                        : _controller.startRecording,
-              ),
-            );
-          }),
-            ],
-          ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        SizedBox(
+                          width: 36,
+                          height: 44,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(Icons.add_circle_outline_rounded,
+                                color: AppColors.primary, size: 22),
+                            tooltip: 'Attach Media or Document',
+                            onPressed: _showAttachmentOptions,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 34,
+                          height: 44,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: Icon(
+                              Icons.emoji_emotions_outlined,
+                              color: _emojiPanelOpen
+                                  ? AppColors.primary
+                                  : AppColors.primary.withValues(alpha: 0.7),
+                              size: 20,
+                            ),
+                            tooltip: 'Emoji',
+                            onPressed: () {
+                              setState(() {
+                                _emojiPanelOpen = !_emojiPanelOpen;
+                                _timerMenuOpen = false;
+                              });
+                            },
+                          ),
+                        ),
+                        Expanded(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 48, maxHeight: 120),
+                            child: Center(
+                              child: TextField(
+                                controller: _controller.messageInputController,
+                                onChanged: _controller.onTextChanged,
+                                maxLines: null,
+                                keyboardType: TextInputType.multiline,
+                                textCapitalization: TextCapitalization.sentences,
+                                style: AppTextStyles.body.copyWith(fontSize: 14.5),
+                                cursorColor: AppColors.primary,
+                                decoration: InputDecoration(
+                                  hintText: _timerActive
+                                      ? 'Disappearing message…'
+                                      : 'Type a message…',
+                                  hintStyle: AppTextStyles.body.copyWith(
+                                    color: Theme.of(context)
+                                        .hintColor
+                                        .withValues(alpha: 0.65),
+                                    fontSize: 14,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 14),
+                                  isDense: true,
+                                  isCollapsed: true,
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Mic when nothing is ready to send, send otherwise —
+                        // the WhatsApp pattern. An attachment counts as ready:
+                        // without this the mic stayed after picking a file and
+                        // there was no way to send it.
+                        Obx(() {
+                          final bool hasText = _composerHasText.value;
+                          final bool hasAttachments =
+                              _controller.pendingAttachments.isNotEmpty;
+                          final bool readyToSend = hasText || hasAttachments;
+                          final bool sending = _controller.isSending.value;
+                          return Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: readyToSend || sending
+                                    ? const LinearGradient(
+                                        colors: AppColors.brandGradient,
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : null,
+                                color: readyToSend || sending
+                                    ? null
+                                    : AppColors.primary.withValues(alpha: 0.35),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                icon: sending
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : Icon(
+                                        readyToSend
+                                            ? Icons.send_rounded
+                                            : Icons.mic_rounded,
+                                        color: Colors.white,
+                                        size: readyToSend ? 18 : 20,
+                                      ),
+                                tooltip: readyToSend ? 'Send' : 'Record voice note',
+                                onPressed: sending
+                                    ? null
+                                    : readyToSend
+                                        ? _controller.sendMessage
+                                        : _controller.startRecording,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         );
       }),

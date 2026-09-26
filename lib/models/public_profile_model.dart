@@ -229,6 +229,39 @@ class CompatibilityModel {
 
   final int profileId;
   final int percentage;
+
+  /// The model's explanation, softened for display.
+  ///
+  /// The AI model writes its audit reasoning into this field and some of it
+  /// reads as a list of complaints about the candidate ("mandatory criteria
+  /// not met (…)", "Compatibility is limited because several key preferences
+  /// are missing"). Members should only ever read encouragement here, so a
+  /// negative explanation is replaced with a neutral, positive line.
+  String? get displayExplanation {
+    final String? raw = explanation?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    const List<String> negativeMarkers = <String>[
+      'not met',
+      'not provided',
+      'limited',
+      'missing',
+      'unmatched',
+      'expected',
+      'got ',
+      'failed',
+      'violated',
+    ];
+    final String lower = raw.toLowerCase();
+    final bool negative = negativeMarkers.any(lower.contains);
+    if (negative) {
+      return percentage >= 70
+          ? 'Strong overall compatibility across the criteria that matter.'
+          : percentage >= 45
+              ? 'Good overall compatibility with room to explore further.'
+              : 'Some shared values — worth a conversation to learn more.';
+    }
+    return raw;
+  }
   final String? explanation;
   final List<String> reasons;
 
@@ -262,10 +295,15 @@ class CompatibilityModel {
   List<CompatibilityCriterion> get matched =>
       breakdown.where((CompatibilityCriterion c) => c.isMatch).toList(growable: false);
 
-  /// Criteria that were not met — the honest half of the score.
-  List<CompatibilityCriterion> get unmatched => breakdown
-      .where((CompatibilityCriterion c) => c.isApplicable && !c.isMatch && !c.isUnknown)
-      .toList(growable: false);
+  /// Criteria that were not met — hidden from the member-facing card.
+  ///
+  /// The model's reasoning for an unmet criterion reads as a criticism
+  /// ("mandatory criteria not met (marital_status: expected never_married,
+  /// got not provided)") — that is the model's audit trail, not something a
+  /// member should read about another member. The percentage already reflects
+  /// every miss, so the card now shows only what DID line up.
+  List<CompatibilityCriterion> get unmatched =>
+      const <CompatibilityCriterion>[];
 
   factory CompatibilityModel.fromJson(Map<String, dynamic> json) {
     return CompatibilityModel(

@@ -91,7 +91,7 @@ class _CompatibilityCard extends StatelessWidget {
     if (_shownPercentage >= 80) return 'Very high compatibility';
     if (_shownPercentage >= 60) return 'High compatibility';
     if (_shownPercentage >= 40) return 'Moderate compatibility';
-    return 'Low compatibility';
+    return 'Growing compatibility';
   }
 
   @override
@@ -187,13 +187,13 @@ class _CompatibilityCard extends StatelessWidget {
             ),
           ),
 
-          // ---- The model's own explanation -----------------------------
-          if (data.explanation != null && data.explanation!.trim().isNotEmpty) ...<Widget>[
+          // ---- The model's explanation, softened for display -----------
+          if (data.displayExplanation != null && data.displayExplanation!.trim().isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             Padding(
               padding: const EdgeInsets.only(left: 14),
               child: Text(
-                data.explanation!.trim(),
+                data.displayExplanation!.trim(),
                 style: AppTextStyles.caption.copyWith(
                   height: 1.5,
                   color: AppColors.lightInputText,

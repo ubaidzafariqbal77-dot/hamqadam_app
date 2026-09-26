@@ -268,7 +268,7 @@ class _PageContent extends StatelessWidget {
                   page.title,
                   textAlign: TextAlign.center,
                   style: AppTextStyles.headline.copyWith(
-                    fontSize: 26,
+                    fontSize: 22,
                     color: AppColors.lightTextPrimary,
                   ),
                 ),
@@ -352,7 +352,7 @@ class _HandoffContentState extends State<_HandoffContent>
                       Text(
                         AppStrings.appName,
                         style: AppTextStyles.headline.copyWith(
-                          fontSize: 30,
+                          fontSize: 26,
                           color: AppColors.lightTextPrimary,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.5,

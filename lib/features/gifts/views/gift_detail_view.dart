@@ -98,7 +98,7 @@ class _GiftDetailViewState extends State<GiftDetailView> {
                     : const Icon(Icons.card_giftcard_rounded, size: 96, color: AppColors.regAccent),
               ),
               const SizedBox(height: AppSpacing.md),
-              Text(gift?.name ?? 'Gift', style: AppTextStyles.displaySerif.copyWith(fontSize: 24)),
+              Text(gift?.name ?? 'Gift', style: AppTextStyles.displaySerif.copyWith(fontSize: 20)),
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,

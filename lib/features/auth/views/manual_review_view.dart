@@ -12,6 +12,8 @@ import '../../../models/manual_review_state.dart';
 import '../../../repositories/auth_repository.dart';
 import '../../../exceptions/app_exceptions.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/storage/current_user_service.dart';
+import '../../../features/help_center/views/guest_help_view.dart';
 import '../../../widgets/app_button.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/app_text_form_field.dart';
@@ -84,11 +86,17 @@ class _ManualReviewViewState extends State<ManualReviewView> {
     }
   }
 
-  /// Opens the full Help Center chat. The backend's review gate explicitly
-  /// allows help-chat routes, so a member stuck in review can always reach a
-  /// human through here — that is the whole point of the button.
+  /// Opens the Help Center. Members reach the full chat (the backend's
+  /// review gate explicitly allows help-chat routes, so a member stuck in
+  /// review can always reach a human); anyone without a session gets the
+  /// guest form instead.
   void _openHelpCenter() {
-    HelpChatView.open();
+    if (Get.isRegistered<CurrentUserService>() &&
+        Get.find<CurrentUserService>().hasUser) {
+      HelpChatView.open();
+    } else {
+      GuestHelpView.open();
+    }
   }
 
   /// Support request through the one endpoint the review gate leaves open.

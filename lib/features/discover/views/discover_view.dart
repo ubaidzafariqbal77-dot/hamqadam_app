@@ -1041,25 +1041,16 @@ class _SingleUserProfileCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        // "Sara Khan, 26" — serif headline, the reference
-                        // card's way of writing a name.
-                        //
-                        // One text flow, not a Row: as separate children the
-                        // age and the tick reserved fixed width, so the name
-                        // was the only thing left to shrink and long names
-                        // ellipsed to "Muha…" even with room to spare. As
-                        // spans they share the line, and the name may take a
-                        // second one before any of it is cut.
+                        // Name only — the age moved down into the chips row so
+                        // the headline stays a clean name + verification tick,
+                        // the way premium profiles read.
                         Text.rich(
                           TextSpan(
                             children: <InlineSpan>[
                               TextSpan(text: profile.displayName),
-                              if (profile.age != null)
-                                TextSpan(text: ', ${profile.age}'),
-                              // Non-breaking space, not a spacer widget: a
-                              // WidgetSpan gap is a legal place to wrap, which
-                              // left the tick stranded alone on a second line
-                              // whenever the name itself fitted on the first.
+                              // Non-breaking space keeps the tick glued to the
+                              // name; a spacer widget gap is a legal wrap point
+                              // that stranded the tick alone on a second line.
                               const TextSpan(text: '\u00A0'),
                               WidgetSpan(
                                 alignment: PlaceholderAlignment.middle,
@@ -1096,11 +1087,18 @@ class _SingleUserProfileCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
+                        // Age · height · gender — one polished chip row, the
+                        // card's quick facts at a glance.
                         Wrap(
                           spacing: 6,
                           runSpacing: 5,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: <Widget>[
+                            if (profile.age != null)
+                              _InfoChip(
+                                icon: Icons.cake_outlined,
+                                label: '${profile.age} yrs',
+                              ),
                             if (heightLabel.isNotEmpty)
                               _InfoChip(
                                 icon: Icons.height_rounded,
@@ -1183,18 +1181,27 @@ class _SingleUserProfileCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               // ==========================================================
-              // 2. Glyph fact rows — the reference's 📍 🕌 💍 lines
+              // 2. Fact pills — location, religion, caste, marital status
+              //    as soft tinted pills in a wrapping row: reads at a glance
+              //    instead of a form-like list of glyph rows.
               // ==========================================================
-              _FactLine(
-                icon: Icons.location_on_outlined,
-                text: _buildLocationString(city, state, country),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: <Widget>[
+                  _FactPill(
+                    icon: Icons.location_on_outlined,
+                    text: _buildLocationString(city, state, country),
+                  ),
+                  if (religion != null && religion.isNotEmpty)
+                    _FactPill(icon: Icons.mosque_outlined, text: religion),
+                  if (caste != null && caste.isNotEmpty)
+                    _FactPill(icon: Icons.groups_outlined, text: caste),
+                  if (marital != null && marital.isNotEmpty)
+                    _FactPill(
+                        icon: Icons.favorite_border_rounded, text: marital),
+                ],
               ),
-              if (religion != null && religion.isNotEmpty)
-                _FactLine(icon: Icons.mosque_outlined, text: religion),
-              if (caste != null && caste.isNotEmpty)
-                _FactLine(icon: Icons.groups_outlined, text: caste),
-              if (marital != null && marital.isNotEmpty)
-                _FactLine(icon: Icons.favorite_border_rounded, text: marital),
 
               const SizedBox(height: 12),
 
@@ -1568,40 +1575,38 @@ class _InfoChip extends StatelessWidget {
 }
 
 /// One quiet glyph fact line under the headline (📍 city · 🕌 religion).
-class _FactLine extends StatelessWidget {
-  const _FactLine({required this.icon, required this.text});
+/// Soft tinted pill carrying one profile fact (location, religion…). The
+/// wrapping-pill form replaced the old glyph+text rows: a row of pills reads
+/// as scannable facts rather than a form.
+class _FactPill extends StatelessWidget {
+  const _FactPill({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.regAccent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.15)),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // Fixed-width, centred icon cell so every line's text starts on the
-          // same left edge whatever the glyph's own width is — a mosque and a
-          // pin do not measure the same, and the ragged left edge was what
-          // made the block look unaligned.
-          SizedBox(
-            width: 18,
-            child: Center(
-              child: Icon(icon, size: 14, color: AppColors.regAccent),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
+          Icon(icon, size: 13, color: AppColors.regAccent),
+          const SizedBox(width: 5),
+          Flexible(
             child: Text(
               text,
               style: AppTextStyles.caption.copyWith(
-                fontSize: 13,
-                height: 1.35,
-                fontWeight: FontWeight.w500,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
                 color: AppColors.chatPreviewInk,
               ),
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),

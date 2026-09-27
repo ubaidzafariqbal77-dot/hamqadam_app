@@ -1338,9 +1338,12 @@ class _TrustChecklistCard extends StatelessWidget {
         children: <Widget>[
           const _CardHeader(icon: Icons.fact_check_rounded, title: 'Trust & Verification'),
           const SizedBox(height: AppSpacing.xs),
-          _TrustRow(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', ink: ink, muted: muted),
-          _TrustRow(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', ink: ink, muted: muted),
-          _TrustRow(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', ink: ink, muted: muted),
+          // Every row: green check = verified, red cross = rejected, amber
+          // hourglass = submitted and awaiting the reviewer, grey ring = not
+          // submitted. The colour IS the verdict at a glance.
+          _TrustRow(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', pendingText: 'Under review', ink: ink, muted: muted),
+          _TrustRow(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', pendingText: 'Awaiting review', ink: ink, muted: muted),
+          _TrustRow(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', pendingText: 'Checking…', ink: ink, muted: muted),
           _TrustRow(label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
           _TrustRow(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
           _TrustRow(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
@@ -1351,8 +1354,11 @@ class _TrustChecklistCard extends StatelessWidget {
   }
 }
 
-/// One checklist row: bold label, soft verdict, and a state icon that never
-/// relies on colour alone (tick / cross / dash carry the meaning).
+/// One checklist row: bold label, soft verdict, and a COLOURFUL state icon —
+/// a filled green check for verified, a red cross for rejected/failed, an
+/// amber hourglass for anything still awaiting review, and a neutral grey
+/// dash only for items that were never submitted. The icon shape carries the
+/// meaning alongside the colour, so it survives colour-blind reading too.
 class _TrustRow extends StatelessWidget {
   const _TrustRow({
     required this.label,
@@ -1361,12 +1367,17 @@ class _TrustRow extends StatelessWidget {
     required this.failedText,
     required this.ink,
     required this.muted,
+    this.pendingText,
   });
 
   final String label;
   final bool? passed;
   final String passedText;
   final String failedText;
+
+  /// Verdict for "submitted but no decision yet" (passed == null). Falls
+  /// back to [failedText] when the caller has no distinct wording.
+  final String? pendingText;
   final Color ink;
   final Color muted;
 
@@ -1375,9 +1386,20 @@ class _TrustRow extends StatelessWidget {
     final (IconData icon, Color color) = switch (passed) {
       true => (Icons.check_circle_rounded, AppColors.success),
       false => (Icons.cancel_rounded, AppColors.error),
-      null => (Icons.remove_circle_outline_rounded, muted),
+      null => (pendingText != null
+          ? Icons.hourglass_top_rounded
+          : Icons.radio_button_unchecked_rounded, AppColors.warning),
     };
-    final String text = passed == true ? passedText : failedText;
+    final String text = switch (passed) {
+      true => passedText,
+      false => failedText,
+      null => pendingText ?? failedText,
+    };
+    final Color verdictColor = switch (passed) {
+      true => AppColors.success,
+      false => AppColors.error,
+      null => AppColors.warning,
+    };
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -1391,14 +1413,14 @@ class _TrustRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
-          Icon(icon, size: 17, color: color),
+          Icon(icon, size: 18, color: color),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
               style: AppTextStyles.caption.copyWith(
-                color: passed == true ? muted : ink,
-                fontWeight: passed == true ? FontWeight.w500 : FontWeight.w600,
+                color: verdictColor,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

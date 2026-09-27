@@ -39,6 +39,7 @@ class PublicProfileModel {
     this.approved = false,
     this.age,
     this.gender,
+    this.aboutMe,
     this.maritalStatusId,
     this.height,
     this.religionId,
@@ -62,6 +63,12 @@ class PublicProfileModel {
   final bool approved;
   final int? age;
   final String? gender;
+
+  /// The member's self-written bio — `about_me` from the public profile
+  /// payload (the server maps members.introduction). Rendered as the
+  /// "About me" card on the profile detail page; null hides the card.
+  final String? aboutMe;
+
   final int? maritalStatusId;
   final String? height;
   final int? religionId;
@@ -117,6 +124,11 @@ class PublicProfileModel {
       approved: _asBool(json['approved']),
       age: _asIntOrNull(json['age']),
       gender: json['gender']?.toString(),
+      aboutMe: () {
+        final dynamic raw = json['about_me'];
+        final String bio = raw?.toString() ?? '';
+        return bio.trim().isEmpty ? null : bio.trim();
+      }(),
       maritalStatusId: _asIntOrNull(json['marital_status_id']),
       height: json['height']?.toString(),
       religionId: _asIntOrNull(json['religion_id']),
@@ -295,15 +307,17 @@ class CompatibilityModel {
   List<CompatibilityCriterion> get matched =>
       breakdown.where((CompatibilityCriterion c) => c.isMatch).toList(growable: false);
 
-  /// Criteria that were not met — hidden from the member-facing card.
+  /// Criteria that were not met — the honest half of the "Why?" list.
   ///
-  /// The model's reasoning for an unmet criterion reads as a criticism
-  /// ("mandatory criteria not met (marital_status: expected never_married,
-  /// got not provided)") — that is the model's audit trail, not something a
-  /// member should read about another member. The percentage already reflects
-  /// every miss, so the card now shows only what DID line up.
-  List<CompatibilityCriterion> get unmatched =>
-      const <CompatibilityCriterion>[];
+  /// The reference format shows BOTH halves, each as a plain point:
+  ///   ✓ Similar marriage timeline
+  ///   ⚠ Different relocation preference
+  /// The backend now sends softened human sentences for unmet criteria
+  /// ("Profession does not match preference: Teacher"), so the model's
+  /// audit-trail wording no longer reaches the member raw.
+  List<CompatibilityCriterion> get unmatched => breakdown
+      .where((CompatibilityCriterion c) => c.isApplicable && !c.isMatch && !c.isUnknown)
+      .toList(growable: false);
 
   factory CompatibilityModel.fromJson(Map<String, dynamic> json) {
     return CompatibilityModel(

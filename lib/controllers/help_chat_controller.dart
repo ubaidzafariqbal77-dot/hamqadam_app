@@ -59,6 +59,18 @@ class HelpChatController extends GetxController {
   @override
   bool get isClosed => threadState.value.data?.isClosed ?? false;
 
+  /// Ticket lock — true when the member let the response window after the
+  /// admin's reply lapse. The composer is replaced by "Start New chat".
+  bool get isLocked => threadState.value.data?.isLocked ?? false;
+
+  /// The member can no longer send on the current thread (locked or closed).
+  bool get cannotRespond => threadState.value.data?.cannotRespond ?? false;
+
+  /// Seconds left before the ticket locks, once the admin has replied and the
+  /// member has not. Drives the countdown pill; 0 when no clock is running.
+  final RxInt secondsUntilLock = 0.obs;
+  Timer? _lockTicker;
+
   /// Unread help replies — the drawer badge reads this.
   final RxInt unreadCount = 0.obs;
 
@@ -87,15 +99,37 @@ class HelpChatController extends GetxController {
     super.onInit();
     _pusher.onHelpChatMessage = _handleRealtimeMessage;
     _statusSub = _pusher.statusStream.listen((_) => _retuneFallback());
+    // One-second tick while a response window is open, so the app can show
+    // "ticket locks in m:ss" and flip to the locked state on time.
+    _lockTicker = Timer.periodic(const Duration(seconds: 1), (_) => _tickLockClock());
   }
 
   @override
   void onClose() {
     _statusSub?.cancel();
     _fallbackTimer?.cancel();
+    _lockTicker?.cancel();
     messageInputController.dispose();
     super.onClose();
   }
+
+  /// Recomputes the countdown from the thread's response deadline. When it
+  /// hits zero the thread is re-read once so the server's lock state lands.
+  void _tickLockClock() {
+    final DateTime? deadline = threadState.value.data?.responseDeadline;
+    if (deadline == null) {
+      if (secondsUntilLock.value != 0) secondsUntilLock.value = 0;
+      return;
+    }
+    final int remaining = deadline.difference(DateTime.now()).inSeconds;
+    secondsUntilLock.value = remaining > 0 ? remaining : 0;
+    if (remaining <= 0 && !isLocked && !_recheckingAfterLock) {
+      _recheckingAfterLock = true;
+      openHelpChat().whenComplete(() => _recheckingAfterLock = false);
+    }
+  }
+
+  bool _recheckingAfterLock = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -201,6 +235,13 @@ class HelpChatController extends GetxController {
       );
       return;
     }
+    if (isLocked) {
+      AppSnackbar.info(
+        'This conversation was locked after the support reply expired. '
+        'Use Start New chat below.',
+      );
+      return;
+    }
     if (isSending.value) return;
 
     final String localId =
@@ -245,6 +286,39 @@ class HelpChatController extends GetxController {
     messageInputController.text = failed.message;
     pendingAttachments.assignAll(failed.localAttachmentPaths);
     await sendMessage();
+  }
+
+  /// "Start New chat" — after a locked ticket, opens a fresh conversation.
+  /// Whatever the member had typed / attached rides along as the first
+  /// message, and the view clears into the new thread.
+  Future<void> startNewChat() async {
+    if (isSending.value) return;
+    final String text = messageInputController.text.trim();
+    final List<String> attachments = List<String>.from(pendingAttachments);
+
+    isSending.value = true;
+    try {
+      final (HelpChatThread thread, HelpChatMessage? first) =
+          await _repo.startNewChat(message: text, attachmentPaths: attachments);
+      threadState.value = ApiState<HelpChatThread>.success(thread);
+      unreadCount.value = thread.unreadCount;
+      messages.clear();
+      messageInputController.clear();
+      pendingAttachments.clear();
+      if (first != null) messages.add(first);
+
+      // Re-subscribe the realtime channel to the NEW thread id.
+      if (thread.id > 0) {
+        _pusher.unsubscribeHelpChannel();
+        _pusher.subscribeToHelpChannel(thread.id);
+      }
+      AppSnackbar.success('New conversation started.');
+    } catch (e) {
+      AppLogger.w('Help chat start-new failed: $e');
+      AppSnackbar.error('Could not start a new conversation. Try again.');
+    } finally {
+      isSending.value = false;
+    }
   }
 
   void addAttachment(String path) {

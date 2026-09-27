@@ -277,15 +277,16 @@ class AuthController extends GetxController {
     manualReview.value = null;
   }
 
-  /// Explicit logout / deactivation: session data is wiped, the "onboarding
-  /// seen" flag resets, and the member lands on the ONBOARDING flow — the
-  /// same first-look experience a fresh install gets. (A forced 401
-  /// re-authentication keeps the plain login shortcut in
-  /// [handleUnauthorized] — there the session died behind the app's back.)
+  /// Explicit logout / deactivation: session data is wiped and the member
+  /// lands on the Welcome Preview ("Proposals for you") screen — the same
+  /// guest landing they reach after finishing onboarding, with the
+  /// login/register entry point one tap away. The full onboarding replay is
+  /// reserved for the very first launch only (splash routes there when the
+  /// seen-flag is absent); replaying it after every logout felt like a reset.
   Future<void> _clearAndGoOnboarding() async {
     await _clearSessionData();
     await _clearOnboardingSeen();
-    Get.offAllNamed(AppRoutes.onboarding);
+    Get.offAllNamed(AppRoutes.welcomePreview);
   }
 
   /// Wipes everything a signed-in session owns. Fingerprint-login credentials

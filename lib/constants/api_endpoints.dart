@@ -119,6 +119,10 @@ class ApiEndpoints {
   /// public marketing slice of each profile.
   static const String publicDiscover = '/public/discover';
 
+  /// Guest (no-auth) Help Center form submission — name / email / description.
+  /// Saves into the admin panel's Contact Us Queries list.
+  static const String publicHelp = '/public/help';
+
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
 
@@ -388,6 +392,10 @@ class ApiEndpoints {
   // ---- Help Center (support chat) ------------------------------------------
   /// The member's Help Center conversation (created on first use).
   static const String helpChatThread = '/help-chat/thread';
+
+  /// "Start New chat" after a locked ticket — creates a fresh conversation
+  /// (optionally posting the first message with it).
+  static const String helpChatNew = '/help-chat/new';
 
   /// Messages of that conversation (`GET` list / `POST` send).
   static const String helpChatMessages = '/help-chat/messages';

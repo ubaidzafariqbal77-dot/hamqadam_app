@@ -223,7 +223,14 @@ class _InterestList extends StatelessWidget {
               Expanded(
                 child: EmptyStateWidget(
                   title: received ? 'No interests received' : 'No interests sent',
-                  message: s.message,
+                  // Shortlisting a profile (the heart on a Discover card) does
+                  // NOT create an interest — only an Express Interest does.
+                  // Spell that out, or members expect favourites here.
+                  message: received
+                      ? 'No one has expressed interest in you yet. Send an '
+                          'interest from Discover — tap the heart icon on a '
+                          'profile card — and their response will appear here.'
+                      : s.message,
                   onRefresh: reload,
                 ),
               ),

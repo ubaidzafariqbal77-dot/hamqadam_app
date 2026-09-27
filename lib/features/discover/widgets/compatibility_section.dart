@@ -242,9 +242,17 @@ class _CompatibilityCard extends StatelessWidget {
   }
 }
 
-/// One line of the "Why?" checklist: ✓ for a satisfied criterion, ⚠ for one
-/// that did not line up. Tap shows the model's own sentence for that criterion
-/// when it has one — far more specific than the label alone.
+/// One line of the "Why?" checklist, in the reference format:
+///
+///   ✓ Similar marriage timeline
+///   ✓ Same city preference
+///   ⚠ Different relocation preference
+///
+/// The point text comes straight from the backend — the model's own sentence
+/// ("Religion matches: Islam") or the rule-based scorer's human line ("Same
+/// religion preference"). A satisfied criterion shows a green check; one that
+/// did not line up shows an amber warning triangle with ITS reason, so the
+/// "Different relocation preference" point reads exactly like the reference.
 class _WhyRow extends StatelessWidget {
   const _WhyRow({required this.criterion, required this.met});
 
@@ -254,6 +262,18 @@ class _WhyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = met ? AppColors.success : Colors.orange;
+
+    // The POINT text: for an unmet criterion the model's reason is the
+    // honest sentence ("Profession does not match preference: Teacher") —
+    // much more useful than repeating the criterion's name. For a met one
+    // the label already reads like the reference ("Religion"), and the
+    // reason adds detail on tap.
+    final String point = met
+        ? criterion.label
+        : (criterion.reason?.trim().isNotEmpty ?? false)
+            ? _shorten(criterion.reason!.trim())
+            : criterion.label;
+
     final Widget row = Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Row(
@@ -270,7 +290,7 @@ class _WhyRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              criterion.label,
+              point,
               style: AppTextStyles.caption.copyWith(
                 fontSize: 13.5,
                 height: 1.4,
@@ -282,14 +302,27 @@ class _WhyRow extends StatelessWidget {
       ),
     );
 
-    final String? reason = criterion.reason;
-    if (reason == null || reason.trim().isEmpty) return row;
+    // For met criteria the detail sentence rides on a tap tooltip.
+    final String? reason = met ? criterion.reason : null;
+    if (reason == null || reason.trim().isEmpty || reason.trim() == point) {
+      return row;
+    }
     return Tooltip(
       message: reason,
       triggerMode: TooltipTriggerMode.tap,
       showDuration: const Duration(seconds: 4),
       child: row,
     );
+  }
+
+  /// Backend reasons arrive as full sentences; the "Why?" list wants tight
+  /// points. Drops the trailing period and keeps it to one readable line.
+  static String _shorten(String reason) {
+    String s = reason.endsWith('.') ? reason.substring(0, reason.length - 1) : reason;
+    // "Profession does not match preference: Teacher" → "Profession does not
+    // match preference: Teacher" — already fine. Only collapse excessive
+    // whitespace; the sentence itself is the information.
+    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }
 

@@ -10,6 +10,7 @@ import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/services/biometric_auth_service.dart';
+import '../../../core/storage/current_user_service.dart';
 import '../../../core/services/push_readiness_service.dart';
 import '../../../core/widgets/push_readiness_dialog.dart';
 import '../../../models/chat_model.dart';
@@ -19,6 +20,7 @@ import '../../../widgets/premium_bottom_nav.dart';
 import '../../chat/views/chat_inbox_view.dart';
 import '../../discover/views/discover_view.dart';
 import '../../discover/widgets/search_filter_bottom_sheet.dart';
+import '../../help_center/views/guest_help_view.dart';
 import '../../help_center/views/help_chat_view.dart';
 import '../../interests/views/interests_view.dart';
 import '../../notifications/views/notifications_view.dart';
@@ -429,14 +431,21 @@ class _AppDrawer extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 27,
                     backgroundColor: Colors.white.withValues(alpha: 0.22),
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                      style: AppTextStyles.displaySerif.copyWith(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    // The member's own photo when there is one; the initial
+                    // only as the fallback.
+                    backgroundImage: auth.user.value?.photoUrl != null
+                        ? NetworkImage(auth.user.value!.photoUrl!)
+                        : null,
+                    child: auth.user.value?.photoUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : 'H',
+                            style: AppTextStyles.displaySerif.copyWith(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -591,16 +600,18 @@ class _AppDrawer extends StatelessWidget {
         ),
         Container(
           decoration: BoxDecoration(
-            color: AppColors.lightSurface,
+            // Warm white (not plain) + hairline rose border + soft two-layer
+            // shadow: the premium card recipe the reference drawer uses.
+            color: AppColors.cardWarmWhite,
             borderRadius: AppRadius.xlAll,
             border:
-                Border.all(color: AppColors.roseFieldBorder.withValues(alpha: 0.85)),
-            boxShadow: const <BoxShadow>[
+                Border.all(color: AppColors.roseFieldBorder.withValues(alpha: 0.55)),
+            boxShadow: <BoxShadow>[
               BoxShadow(
-                color: Color(0x1AB4487B), // rose @ 10%, the recipe's card shadow
-                blurRadius: 30,
-                offset: Offset(0, 10),
-                spreadRadius: -6,
+                color: const Color(0xFFB4487B).withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: -8,
               ),
             ],
           ),
@@ -612,8 +623,9 @@ class _AppDrawer extends StatelessWidget {
                   Divider(
                     height: 1,
                     thickness: 0.6,
-                    indent: 60,
-                    color: AppColors.roseFieldBorder.withValues(alpha: 0.55),
+                    indent: 58,
+                    endIndent: 14,
+                    color: AppColors.roseFieldBorder.withValues(alpha: 0.4),
                   ),
                 _tile(context, entries[i]),
               ],
@@ -628,9 +640,6 @@ class _AppDrawer extends StatelessWidget {
     // Logout is the one destructive row: it keeps the error tint so it never
     // reads like the daily actions above it.
     final bool danger = e.label == 'Logout';
-    final Color glyph = danger ? AppColors.error : AppColors.fieldIconGlyph;
-    final Color disc =
-        danger ? AppColors.error.withValues(alpha: 0.09) : AppColors.fieldIconDisc;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -643,25 +652,38 @@ class _AppDrawer extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 11),
           child: Row(
             children: <Widget>[
-              // The registration field's dusty-rose icon disc.
+              // Gradient rose disc — the header's own gradient, sampled down
+              // into a small circle, so the icons read as part of the brand
+              // instead of flat placeholders.
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: disc,
+                  gradient: danger
+                      ? null
+                      : const LinearGradient(
+                          colors: AppColors.regPrimaryGradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                  color: danger ? AppColors.error.withValues(alpha: 0.12) : null,
                 ),
-                child: Icon(e.icon, color: glyph, size: AppDimensions.iconSm + 2),
+                child: Icon(e.icon,
+                    color: danger ? AppColors.error : Colors.white,
+                    size: AppDimensions.iconSm),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
                   e.label,
-                  style: AppTextStyles.bodyStrong
-                      .copyWith(color: AppColors.lightTextPrimary),
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    color: danger ? AppColors.error : AppColors.lightTextPrimary,
+                  ),
                 ),
               ),
               Icon(Icons.chevron_right_rounded,
-                  color: AppColors.regAccentSoft, size: 20),
+                  color: AppColors.regAccentSoft.withValues(alpha: 0.8), size: 19),
             ],
           ),
         ),
@@ -758,7 +780,16 @@ class _AppDrawer extends StatelessWidget {
 
   // ---- Actions --------------------------------------------------------------
 
-  void _helpTileTap() => HelpChatView.open();
+  void _helpTileTap() {
+    // Signed-in members get the live Help Center chat; a visitor without a
+    // session gets the guest form (name / email / description).
+    if (Get.isRegistered<CurrentUserService>() &&
+        Get.find<CurrentUserService>().hasUser) {
+      HelpChatView.open();
+    } else {
+      GuestHelpView.open();
+    }
+  }
 
   /// Turn fingerprint login ON from the drawer.
   ///

@@ -238,6 +238,13 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
                           aiMatchPercentage: widget.aiMatchPercentage,
                         ),
 
+                        // Bio — the member's own "About me", shown whenever
+                        // they wrote one.
+                        if (profile.aboutMe != null && profile.aboutMe!.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: AppSpacing.sm),
+                          _AboutMeCard(bio: profile.aboutMe!.trim()),
+                        ],
+
                         const SizedBox(height: AppSpacing.sm),
 
                         // Why this score — the AI listing percentage leads;
@@ -584,6 +591,75 @@ class _IdentityCard extends StatelessWidget {
               if (profile.identityVerified)
                 _infoChip(Icons.verified_user_rounded, 'Verified', color: AppColors.success),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// About me — the member's bio on one soft card.
+// ---------------------------------------------------------------------------
+
+class _AboutMeCard extends StatelessWidget {
+  const _AboutMeCard({required this.bio});
+
+  final String bio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.roseFieldBorder),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: const Color(0xFFB4487B).withValues(alpha: 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppColors.regAccent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: AppColors.regAccent,
+                  size: 17,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'About me',
+                style: AppTextStyles.label.copyWith(
+                  fontSize: 13,
+                  letterSpacing: 0.9,
+                  color: AppColors.chatTimeInk,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            bio,
+            style: AppTextStyles.body.copyWith(
+              color: AppColors.roseTitleInk,
+              height: 1.5,
+            ),
           ),
         ],
       ),

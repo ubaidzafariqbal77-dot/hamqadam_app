@@ -192,6 +192,11 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         if (didPop) _controller.closeThread();
       },
       child: Scaffold(
+        // Warm parchment canvas, WhatsApp-style: bubbles pop against a
+        // neutral tinted background instead of pure white.
+        backgroundColor: isDark
+            ? AppColors.darkBackground
+            : const Color(0xFFF7F1EC),
         appBar: _buildAppBar(context, isDark),
         body: Column(
           children: <Widget>[
@@ -747,10 +752,12 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                 ),
                 const SizedBox(width: 2),
                 // THE pill: + / emoji / text field / mic-send, all inside.
+                // Every child is hard-capped at 48px so the pill can never
+                // stretch taller — the earlier versions let the theme's
+                // intrinsic TextField height blow the row up.
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    constraints: const BoxConstraints(minHeight: 48),
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
                       borderRadius: BorderRadius.circular(24),
@@ -761,69 +768,62 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       ),
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: <Widget>[
-                        SizedBox(
-                          width: 36,
-                          height: 44,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.add_circle_outline_rounded,
-                                color: AppColors.primary, size: 22),
-                            tooltip: 'Attach Media or Document',
-                            onPressed: _showAttachmentOptions,
-                          ),
+                        _ComposerIcon(
+                          tooltip: 'Attach Media or Document',
+                          onTap: _showAttachmentOptions,
+                          icon: const Icon(Icons.add_circle_outline_rounded,
+                              color: AppColors.primary, size: 22),
                         ),
-                        SizedBox(
-                          width: 34,
-                          height: 44,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: Icon(
-                              Icons.emoji_emotions_outlined,
-                              color: _emojiPanelOpen
-                                  ? AppColors.primary
-                                  : AppColors.primary.withValues(alpha: 0.7),
-                              size: 20,
-                            ),
-                            tooltip: 'Emoji',
-                            onPressed: () {
-                              setState(() {
-                                _emojiPanelOpen = !_emojiPanelOpen;
-                                _timerMenuOpen = false;
-                              });
-                            },
+                        _ComposerIcon(
+                          tooltip: 'Emoji',
+                          onTap: () {
+                            setState(() {
+                              _emojiPanelOpen = !_emojiPanelOpen;
+                              _timerMenuOpen = false;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.emoji_emotions_outlined,
+                            color: _emojiPanelOpen
+                                ? AppColors.primary
+                                : AppColors.primary.withValues(alpha: 0.7),
+                            size: 20,
                           ),
                         ),
                         Expanded(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minHeight: 48, maxHeight: 120),
-                            child: Center(
-                              child: TextField(
-                                controller: _controller.messageInputController,
-                                onChanged: _controller.onTextChanged,
-                                maxLines: null,
-                                keyboardType: TextInputType.multiline,
-                                textCapitalization: TextCapitalization.sentences,
-                                style: AppTextStyles.body.copyWith(fontSize: 14.5),
-                                cursorColor: AppColors.primary,
-                                decoration: InputDecoration(
-                                  hintText: _timerActive
-                                      ? 'Disappearing message…'
-                                      : 'Type a message…',
-                                  hintStyle: AppTextStyles.body.copyWith(
-                                    color: Theme.of(context)
-                                        .hintColor
-                                        .withValues(alpha: 0.65),
-                                    fontSize: 14,
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 4, vertical: 14),
-                                  isDense: true,
-                                  isCollapsed: true,
-                                  border: InputBorder.none,
-                                ),
+                          child: TextField(
+                            controller: _controller.messageInputController,
+                            onChanged: _controller.onTextChanged,
+                            maxLines: null,
+                            keyboardType: TextInputType.multiline,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: AppTextStyles.body.copyWith(fontSize: 14.5, height: 1.2),
+                            cursorColor: AppColors.primary,
+                            textAlignVertical: TextAlignVertical.center,
+                            // Kill the global input theme's filled box +
+                            // outlined border here: the pill itself is the
+                            // container, so the field must render bare.
+                            decoration: InputDecoration(
+                              filled: false,
+                              fillColor: Colors.transparent,
+                              hintText: _timerActive
+                                  ? 'Disappearing message…'
+                                  : 'Type a message…',
+                              hintStyle: AppTextStyles.body.copyWith(
+                                color: Theme.of(context)
+                                    .hintColor
+                                    .withValues(alpha: 0.65),
+                                fontSize: 14,
                               ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 2, vertical: 15),
+                              isDense: true,
+                              isCollapsed: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
                             ),
                           ),
                         ),
@@ -1237,15 +1237,15 @@ class _MessageBubble extends StatelessWidget {
             onLongPress: () => _showContextMenu(context),
             onTap: message.isFailed ? onRetry : null,
             child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
           decoration: BoxDecoration(
             color: bubbleBg,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(isMine ? 18 : 3),
-              bottomRight: Radius.circular(isMine ? 3 : 18),
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMine ? 16 : 3),
+              bottomRight: Radius.circular(isMine ? 3 : 16),
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
@@ -1257,10 +1257,10 @@ class _MessageBubble extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(isMine ? 18 : 3),
-              bottomRight: Radius.circular(isMine ? 3 : 18),
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMine ? 16 : 3),
+              bottomRight: Radius.circular(isMine ? 3 : 16),
             ),
             child: Column(
               crossAxisAlignment:
@@ -1311,7 +1311,7 @@ class _MessageBubble extends StatelessWidget {
                 // ── Text + docs + time ────────────────────────────────────
                 if (!hasOnlyImages)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 4),
                     child: Column(
                       crossAxisAlignment:
                           isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -1359,7 +1359,11 @@ class _MessageBubble extends StatelessWidget {
 
                         // Message text / Voice player / Call event tile
                         if (message.isVoice)
-                          _VoiceBubble(message: message, isMine: isMine)
+                          _VoiceBubble(
+                            message: message,
+                            isMine: isMine,
+                            timeStr: timeStr,
+                          )
                         else if (message.isCallEvent)
                           InkWell(
                             // A call tile is a record of a past call, so tapping
@@ -1408,50 +1412,103 @@ class _MessageBubble extends StatelessWidget {
                             ),
                           )
                         else if (message.message.isNotEmpty)
-                          Text(
-                            message.message,
-                            style: TextStyle(
-                              color: isMine
-                                  ? Colors.white
-                                  : theme.textTheme.bodyLarge?.color,
-                              fontSize: 14.5,
-                            ),
-                          ),
-
-                        const SizedBox(height: 3),
-                        // Time + tick row
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
-                              timeStr,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isMine
-                                    ? Colors.white.withValues(alpha: 0.7)
-                                    : theme.hintColor,
+                          // WhatsApp signature: the timestamp + tick ride on
+                          // the message's LAST line, right-aligned — an inline
+                          // invisible spacer reserves their width so wrapped
+                          // text flows around them.
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  message.message,
+                                  style: TextStyle(
+                                    color: isMine
+                                        ? Colors.white
+                                        : theme.textTheme.bodyLarge?.color,
+                                    fontSize: 14.5,
+                                    height: 1.3,
+                                  ),
+                                ),
                               ),
-                            ),
-                            if (isMine) ...<Widget>[
-                              const SizedBox(width: 4),
-                              _DeliveryTick(
-                                message: message,
-                                color: Colors.white.withValues(alpha: 0.8),
-                              ),
-                            ],
-                            if (isMine && message.isFailed) ...<Widget>[
-                              const SizedBox(width: 4),
-                              const Text(
-                                'Tap to retry',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isMine
+                                            ? Colors.white.withValues(alpha: 0.75)
+                                            : theme.hintColor,
+                                      ),
+                                    ),
+                                    if (isMine) ...<Widget>[
+                                      const SizedBox(width: 3),
+                                      _DeliveryTick(
+                                        message: message,
+                                        color: Colors.white.withValues(alpha: 0.85),
+                                      ),
+                                    ],
+                                    if (isMine && message.isFailed) ...<Widget>[
+                                      const SizedBox(width: 3),
+                                      const Text(
+                                        'Tap to retry',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
-                          ],
-                        ),
+                          ),
+                        // Voice/call/doc bubbles keep the timestamp on its own
+                        // row — their content already fills the line.
+                        if (!message.isVoice &&
+                            !message.isCallEvent &&
+                            message.message.isEmpty) ...<Widget>[
+                          const SizedBox(height: 1),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                timeStr,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isMine
+                                      ? Colors.white.withValues(alpha: 0.7)
+                                      : theme.hintColor,
+                                ),
+                              ),
+                              if (isMine) ...<Widget>[
+                                const SizedBox(width: 4),
+                                _DeliveryTick(
+                                  message: message,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ],
+                              if (isMine && message.isFailed) ...<Widget>[
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Tap to retry',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1847,10 +1904,17 @@ class _DocCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _VoiceBubble extends StatefulWidget {
-  const _VoiceBubble({required this.message, required this.isMine});
+  const _VoiceBubble({
+    required this.message,
+    required this.isMine,
+    required this.timeStr,
+  });
 
   final ChatMessage message;
   final bool isMine;
+
+  /// Sent-time label shown on the player row's right edge (WhatsApp style).
+  final String timeStr;
 
   @override
   State<_VoiceBubble> createState() => _VoiceBubbleState();
@@ -1861,7 +1925,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
 
   /// Width of the waveform strip. Named because the scrub gesture has to map a
   /// touch x back onto it.
-  static const double _waveWidth = 110;
+  static const double _waveWidth = 130;
 
   final AudioPlayer _player = AudioPlayer();
   bool _playing = false;
@@ -1998,7 +2062,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
     final List<int> wave = widget.message.voiceWaveform;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -2006,8 +2070,8 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
             onTap: _toggle,
             customBorder: const CircleBorder(),
             child: Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: widget.isMine
                     ? Colors.white.withValues(alpha: 0.2)
@@ -2017,11 +2081,11 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
               child: Icon(
                 _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 color: accent,
-                size: 24,
+                size: 20,
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           // Scrubbing: tap or drag anywhere on the waveform to jump, the way
           // WhatsApp does. Opaque hit testing so a drag starting here is not
           // stolen by the message list's own vertical scroll.
@@ -2032,7 +2096,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
             onHorizontalDragUpdate: (DragUpdateDetails d) =>
                 _seekToFraction(d.localPosition.dx / _waveWidth),
             child: CustomPaint(
-              size: const Size(_waveWidth, 30),
+              size: const Size(_waveWidth, 22),
               painter: _WaveformPainter(
                 wave: wave,
                 progress: _progress,
@@ -2041,7 +2105,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(
             _label,
             style: TextStyle(
@@ -2051,6 +2115,34 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                   ? Colors.white.withValues(alpha: 0.85)
                   : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
               fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Sent-time rides on the player row's right edge, WhatsApp style —
+          // the parent bubble no longer draws a separate timestamp row for
+          // voice notes.
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  widget.timeStr,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: widget.isMine
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : Theme.of(context).hintColor,
+                  ),
+                ),
+                if (widget.isMine) ...<Widget>[
+                  const SizedBox(width: 3),
+                  _DeliveryTick(
+                    message: widget.message,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -2163,3 +2255,32 @@ class _FullScreenImage extends StatelessWidget {
   }
 }
 
+
+/// A fixed-size tap target used inside the composer pill. Hard-caps the row
+/// height at 48px so the global theme's intrinsic TextField metrics can never
+/// stretch the composer — the bug behind the oversized input bubble.
+class _ComposerIcon extends StatelessWidget {
+  const _ComposerIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38,
+      height: 48,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: icon,
+        tooltip: tooltip,
+        onPressed: onTap,
+      ),
+    );
+  }
+}

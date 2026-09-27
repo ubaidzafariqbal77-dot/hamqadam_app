@@ -197,26 +197,70 @@ class _HelpChatViewState extends State<HelpChatView> {
           // Realtime state — reserved for a connecting hint if needed later.
           const SizedBox.shrink(),
 
-          // Closed banner
+          // Locked / closed banner + countdown
           Obx(() {
-            if (!_controller.isClosed) return const SizedBox.shrink();
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-              color: AppColors.warning.withValues(alpha: 0.12),
-              child: const Row(
-                children: <Widget>[
-                  Icon(Icons.lock_outline_rounded, color: AppColors.warning, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This conversation has been closed by support. Start a new message to open another one.',
-                      style: TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+            if (_controller.isLocked) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                color: AppColors.error.withValues(alpha: 0.10),
+                child: const Row(
+                  children: <Widget>[
+                    Icon(Icons.lock_rounded, color: AppColors.error, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This chat was locked — no reply was sent within 5 minutes '
+                        'of the support response. Start a new chat below.',
+                        style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
+                  ],
+                ),
+              );
+            }
+            if (_controller.isClosed) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                color: AppColors.warning.withValues(alpha: 0.12),
+                child: const Row(
+                  children: <Widget>[
+                    Icon(Icons.lock_outline_rounded, color: AppColors.warning, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This conversation has been closed by support. Start a new message to open another one.',
+                        style: TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            // Response window countdown — visible while the clock runs.
+            final int seconds = _controller.secondsUntilLock.value;
+            if (seconds > 0) {
+              final int m = seconds ~/ 60;
+              final int s = seconds % 60;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+                color: AppColors.warning.withValues(alpha: 0.10),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(Icons.timer_outlined, color: AppColors.warning, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Support replied — answer within ${m}:${s.toString().padLeft(2, '0')} '
+                      'or this chat locks',
+                      style: const TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
           }),
 
           // Messages stream
@@ -351,7 +395,46 @@ class _HelpChatViewState extends State<HelpChatView> {
 
   Widget _buildComposer(BuildContext context, bool isDark) {
     return Obx(() {
-      final bool disabled = _controller.isClosed;
+      final bool disabled = _controller.cannotRespond;
+      // Locked / closed: the composer makes way for "Start New chat".
+      if (disabled) {
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            MediaQuery.of(context).padding.bottom + AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+            border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _controller.isSending.value ? null : _controller.startNewChat,
+              icon: _controller.isSending.value
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.add_comment_rounded, size: 18, color: Colors.white),
+              label: const Text(
+                'Start New chat',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.regAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        );
+      }
       return Container(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.sm,

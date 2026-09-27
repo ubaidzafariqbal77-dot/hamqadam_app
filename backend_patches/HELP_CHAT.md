@@ -63,12 +63,44 @@ the rows seen.
 
 ### Deployment
 
-1. Run `php artisan migrate` (or apply `sqlupdates/v57.sql` by hand, the
-   CyberPanel way).
+1. Run `php artisan migrate` (or apply `sqlupdates/v57.sql` + `sqlupdates/v58.sql`
+   by hand, the CyberPanel way).
 2. Nothing else: the feature uses the existing Pusher settings
    (`chat_realtime_enabled`, `pusher_app_key`, `pusher_app_cluster`) and the
    existing FCM v1 service account. If realtime is off, both sides fall back
    to polling and nothing breaks.
+
+## Ticket lock + guest form (2026-09-26)
+
+Two additions on top of the original chat:
+
+### Guest (pre-login) help form
+
+`POST /api/v1/public/help` — no auth. Body: `name`, `email`, `description`.
+It files the request into the existing `contact_us` table (category `issue`,
+subject "Help Center (guest)") so it shows up in the admin panel's Contact Us
+Queries list, and emails the admin through the same EmailNotification the
+website contact form uses. Flutter side: `GuestHelpView`
+(`lib/features/help_center/views/guest_help_view.dart`); every pre-login Help
+entry point (drawer on home, manual-review gate, welcome preview) routes
+logged-out visitors here.
+
+### Ticket lock — 5-minute response window
+
+New columns on `help_chat_threads` (see `sqlupdates/v58.sql`):
+`admin_replied_at`, `member_replied_at`, `locked_at`. Every store stamps its
+side's clock; an admin reply also clears `locked_at` (a reopen). When the
+thread is read, `HelpChatService::enforceMemberResponseWindow` closes and
+locks it if the member has not answered within
+`HelpChatService::MEMBER_RESPONSE_WINDOW_MINUTES` (5) of the admin's last
+reply. The thread resource now also carries `locked`, `locked_at` and
+`response_deadline` (ISO) so the app can show a countdown.
+
+`POST /api/v1/help-chat/new` — "Start New chat". Creates a fresh open thread
+(the user_id UNIQUE index became a plain index in v58 so a member can have
+several tickets over time) and optionally posts the first message with it.
+The app replaces the composer with a "Start New chat" button whenever the
+current thread is locked or closed.
 
 ## Flutter app
 

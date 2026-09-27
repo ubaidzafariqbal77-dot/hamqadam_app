@@ -245,9 +245,12 @@ class _ChecklistBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        _Row(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', ink: ink, muted: muted),
-        _Row(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', ink: ink, muted: muted),
-        _Row(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', ink: ink, muted: muted),
+        // Same colourful verdicts as the profile's Trust & Verification card:
+        // green check = verified, red cross = rejected, amber hourglass =
+        // awaiting review, grey ring = not submitted.
+        _Row(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', pendingText: 'Under review', ink: ink, muted: muted),
+        _Row(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', pendingText: 'Awaiting review', ink: ink, muted: muted),
+        _Row(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', pendingText: 'Checking…', ink: ink, muted: muted),
         _Row(label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
         _Row(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
         _Row(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
@@ -265,12 +268,16 @@ class _Row extends StatelessWidget {
     required this.failedText,
     required this.ink,
     required this.muted,
+    this.pendingText,
   });
 
   final String label;
   final bool? passed;
   final String passedText;
   final String failedText;
+
+  /// Verdict wording for "submitted but no decision yet" (passed == null).
+  final String? pendingText;
   final Color ink;
   final Color muted;
 
@@ -279,9 +286,20 @@ class _Row extends StatelessWidget {
     final (IconData icon, Color color) = switch (passed) {
       true => (Icons.check_circle_rounded, AppColors.success),
       false => (Icons.cancel_rounded, AppColors.error),
-      null => (Icons.remove_circle_outline_rounded, muted),
+      null => (pendingText != null
+          ? Icons.hourglass_top_rounded
+          : Icons.radio_button_unchecked_rounded, AppColors.warning),
     };
-    final String text = passed == true ? passedText : failedText;
+    final String text = switch (passed) {
+      true => passedText,
+      false => failedText,
+      null => pendingText ?? failedText,
+    };
+    final Color verdictColor = switch (passed) {
+      true => AppColors.success,
+      false => AppColors.error,
+      null => AppColors.warning,
+    };
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -302,8 +320,8 @@ class _Row extends StatelessWidget {
             child: Text(
               text,
               style: AppTextStyles.caption.copyWith(
-                color: passed == true ? muted : ink,
-                fontWeight: passed == true ? FontWeight.w500 : FontWeight.w600,
+                color: verdictColor,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),

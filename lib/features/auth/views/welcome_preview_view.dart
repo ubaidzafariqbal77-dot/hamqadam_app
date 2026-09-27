@@ -9,6 +9,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../core/api/api_client.dart';
 import '../widgets/entry_dialog.dart';
+import '../../help_center/views/guest_help_view.dart';
 
 /// First-look marketing screen shown right after onboarding (reference:
 /// "Proposals for you"). It previews what members see after signing in —
@@ -303,7 +304,9 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                   ),
                 ),
 
-                // ---- WhatsApp banner (always visible) -----------------
+                // ---- Help Center (guest form) + WhatsApp banner -------
+                _HelpCenterButton(),
+                const SizedBox(height: AppSpacing.sm),
                 _WhatsAppBanner(onTap: _openWhatsApp),
               ],
             ),
@@ -643,6 +646,62 @@ class _WhatsAppBanner extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Soft pink Help Center strip pinned beside the WhatsApp banner — the
+/// pre-login visitor's way into the guest help form (name / email /
+/// description). No account needed; the team replies on the given email.
+class _HelpCenterButton extends StatelessWidget {
+  const _HelpCenterButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.regAccent,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: GuestHelpView.open,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: 12,
+          ),
+          child: Row(
+            children: <Widget>[
+              const Icon(Icons.support_agent_rounded, color: Colors.white, size: 24),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      'Need help? Ask our Help Center',
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      'No account needed — we reply on your email',
+                      style: AppTextStyles.caption.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
+            ],
           ),
         ),
       ),

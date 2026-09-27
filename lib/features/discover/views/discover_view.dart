@@ -974,6 +974,11 @@ class _SingleUserProfileCard extends StatelessWidget {
     // means something when it is the server's number.
     final int? matchPercentage = profile.compatibilityPercentage;
 
+    // Reference-design tone set: warm gold accents on white, serif name.
+    const Color goldInk = Color(0xFF9C6A1E);
+    const Color goldLine = Color(0xFFE3C27E);
+    const Color factFill = Color(0xFFF6F1E7);
+
     return GestureDetector(
       // Whole-card tap → full profile detail page. Overlaid controls (heart /
       // action row / verified tick) win the gesture arena as descendants, so
@@ -1003,81 +1008,83 @@ class _SingleUserProfileCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               // ==========================================================
-              // 1. Photo · serif headline · AI match pill + heart
+              // 1. Photo (verified tick overlaid) · serif name · VERIFIED
+              //    VIP pill · height/gender chips · gold % MATCH badge
+              //    — the reference card's top block, left to right.
               // ==========================================================
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  // Rounded-square photo, like the reference card.
-                  Container(
-                    width: 74,
-                    height: 74,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: AppColors.roseFieldBorder,
-                        width: 1.5,
+                  // Rounded-square photo with the verification badge sitting
+                  // on its bottom corner, exactly like the reference card.
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      Container(
+                        width: 74,
+                        height: 74,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: goldLine,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18.5),
+                          child: profile.hasPhoto
+                              ? Image.network(
+                                  profile.photoUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      _PhotoFallback(profile: profile),
+                                  loadingBuilder: (BuildContext ctx,
+                                      Widget child, ImageChunkEvent? p) {
+                                    if (p == null) return child;
+                                    return _PhotoFallback(profile: profile);
+                                  },
+                                )
+                              : _PhotoFallback(profile: profile),
+                        ),
                       ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(18.5),
-                      child: profile.hasPhoto
-                          ? Image.network(
-                              profile.photoUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
-                                  _PhotoFallback(profile: profile),
-                              loadingBuilder: (BuildContext ctx,
-                                  Widget child, ImageChunkEvent? p) {
-                                if (p == null) return child;
-                                return _PhotoFallback(profile: profile);
-                              },
-                            )
-                          : _PhotoFallback(profile: profile),
-                    ),
+                      if (profile.isVerified)
+                        // The tick doubles as a button: tapping it opens the
+                        // member's Trust & Verification dialog.
+                        Positioned(
+                          right: -4,
+                          bottom: -4,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => TrustVerificationSheet.show(
+                              context,
+                              profileId: profile.id,
+                              name: profile.displayName,
+                              photoUrl: profile.photo,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.verified_rounded,
+                                color: AppColors.gold,
+                                size: 19,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        // Name only — the age moved down into the chips row so
-                        // the headline stays a clean name + verification tick,
-                        // the way premium profiles read.
-                        Text.rich(
-                          TextSpan(
-                            children: <InlineSpan>[
-                              TextSpan(text: profile.displayName),
-                              // Non-breaking space keeps the tick glued to the
-                              // name; a spacer widget gap is a legal wrap point
-                              // that stranded the tick alone on a second line.
-                              const TextSpan(text: '\u00A0'),
-                              WidgetSpan(
-                                alignment: PlaceholderAlignment.middle,
-                                // The tick doubles as a button: tapping it
-                                // opens the member's Trust & Verification
-                                // dialog.
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => TrustVerificationSheet.show(
-                                    context,
-                                    profileId: profile.id,
-                                    name: profile.displayName,
-                                    photoUrl: profile.photo,
-                                  ),
-                                  child: Icon(
-                                    profile.isVerified
-                                        ? Icons.verified_rounded
-                                        : Icons.shield_outlined,
-                                    color: profile.isVerified
-                                        ? AppColors.success
-                                        : AppColors.regAccentSoft,
-                                    size: 17,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        // Serif headline, as in the reference.
+                        Text(
+                          profile.displayName,
                           style: AppTextStyles.displaySerif.copyWith(
                             fontSize: 17,
                             height: 1.25,
@@ -1087,18 +1094,51 @@ class _SingleUserProfileCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 6),
-                        // Age · height · gender — one polished chip row, the
-                        // card's quick facts at a glance.
+                        // VERIFIED VIP pill — membership + verification in the
+                        // reference's gold capsule with the leading dot.
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 9,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.gold.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(AppRadius.pill),
+                            border: Border.all(
+                              color: goldLine.withValues(alpha: 0.8),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.gold,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                profile.isVerified ? 'VERIFIED VIP' : 'VIP',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                  color: goldInk,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // Height · gender — the reference's two quiet chips.
                         Wrap(
                           spacing: 6,
                           runSpacing: 5,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: <Widget>[
-                            if (profile.age != null)
-                              _InfoChip(
-                                icon: Icons.cake_outlined,
-                                label: '${profile.age} yrs',
-                              ),
                             if (heightLabel.isNotEmpty)
                               _InfoChip(
                                 icon: Icons.height_rounded,
@@ -1109,44 +1149,62 @@ class _SingleUserProfileCard extends StatelessWidget {
                                 icon: Icons.person_outline_rounded,
                                 label: genderLabel,
                               ),
+                            if (profile.age != null)
+                              _InfoChip(
+                                icon: Icons.cake_outlined,
+                                label: '${profile.age} yrs',
+                              ),
                           ],
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  // Top-right: the AI match pill above the shortlist heart,
-                  // exactly where the reference card puts them.
+                  // Top-right: the gold % MATCH badge above the shortlist
+                  // heart, exactly where the reference card puts them.
                   Column(
                     children: <Widget>[
                       if (matchPercentage != null) ...<Widget>[
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 4,
+                            horizontal: 10,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(AppRadius.pill),
-                            border: Border.all(
-                              color: AppColors.gold.withValues(alpha: 0.45),
-                            ),
+                            color: AppColors.gold.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: goldLine),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          child: Column(
                             children: <Widget>[
-                              const Icon(
-                                Icons.auto_awesome_rounded,
-                                size: 12,
-                                color: AppColors.gold,
+                              Text.rich(
+                                TextSpan(
+                                  children: <InlineSpan>[
+                                    TextSpan(
+                                      text: '$matchPercentage%',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w900,
+                                        color: goldInk,
+                                      ),
+                                    ),
+                                    const TextSpan(
+                                      text: ' MATCH',
+                                      style: TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                        color: goldInk,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              const SizedBox(width: 4),
                               Text(
-                                '$matchPercentage% match',
+                                _harmonyWord(matchPercentage),
                                 style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF9C6A1E),
+                                  fontSize: 10.5,
+                                  color: goldInk,
                                 ),
                               ),
                             ],
@@ -1181,34 +1239,50 @@ class _SingleUserProfileCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               // ==========================================================
-              // 2. Fact pills — location, religion, caste, marital status
-              //    as soft tinted pills in a wrapping row: reads at a glance
-              //    instead of a form-like list of glyph rows.
+              // 2. Reference-style fact grid — two labelled rows on one soft
+              //    panel: Location / Faith, Community / Status. A form-like
+              //    grid reads at a glance the way the reference card does,
+              //    instead of free-floating pills.
               // ==========================================================
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: <Widget>[
-                  _FactPill(
-                    icon: Icons.location_on_outlined,
-                    text: _buildLocationString(city, state, country),
-                  ),
-                  if (religion != null && religion.isNotEmpty)
-                    _FactPill(icon: Icons.mosque_outlined, text: religion),
-                  if (caste != null && caste.isNotEmpty)
-                    _FactPill(icon: Icons.groups_outlined, text: caste),
-                  if (marital != null && marital.isNotEmpty)
-                    _FactPill(
-                        icon: Icons.favorite_border_rounded, text: marital),
-                ],
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: factFill,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: <Widget>[
+                    _FactRow(
+                      icon: Icons.location_on_outlined,
+                      label: 'Location:',
+                      value: _buildLocationString(city, state, country),
+                      trailingIcon: Icons.wb_sunny_outlined,
+                      trailingLabel: 'Faith:',
+                      trailingValue: religion,
+                    ),
+                    const SizedBox(height: 6),
+                    _FactRow(
+                      icon: Icons.diversity_3_outlined,
+                      label: 'Community:',
+                      value: caste,
+                      trailingIcon: Icons.favorite_outline_rounded,
+                      trailingLabel: 'Status:',
+                      trailingValue: marital,
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 12),
 
               // ==========================================================
               // 3. Aligned action row — equal icons on one baseline, the
-              //    Proposal pill closing the row. Nothing sits below it, so
-              //    there is no second row left to overflow.
+              //    gold Proposal pill closing the row. Nothing sits below it,
+              //    so there is no second row left to overflow.
               // ==========================================================
               Container(
                 padding: const EdgeInsets.fromLTRB(4, 3, 4, 3),
@@ -1539,6 +1613,88 @@ class _SingleUserProfileCard extends StatelessWidget {
 // Card helpers — shared by the Discover feed card.
 // ---------------------------------------------------------------------------
 
+/// Word for the match badge's caption — the reference's "Harmonious" line,
+/// softened to the score band the server computed.
+String _harmonyWord(int pct) {
+  if (pct >= 75) return 'Excellent';
+  if (pct >= 60) return 'Harmonious';
+  if (pct >= 45) return 'Promising';
+  return 'Worth a look';
+}
+
+/// One labelled fact on the reference's soft panel, with an optional trailing
+/// pair so two facts share a row (Location | Faith, Community | Status).
+/// Long values ellipsize; a missing value keeps its label with a dash so the
+/// grid never reflows raggedly.
+class _FactRow extends StatelessWidget {
+  const _FactRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.trailingIcon,
+    this.trailingLabel,
+    this.trailingValue,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? value;
+  final IconData? trailingIcon;
+  final String? trailingLabel;
+  final String? trailingValue;
+
+  @override
+  Widget build(BuildContext context) {
+    const Color glyph = Color(0xFFB08D4F);
+    const Color labelInk = Color(0xFF9A917F);
+    const Color valueInk = Color(0xFF3E362C);
+
+    Widget cell(IconData i, String l, String? v, {bool expand = true}) {
+      final Widget row = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(i, size: 13, color: glyph),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: '$l ',
+                    style: const TextStyle(fontSize: 12, color: labelInk),
+                  ),
+                  TextSpan(
+                    text: (v == null || v.isEmpty) ? '\u2014' : v,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: valueInk,
+                    ),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      );
+      return expand ? Expanded(child: row) : row;
+    }
+
+    if (trailingIcon == null) {
+      return cell(icon, label, value);
+    }
+    return Row(
+      children: <Widget>[
+        cell(icon, label, value),
+        const SizedBox(width: 10),
+        cell(trailingIcon!, trailingLabel ?? '', trailingValue),
+      ],
+    );
+  }
+}
+
 /// Small rose info chip on the white card (height, gender).
 class _InfoChip extends StatelessWidget {
   const _InfoChip({required this.icon, required this.label});
@@ -1566,48 +1722,6 @@ class _InfoChip extends StatelessWidget {
               color: AppColors.chatPreviewInk,
               fontSize: 11,
               fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// One quiet glyph fact line under the headline (📍 city · 🕌 religion).
-/// Soft tinted pill carrying one profile fact (location, religion…). The
-/// wrapping-pill form replaced the old glyph+text rows: a row of pills reads
-/// as scannable facts rather than a form.
-class _FactPill extends StatelessWidget {
-  const _FactPill({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: AppColors.regAccent.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 13, color: AppColors.regAccent),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              text,
-              style: AppTextStyles.caption.copyWith(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.chatPreviewInk,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1714,20 +1828,38 @@ class _ProposalPill extends StatelessWidget {
               ),
             ],
           ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(Icons.mail_outline_rounded, size: 15, color: AppColors.gold),
-              SizedBox(width: 6),
-              Text(
-                'Proposal',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF9C6A1E),
-                ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFFDFB964), Color(0xFFC9992F)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-            ],
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.gold.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(Icons.mail_outline_rounded, size: 15, color: Colors.white),
+                SizedBox(width: 6),
+                Text(
+                  'Send Proposal',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

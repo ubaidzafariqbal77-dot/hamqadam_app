@@ -24,6 +24,7 @@ class ProfileModel {
     this.photos = const ProfilePhotos(),
     this.verification = const ProfileVerification(),
     this.registration = const ProfileRegistration(),
+    this.badges = const MemberBadges(),
   });
 
   final ProfileUser user;
@@ -49,6 +50,11 @@ class ProfileModel {
   final ProfilePhotos photos; // step 11
   final ProfileVerification verification; // step 13 + the AI check
   final ProfileRegistration registration;
+
+  /// Gamified server badges (Trust Badge, Verification Badge) from
+  /// `GET /profile` → `badges`. The web app has shown these for a while; the
+  /// app parses them now so the profile card can wear the same trust marks.
+  final MemberBadges badges;
 
   /// Every group in display order, for a "profile details" screen that should
   /// not need editing when the backend adds a field.
@@ -89,6 +95,7 @@ class ProfileModel {
       marriageExpectations: ProfileSection.fromJson(_asMap(json['marriage_expectations'])),
       photos: ProfilePhotos.fromJson(_asMap(json['photos'])),
       verification: ProfileVerification.fromJson(_asMap(json['verification'])),
+      badges: MemberBadges.fromJson(_asMap(json['badges'])),
       registration: ProfileRegistration.fromJson(_asMap(json['registration'])),
     );
   }
@@ -301,6 +308,65 @@ class ProfileTrustChecks {
   }
 }
 
+/// The gamified server badges block (`GET /profile` → `badges`).
+///
+/// The backend's BadgeService computes both: the Verification Badge (moderator
+/// or AI approval) and the Trust Badge — 7 consecutive daily logins with no
+/// report or block activity. Older payloads without the block parse to an
+/// all-zero [MemberBadges] so the UI simply hides the rows.
+class MemberBadges {
+  const MemberBadges({
+    this.trustEarned = false,
+    this.trustStreak = 0,
+    this.trustTarget = 7,
+    this.trustRequirement,
+    this.trustEarnedAt,
+    this.verificationEarned = false,
+    this.verificationEarnedAt,
+  });
+
+  /// Trust Badge: earned after [trustTarget] consecutive daily logins with no
+  /// report or block activity against the member.
+  final bool trustEarned;
+  final int trustStreak;
+  final int trustTarget;
+
+  /// Server's own requirement sentence — shown so the rule is never stale in
+  /// the app's wording.
+  final String? trustRequirement;
+  final DateTime? trustEarnedAt;
+
+  /// Verification Badge: same truth as `verification.identityVerified`, kept
+  /// alongside for the badge row's one source.
+  final bool verificationEarned;
+  final DateTime? verificationEarnedAt;
+
+  /// Progress toward the next Trust Badge, 0..1 — drives the streak bar while
+  /// the badge is not earned yet.
+  double get trustProgress {
+    if (trustEarned || trustTarget <= 0) return trustEarned ? 1 : 0;
+    return (trustStreak / trustTarget).clamp(0.0, 1.0);
+  }
+
+  factory MemberBadges.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> trust =
+        json['trust'] is Map<String, dynamic> ? json['trust'] as Map<String, dynamic> : const <String, dynamic>{};
+    final Map<String, dynamic> verification =
+        json['verification'] is Map<String, dynamic> ? json['verification'] as Map<String, dynamic> : const <String, dynamic>{};
+
+    bool flag(Map<String, dynamic> m) => m['earned'] == true || m['earned'] == 1 || '${m['earned']}'.toLowerCase() == 'true';
+
+    return MemberBadges(
+      trustEarned: flag(trust),
+      trustStreak: (trust['current_streak'] as num?)?.toInt() ?? 0,
+      trustTarget: (trust['target_streak'] as num?)?.toInt() ?? 7,
+      trustRequirement: trust['requirement']?.toString(),
+      trustEarnedAt: DateTime.tryParse('${trust['earned_at'] ?? ''}')?.toLocal(),
+      verificationEarned: flag(verification),
+      verificationEarnedAt: DateTime.tryParse('${verification['earned_at'] ?? ''}')?.toLocal(),
+    );
+  }
+}
 /// Registration progress as the server sees it.
 class ProfileRegistration {
   const ProfileRegistration({this.completionPercentage = 0, this.steps = const <String>[]});

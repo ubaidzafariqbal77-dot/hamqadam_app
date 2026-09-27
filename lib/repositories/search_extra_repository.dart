@@ -40,11 +40,34 @@ class SearchExtraRepository {
 
   // ---- Search History -------------------------------------------------------
 
-  /// `GET /search/history` — recent search history.
+  /// `GET /search/history` — recent search history (first page).
   Future<List<Map<String, dynamic>>> fetchHistory() async {
     final ApiEnvelope res = await _client.get(ApiEndpoints.searchHistory);
     final List<dynamic> raw = res.dataList;
     return raw.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// `GET /search/history?page=N` — one history page plus its cursor.
+  /// The server pages at 20 rows; the screen keeps pulling until [hasMore]
+  /// goes false so the member's COMPLETE history is reachable.
+  Future<({List<Map<String, dynamic>> items, int page, bool hasMore})>
+      fetchHistoryPaged({int page = 1}) async {
+    final ApiEnvelope res = await _client
+        .get('${ApiEndpoints.searchHistory}?page=$page&per_page=50');
+    final List<dynamic> raw = res.dataList;
+    final List<Map<String, dynamic>> items =
+        raw.whereType<Map<String, dynamic>>().toList();
+
+    // Laravel's paginator meta rides the envelope's own `meta` map.
+    final Map<String, dynamic>? meta = res.meta;
+    final int lastPage = (meta?['last_page'] as num?)?.toInt() ?? 1;
+    final int currentPage = (meta?['current_page'] as num?)?.toInt() ?? page;
+
+    return (
+      items: items,
+      page: currentPage,
+      hasMore: currentPage < lastPage,
+    );
   }
 
   // ---- Hidden Users ---------------------------------------------------------

@@ -153,6 +153,12 @@ class _ProfileBody extends StatelessWidget {
           ],
           const _CompletionCard(),
           const SizedBox(height: AppSpacing.md),
+          // Trust & Verification badges — the gamified marks the web shows
+          // (Trust Badge = 7 consecutive daily logins with no report/block).
+          if (profile.badges.trustEarned || profile.badges.trustStreak > 0) ...<Widget>[
+            _TrustBadgeCard(badges: profile.badges),
+            const SizedBox(height: AppSpacing.md),
+          ],
           if (profile.photos.hasGallery || profile.photos.coverPhotoUrl != null) ...<Widget>[
             _PhotosCard(photos: profile.photos),
             const SizedBox(height: AppSpacing.md),
@@ -2240,6 +2246,96 @@ class _VerificationBanner extends StatelessWidget {
       Icons.verified_user_outlined,
       'Verify your identity',
       'Verified profiles are trusted more and get better responses.',
+    );
+  }
+}
+
+/// Trust Badge card — mirrors the web's badge panel: earned state with the
+/// award date, or the live streak progress toward the 7-day target. All facts
+/// come from the server's `badges` block; the app invents nothing.
+class _TrustBadgeCard extends StatelessWidget {
+  const _TrustBadgeCard({required this.badges});
+
+  final MemberBadges badges;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool earned = badges.trustEarned;
+    final Color tone = earned ? AppColors.success : AppColors.warning;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.07),
+        borderRadius: AppRadius.lgAll,
+        border: Border.all(color: tone.withValues(alpha: 0.30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  earned ? Icons.workspace_premium_rounded : Icons.shield_outlined,
+                  color: tone,
+                  size: AppDimensions.iconLg,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      earned ? 'Trust Badge earned' : 'Trust Badge in progress',
+                      style: AppTextStyles.bodyStrong.copyWith(color: tone),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      badges.trustRequirement ??
+                          'Log in 7 days in a row with no report or block activity.',
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (!earned) ...<Widget>[
+            const SizedBox(height: AppSpacing.sm),
+            // Streak progress toward the target, server-fed.
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: badges.trustProgress,
+                minHeight: 6,
+                backgroundColor: tone.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(tone),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${badges.trustStreak} of ${badges.trustTarget} days',
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 11.5,
+                color: Theme.of(context).hintColor,
+              ),
+            ),
+          ] else ...<Widget>[Text(
+            'Keep it up — members who see this badge respond with more confidence.',
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 11.5,
+              color: Theme.of(context).hintColor,
+            ),
+          )],
+        ],
+      ),
     );
   }
 }

@@ -349,6 +349,17 @@ class ChatMessage {
     );
   }
 
+  /// Server timestamps arrive as UTC ISO-8601 (`…Z`). Parsed naively, a
+  /// DateTime carries the wall-clock digits but no zone, so the bubble clock
+  /// rendered the server's UTC hour as if it were local — messages showed up
+  /// hours off. Converting to local here fixes every screen at once.
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    final DateTime? at = DateTime.tryParse('$v');
+    if (at == null) return null;
+    return at.isUtc ? at.toLocal() : at;
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final List<dynamic> rawAttachments = json['attachments'] as List<dynamic>? ?? <dynamic>[];
     final dynamic rawReply = json['reply_to_message'] ?? json['reply_to'];
@@ -374,7 +385,7 @@ class ChatMessage {
       senderId: senderId,
       message: json['message'] as String? ?? '',
       messageType: json['message_type'] as String? ?? 'text',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt: ChatMessage._parseDate(json['created_at']) ?? DateTime.now(),
       replyToChatId: replyId,
       replyToMessage: rawReply is Map<String, dynamic> ? ChatMessage.fromJson(rawReply) : null,
       attachments: rawAttachments
@@ -384,10 +395,10 @@ class ChatMessage {
       deletedForMe: json['deleted_for_me'] as bool? ?? false,
       senderName: senderName,
       senderPhoto: senderPhoto,
-      deliveredAt: DateTime.tryParse(json['delivered_at'] as String? ?? ''),
-      readAt: DateTime.tryParse(json['read_at'] as String? ?? ''),
+      deliveredAt: _parseDate(json['delivered_at']),
+      readAt: _parseDate(json['read_at']),
       seen: json['seen'] as bool? ?? false,
-      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? ''),
+      expiresAt: _parseDate(json['expires_at']),
       metadata: json['metadata'] is Map<String, dynamic>
           ? json['metadata'] as Map<String, dynamic>
           : null,
@@ -439,7 +450,7 @@ class ChatParticipant {
           (json['user'] is Map ? json['user']['photo'] as String? : null) ??
           (json['member'] is Map ? json['member']['photo'] as String? : null),
       isOnline: json['is_online'] as bool? ?? json['online'] as bool? ?? false,
-      lastActiveAt: DateTime.tryParse(json['last_active_at'] as String? ?? ''),
+      lastActiveAt: ChatMessage._parseDate(json['last_active_at']),
     );
   }
 }
@@ -592,11 +603,11 @@ class ChatThread {
       canSendMessage: json['can_send_message'] as bool? ?? true,
       threadCode: json['thread_code'],
       messageRequestStatus: json['message_request_status'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt: ChatMessage._parseDate(json['created_at']) ?? DateTime.now(),
       lastMessage: rawLastMsg is Map<String, dynamic> ? ChatMessage.fromJson(rawLastMsg) : null,
       lastMessageAt: json['last_message_at'] != null
-          ? DateTime.tryParse(json['last_message_at'] as String)
-          : (json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null),
+          ? ChatMessage._parseDate(json['last_message_at'])
+          : (json['updated_at'] != null ? ChatMessage._parseDate(json['updated_at']) : null),
       disappearAfter: json['disappear_after'] as int? ?? 0,
       isArchived: json['archived'] as bool? ?? false,
       isMuted: json['muted'] as bool? ?? false,

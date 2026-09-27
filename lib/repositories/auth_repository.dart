@@ -69,6 +69,38 @@ class AuthRepository {
     return res.message;
   }
 
+  /// `POST /auth/otp/email` — QA-required EMAIL OTP login: request the code
+  /// for a registered email. Same pipeline as the mobile path on the backend.
+  Future<String> requestEmailOtp({required String email}) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.requestEmailOtp,
+      body: <String, dynamic>{'email': email},
+    );
+    return res.message;
+  }
+
+  /// `POST /auth/login/email-otp` — verifies the email OTP and signs the
+  /// member in (QA: replaces the previous mobile-OTP dependency).
+  Future<AuthResponseModel> loginWithEmailOtp({
+    required String email,
+    required String otp,
+    required String deviceName,
+  }) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.loginEmailOtp,
+      body: <String, dynamic>{
+        'email': email,
+        // The docs name this field `otp`, the live API reads `code` — send both
+        // so either implementation accepts the request.
+        'otp': otp,
+        'code': otp,
+        'device_name': deviceName,
+        'device_type': ApiConfig.deviceType,
+      },
+    );
+    return AuthResponseModel.fromJson(res.dataMap);
+  }
+
   /// Login with a mobile OTP.
   Future<AuthResponseModel> loginWithMobileOtp({
     required String phone,

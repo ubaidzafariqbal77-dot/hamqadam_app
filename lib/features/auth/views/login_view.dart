@@ -5,6 +5,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_strings.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/auth_controller.dart';
+import '../../../controllers/email_otp_controller.dart';
 import '../../../controllers/login_controller.dart';
 import '../../../controllers/mobile_otp_controller.dart';
 import '../../../controllers/registration_controller.dart';
@@ -38,7 +39,10 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
   late final LoginController c;
   late final MobileOtpController otp;
-  final RxBool _emailMode = true.obs;
+  late final EmailOtpController emailOtp;
+
+  /// 0 = Email & password, 1 = Email OTP, 2 = Mobile OTP.
+  final RxInt _emailMode = 0.obs;
 
   @override
   void initState() {
@@ -55,12 +59,19 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
         authController: Get.find<AuthController>(),
       ),
     );
+    emailOtp = putVC<EmailOtpController>(
+      EmailOtpController(
+        authRepository: Get.find<AuthRepository>(),
+        authController: Get.find<AuthController>(),
+      ),
+    );
   }
 
   @override
   void dispose() {
     deleteVC<LoginController>();
     deleteVC<MobileOtpController>();
+    deleteVC<EmailOtpController>();
     super.dispose();
   }
 
@@ -69,7 +80,8 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
     return DismissKeyboard(
       child: Obx(
         () => LoadingOverlay(
-          isLoading: c.submitting.value || otp.submitting.value,
+          isLoading:
+              c.submitting.value || otp.submitting.value || emailOtp.submitting.value,
           child: Scaffold(
             // Login is fully English-only: the whole subtree (including the
             // email/password/phone fields) has bilingual Urdu disabled.
@@ -114,9 +126,11 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                                   ),
                                 ],
                               ),
-                              child: Obx(() => _emailMode.value
-                                  ? _emailForm()
-                                  : _mobileForm()),
+                              child: Obx(() => switch (_emailMode.value) {
+                                    1 => _emailOtpForm(),
+                                    2 => _mobileForm(),
+                                    _ => _emailForm(),
+                                  }),
                             ),
                             const SizedBox(height: AppSpacing.lg),
                             const _OrDivider(),
@@ -200,6 +214,60 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
     );
   }
 
+  // ---- Email OTP form (QA: backend email-OTP login) -------------------------
+  Widget _emailOtpForm() {
+    return Form(
+      key: emailOtp.formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Reveal(
+            child: AppTextFormField(
+              label: 'Registered Email',
+              controller: emailOtp.emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              prefixIcon: const Icon(Icons.email_outlined),
+              validator: (String? v) => AppValidators.email(v),
+            ),
+          ),
+          Obx(() {
+            if (!emailOtp.otpRequested.value) {
+              return Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.md),
+                child: AppButton(
+                  label: 'Send Code',
+                  loading: emailOtp.submitting.value,
+                  onPressed: emailOtp.requestOtp,
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const SizedBox(height: AppSpacing.md),
+                AppOtpField(label: 'Verification code', controller: emailOtp.otpCtrl),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  label: 'Verify & Login',
+                  loading: emailOtp.submitting.value,
+                  onPressed: emailOtp.verifyOtp,
+                ),
+                TextButton(
+                  onPressed: emailOtp.reset,
+                  child: BiText(
+                    'Change email / resend code',
+                    gap: 0,
+                    style: AppTextStyles.label.copyWith(color: AppColors.regAccent),
+                  ),
+                ),
+              ],
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   // ---- Mobile OTP form ------------------------------------------------------
   Widget _mobileForm() {
     return Form(
@@ -263,12 +331,14 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
 
 class _MethodToggle extends StatelessWidget {
   const _MethodToggle({required this.emailMode});
-  final RxBool emailMode;
+
+  /// 0 = Email & password, 1 = Email OTP (QA-required recovery login),
+  /// 2 = Mobile OTP.
+  final RxInt emailMode;
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final bool email = emailMode.value;
       // The registration segmented look: white track, rose hairline, and the
       // active segment filled with the muted rose gradient.
       return Container(
@@ -280,8 +350,12 @@ class _MethodToggle extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            _seg(context, 'Email', email, () => emailMode.value = true),
-            _seg(context, 'Email OTP', !email, () => emailMode.value = false),
+            _seg(context, 'Email', emailMode.value == 0,
+                () => emailMode.value = 0),
+            _seg(context, 'Email OTP', emailMode.value == 1,
+                () => emailMode.value = 1),
+            _seg(context, 'Mobile OTP', emailMode.value == 2,
+                () => emailMode.value = 2),
           ],
         ),
       );

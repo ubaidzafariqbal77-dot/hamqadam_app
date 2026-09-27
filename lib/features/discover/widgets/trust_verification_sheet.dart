@@ -74,6 +74,8 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
       checks: ProfileTrustChecks.fromJson(checks),
       name: (data['name'] as String?)?.trim(),
       photoUrl: data['photo'] as String?,
+      identityVerified: data['identity_verified'] == true,
+      lastVerifiedAt: DateTime.tryParse('${data['last_verified_at'] ?? ''}')?.toLocal(),
     );
   }
 
@@ -116,6 +118,7 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
                       (snap.data?.photoUrl?.isNotEmpty ?? false)
                           ? snap.data!.photoUrl
                           : widget.photoUrl,
+                  identityVerified: snap.data?.identityVerified ?? false,
                   ink: ink,
                   muted: muted,
                   dark: dark,
@@ -134,6 +137,7 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
                                   AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.lg),
                               child: _ChecklistBody(
                                 checks: snap.data?.checks ?? const ProfileTrustChecks(),
+                                lastVerifiedAt: snap.data?.lastVerifiedAt,
                                 ink: ink,
                                 muted: muted,
                               ),
@@ -155,11 +159,23 @@ class _TrustVerificationSheetState extends State<TrustVerificationSheet> {
 /// What the trust endpoint answered with: the checklist plus the member the
 /// server resolved for the tapped id.
 class _TrustPayload {
-  const _TrustPayload({required this.checks, this.name, this.photoUrl});
+  const _TrustPayload({
+    required this.checks,
+    this.name,
+    this.photoUrl,
+    this.identityVerified = false,
+    this.lastVerifiedAt,
+  });
 
   final ProfileTrustChecks checks;
   final String? name;
   final String? photoUrl;
+
+  /// Overall verdict behind the sheet's "✓ Verified Profile" line.
+  final bool identityVerified;
+
+  /// Newest moderator/AI approval stamp — the "Last verified: [Date]" row.
+  final DateTime? lastVerifiedAt;
 }
 
 class _SheetHeader extends StatelessWidget {
@@ -167,6 +183,7 @@ class _SheetHeader extends StatelessWidget {
     required this.fallbackName,
     required this.serverName,
     required this.photoUrl,
+    required this.identityVerified,
     required this.ink,
     required this.muted,
     required this.dark,
@@ -178,6 +195,10 @@ class _SheetHeader extends StatelessWidget {
   final String? fallbackName;
   final String? serverName;
   final String? photoUrl;
+
+  /// Shows the "✓ Verified Profile" line above the name when the member's
+  /// identity is verified — the reference format's first requirement.
+  final bool identityVerified;
   final Color ink;
   final Color muted;
   final bool dark;
@@ -203,22 +224,30 @@ class _SheetHeader extends StatelessWidget {
                 : null,
           ),
           const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTextStyles.title.copyWith(color: ink),
-                ),
-                Text(
-                  'Trust & Verification',
-                  style: AppTextStyles.caption.copyWith(color: muted),
-                ),
-              ],
-            ),
+          Expanded(              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (identityVerified)
+                    Text(
+                      '✓ Verified Profile',
+                      style: AppTextStyles.caption.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.success,
+                      ),
+                    ),
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.title.copyWith(color: ink),
+                  ),
+                  Text(
+                    'Trust & Verification',
+                    style: AppTextStyles.caption.copyWith(color: muted),
+                  ),
+                ],
+              ),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -235,11 +264,20 @@ class _SheetHeader extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ChecklistBody extends StatelessWidget {
-  const _ChecklistBody({required this.checks, required this.ink, required this.muted});
+  const _ChecklistBody({
+    required this.checks,
+    required this.ink,
+    required this.muted,
+    this.lastVerifiedAt,
+  });
 
   final ProfileTrustChecks checks;
   final Color ink;
   final Color muted;
+
+  /// Newest moderator/AI approval stamp — rendered as the QA-required
+  /// "Last verified: [Date]" row under the checklist (hidden when null).
+  final DateTime? lastVerifiedAt;
 
   @override
   Widget build(BuildContext context) {
@@ -255,8 +293,37 @@ class _ChecklistBody extends StatelessWidget {
         _Row(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
         _Row(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
         _Row(label: 'Intent', passed: checks.intent, passedText: 'Marriage intention confirmed', failedText: 'Not on record', ink: ink, muted: muted),
+        if (lastVerifiedAt != null) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(
+            'Last verified: ${_verifiedDate(lastVerifiedAt!)}',
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 11.5,
+              color: muted,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        // The reference format's closing note — exact wording as specified.
+        Text(
+          'Verification Note: Verification confirms that submitted identity '
+          'information has passed the required verification checks.',
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 11,
+            fontStyle: FontStyle.italic,
+            color: muted,
+          ),
+        ),
       ],
     );
+  }
+
+  static String _verifiedDate(DateTime at) {
+    const List<String> months = <String>[
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${at.day} ${months[at.month - 1]} ${at.year}';
   }
 }
 

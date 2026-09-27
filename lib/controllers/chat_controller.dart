@@ -390,6 +390,11 @@ class ChatController extends GetxController {
 
     if (isOpen) {
       _mergeIntoConversation(<ChatMessage>[msg]);
+      // The conversation is on screen — tell the server this device has the
+      // message so the sender's tick climbs to a double immediately, instead
+      // of waiting for the next thread open (markDelivered is what writes
+      // delivered_at; the messages fetch alone only marks read).
+      _repo.markThreadDelivered(msg.threadId);
     }
 
     // Inbox row patched in place: instant, and no request.

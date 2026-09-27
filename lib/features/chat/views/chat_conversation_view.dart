@@ -18,6 +18,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import '../../discover/widgets/public_profile_detail_sheet.dart';
 import '../widgets/chat_export_sheet.dart';
 import '../widgets/chat_reaction_bar.dart';
 import '../widgets/chat_report_dialog.dart';
@@ -81,6 +82,18 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   }
 
   Future<void> _pickImage() async {
+    // QA: Android-keyboard GIFs were "not sending" — pickImage(imageQuality: 85)
+    // re-encodes through the platform image codec, which flattens an animated
+    // GIF to its first frame (or drops it entirely). The media picker with
+    // FileType.image hands the ORIGINAL file path straight through, so a GIF
+    // travels as a real animated file; JPEGs still go through the quality
+    // path because they benefit from the compression.
+    final XFile? picked = await _imagePicker.pickMedia();
+    if (picked == null) return;
+    if (picked.path.toLowerCase().endsWith('.gif')) {
+      _controller.addAttachment(picked.path);
+      return;
+    }
     final XFile? photo = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 85,
@@ -356,14 +369,9 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     children: <Widget>[
                       const Text('Typing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
                       const SizedBox(width: 6),
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: theme.hintColor,
-                        ),
-                      ),
+                      // QA: no loading spinner next to "Typing" — the animated
+                      // dots ARE the indicator, WhatsApp-style.
+                      const _TypingDots(),
                     ],
                   ),
                 ),
@@ -501,18 +509,25 @@ class _ChatConversationViewState extends State<ChatConversationView> {
       titleSpacing: 0,
       title: Row(
         children: <Widget>[
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-            backgroundImage: widget.thread.participant.hasPhoto
-                ? NetworkImage(widget.thread.participant.photo!)
-                : null,
-            child: !widget.thread.participant.hasPhoto
-                ? Text(
-                    widget.thread.participant.initial,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                  )
-                : null,
+          // QA: tapping the member's picture in chat must open their main
+          // profile. The avatar (and name, already tappable below) route to the
+          // public profile detail sheet.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openParticipantProfile(context),
+            child: CircleAvatar(
+              radius: 19,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+              backgroundImage: widget.thread.participant.hasPhoto
+                  ? NetworkImage(widget.thread.participant.photo!)
+                  : null,
+              child: !widget.thread.participant.hasPhoto
+                  ? Text(
+                      widget.thread.participant.initial,
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                    )
+                  : null,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -580,7 +595,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
         PopupMenuButton<String>(
 
-          icon: const Icon(Icons.more_vert_rounded),
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.black),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           onSelected: (String value) {
             switch (value) {
@@ -685,6 +700,20 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
   /// Presence line under the conversation title: Online / Last seen …
   /// (never a bare "Active" that could mean anything).
+  /// Opens the member's main profile — the QA requirement for tapping the
+  /// chat header's profile picture.
+  void _openParticipantProfile(BuildContext context) {
+    final ChatThread thread = _controller.activeThread.value ?? widget.thread;
+    final int id = thread.participant.id;
+    if (id <= 0) return;
+    PublicProfileDetailSheet.show(
+      context,
+      profileId: id,
+      name: thread.participant.name,
+      photo: thread.participant.photo,
+    );
+  }
+
   String _presenceLabel(ChatParticipant participant) {
     if (participant.isOnline) return 'Online';
     final DateTime? at = participant.lastActiveAt;
@@ -1194,7 +1223,8 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final String timeStr = DateFormat('h:mm a').format(message.createdAt);
+    final String timeStr = DateFormat('h:mm a')
+        .format(message.createdAt.toLocal());
 
     // Separate images from documents. A voice note's audio clip must NOT hit
     // the document list — the player bubble below renders it, and a second
@@ -1423,12 +1453,22 @@ class _MessageBubble extends StatelessWidget {
                               Flexible(
                                 child: Text(
                                   message.message,
+                                  // QA: some emojis (pizza slice, etc.) rendered
+                                  // half-clipped at 14.5px — the fallback font's
+                                  // glyph metrics cut the bottom. A line-height
+                                  // bump plus the platform emoji font lets every
+                                  // glyph draw in full.
                                   style: TextStyle(
                                     color: isMine
                                         ? Colors.white
                                         : theme.textTheme.bodyLarge?.color,
                                     fontSize: 14.5,
-                                    height: 1.3,
+                                    height: 1.45,
+                                    fontFamilyFallback: <String>[
+                                      'Apple Color Emoji',
+                                      'Noto Color Emoji',
+                                      'Segoe UI Emoji',
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1683,6 +1723,72 @@ class _DeliveryTick extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Image Grid (WhatsApp-style): 1 image = full width, 2+ = grid
 // ---------------------------------------------------------------------------
+
+/// Three pulsing dots shown beside the "Typing" label — the QA report asked
+/// for the loading spinner to be removed and only "Typing" (with its indicator
+/// motion) displayed.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (BuildContext context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (int i = 0; i < 3; i++) ...<Widget>[
+              if (i > 0) const SizedBox(width: 2),
+              Opacity(
+                // Each dot peaks in turn, giving the wave the indicator needs.
+                opacity: (0.25 +
+                        0.75 *
+                            (0.5 +
+                                0.5 *
+                                    _wave(
+                                      (_ctrl.value - i * 0.18) % 1,
+                                    )))
+                    .clamp(0.0, 1.0),
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).hintColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// A 0..1 triangle wave so each dot fades in and out once per cycle.
+  double _wave(double t) {
+    final double x = t < 0 ? t + 1 : t;
+    return x < 0.5 ? x * 2 : 2 - x * 2;
+  }
+}
 
 class _ImageGrid extends StatelessWidget {
   const _ImageGrid({required this.images});

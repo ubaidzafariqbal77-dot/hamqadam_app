@@ -102,6 +102,12 @@ class GiftController extends GetxController {
       );
       // The REAL balance after the send — straight from the backend wallet.
       coinBalance.value = result.remainingCoins;
+      // Same wallet feeds the Interests screen's coin card; re-read it so no
+      // screen keeps showing a pre-send balance.
+      if (Get.isRegistered<InterestController>()) {
+        await Get.find<InterestController>().refreshCoins();
+        coinBalance.value = Get.find<InterestController>().coinBalance.value.remainingInterest;
+      }
       AppSnackbar.success('Gift sent!');
       // Sent list is now stale.
       sentState.value = const ApiState<List<GiftTransactionModel>>.initial();

@@ -9,6 +9,9 @@ class ApiEndpoints {
   static const String loginEmail = '/auth/login/email';
   static const String requestMobileOtp = '/auth/otp/mobile';
   static const String loginMobile = '/auth/login/mobile';
+  /// QA: email OTP login / account recovery (backend replaces mobile-OTP).
+  static const String requestEmailOtp = '/auth/otp/email';
+  static const String loginEmailOtp = '/auth/login/email-otp';
   static const String loginGoogle = '/auth/login/google';
   static const String me = '/auth/me';
   static const String logout = '/auth/logout';

@@ -235,6 +235,34 @@ class _GiftTile extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(_when(transaction.createdAt), style: AppTextStyles.caption.copyWith(fontSize: 11, color: Theme.of(context).hintColor)),
+              // QA: "Received Gift / Gift Claim UI" — a received gift's tile
+              // shows the claim state instead of a bare date. Coins credited
+              // automatically read as claimed; the reference's green stamp.
+              if (isReceived) ...<Widget>[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Icon(Icons.check_circle_rounded, size: 10, color: AppColors.success),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${(transaction.coins * 0.7).floor()} coins claimed',
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.success,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ],

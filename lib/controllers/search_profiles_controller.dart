@@ -561,6 +561,37 @@ class SearchProfilesController extends GetxController {
   String? stateLabel(int? id) => _lookupName(LookupKeys.states, id);
   String? cityLabel(int? id) => _lookupName(LookupKeys.cities, id);
 
+  // ---- Listing-card fact labels (reference card design) ----
+  String? sectLabel(int? id) => _lookupName(LookupKeys.sectMain, id);
+  String? schoolOfThoughtLabel(int? id) => _lookupName(LookupKeys.schoolOfThought, id);
+
+  /// "Master's" — the education level, or the specific degree when the level
+  /// is absent.
+  String? educationLabel(SearchProfileModel p) {
+    final String? level = _lookupName(LookupKeys.educationLevels, p.educationLevelId);
+    if (level != null && level.isNotEmpty) return level;
+    return _lookupName(LookupKeys.degrees, p.degreeId);
+  }
+
+  /// "Designer" — the profession, falling back to the job title field.
+  String? professionLabel(SearchProfileModel p) {
+    final String? profession = _lookupName(LookupKeys.professions, p.professionId);
+    if (profession != null && profession.isNotEmpty) return profession;
+    return null;
+  }
+
+  /// "Family Oriented" — the member's family-values line, cleaned of snake
+  /// casing in case the backend ever stores it that way.
+  String? familyLabel(SearchProfileModel p) {
+    final String? v = p.familyValues?.trim();
+    if (v == null || v.isEmpty) return null;
+    return v
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((String w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
   String formatLocation(SearchProfileModel p) {
     final List<String> parts = <String>[];
     final String? city = cityLabel(p.cityId);

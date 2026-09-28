@@ -107,7 +107,7 @@ class _AppButtonState extends State<AppButton> {
               decoration: BoxDecoration(
                 gradient: isGradient
                     ? const LinearGradient(
-                        colors: AppColors.regPrimaryGradient,
+                        colors: AppColors.brandGradient,
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       )

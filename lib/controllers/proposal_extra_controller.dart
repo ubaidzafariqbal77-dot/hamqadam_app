@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import '../exceptions/app_exceptions.dart';
+import '../features/payments/views/membership_plans_view.dart';
 import '../repositories/proposal_extra_repository.dart';
 import '../widgets/app_snackbar.dart';
 
@@ -36,7 +37,14 @@ class ProposalExtraController extends GetxController {
         AppSnackbar.success('Added to favourites.');
       }
     } on AppException catch (e) {
-      AppSnackbar.error(e.message);
+      // Favouriting now costs a coin: a 402 means the wallet is empty, so
+      // send the member to the packages screen instead of a dead error.
+      if (e.statusCode == 402 || (e is ApiException && e.code == 'insufficient_coins')) {
+        AppSnackbar.error('You need a coin to favourite this profile.');
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error(e.message);
+      }
     } catch (e) {
       AppSnackbar.error('Failed to update favourite.');
     } finally {

@@ -12,6 +12,7 @@ import '../../../constants/reg_icons.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/validators/app_validators.dart';
 import '../../../exceptions/app_exceptions.dart';
+import '../../../repositories/account_check_repository.dart';
 import '../../../repositories/registration_repository.dart';
 import '../../../widgets/app_button.dart';
 import '../../../widgets/app_otp_field.dart';
@@ -49,6 +50,78 @@ class Step05Controller extends StepController {
   final RxInt resendIn = 0.obs;
   Timer? _ticker;
 
+  // ---- Live availability checks (Task: green "Available" / red "already
+  // registered" under each field as the member types) ----
+  AccountCheckRepository get _checkRepo => Get.isRegistered<AccountCheckRepository>()
+      ? Get.find<AccountCheckRepository>()
+      : Get.put(AccountCheckRepository(Get.find<ApiClient>()), permanent: true);
+
+  final Rxn<bool> phoneAvailable = Rxn<bool>();
+  final RxString phoneCheckMessage = ''.obs;
+  final Rxn<bool> emailAvailable = Rxn<bool>();
+  final RxString emailCheckMessage = ''.obs;
+  Timer? _phoneDebounce;
+  Timer? _emailDebounce;
+  String _lastPhoneChecked = '';
+  String _lastEmailChecked = '';
+
+  /// Debounced server check for the phone field.
+  void onPhoneTyped(String raw) {
+    _phoneDebounce?.cancel();
+    final String value = raw.trim();
+    if (value.isEmpty || AppValidators.pakistaniPhone(value) != null) {
+      phoneAvailable.value = null;
+      phoneCheckMessage.value = '';
+      return;
+    }
+    if (value == _lastPhoneChecked && phoneAvailable.value != null) return;
+    _phoneDebounce = Timer(const Duration(milliseconds: 700), () => _checkPhone(value));
+  }
+
+  Future<void> _checkPhone(String value) async {
+    final ({String countryCode, String phone}) split = ApiValues.splitPhone(value);
+    final String full = '${split.countryCode}${split.phone}';
+    _lastPhoneChecked = value;
+    try {
+      final AccountCheckResult r = await _checkRepo.check(type: 'phone', value: full);
+      // Stale-response guard: the field may have changed while in flight.
+      if (value != phone.text.trim()) return;
+      phoneAvailable.value = r.available;
+      phoneCheckMessage.value = r.message ?? '';
+    } on AppException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 404) {
+        phoneAvailable.value = null;
+        phoneCheckMessage.value = '';
+      }
+      // Network blips stay silent — the server re-validates on submit.
+    } catch (_) {}
+  }
+
+  /// Debounced server check for the email field.
+  void onEmailTyped(String raw) {
+    _emailDebounce?.cancel();
+    final String value = raw.trim();
+    if (value.isEmpty || AppValidators.email(value) != null) {
+      emailAvailable.value = null;
+      emailCheckMessage.value = '';
+      return;
+    }
+    if (value.toLowerCase() == _lastEmailChecked && emailAvailable.value != null) return;
+    _emailDebounce = Timer(const Duration(milliseconds: 700), () => _checkEmail(value));
+  }
+
+  Future<void> _checkEmail(String value) async {
+    _lastEmailChecked = value.toLowerCase();
+    try {
+      final AccountCheckResult r = await _checkRepo.check(type: 'email', value: value);
+      if (value != email.text.trim()) return;
+      emailAvailable.value = r.available;
+      emailCheckMessage.value = r.message ?? '';
+    } on AppException {
+      // Silent — the server re-validates on submit.
+    } catch (_) {}
+  }
+
   static const int _cooldown = 60;
 
   bool get otpEnabled => ApiOptions.emailOtpBeforeSubmit;
@@ -63,6 +136,9 @@ class Step05Controller extends StepController {
     email.text = buffer.getString('email') ?? '';
     verifiedEmail.value = buffer.getString('email_verified_as') ?? '';
     email.addListener(_onEmailChanged);
+    // Live availability checks fire as the member types.
+    phone.addListener(() => onPhoneTyped(phone.text));
+    email.addListener(() => onEmailTyped(email.text));
   }
 
   /// A changed address invalidates any code already sent or verified.
@@ -155,6 +231,8 @@ class Step05Controller extends StepController {
   @override
   void disposeFields() {
     _ticker?.cancel();
+    _phoneDebounce?.cancel();
+    _emailDebounce?.cancel();
     email.removeListener(_onEmailChanged);
     phone.dispose();
     email.dispose();
@@ -207,41 +285,97 @@ class _Step05ViewState extends State<Step05View> {
       children: <Widget>[
         const SizedBox(height: 22),
         Reveal(
-          child: AppPhoneField(
-            insetLabel: true,
-            label: 'Mobile number',
-            controller: c.phone,
-            textInputAction: TextInputAction.next,
-            validator: (String? v) => AppValidators.pakistaniPhone(v),
-            // Reference style: rose handset glyph in the field's leading disc.
-            prefixIcon: const Padding(
-              padding: EdgeInsets.only(left: 14, right: 8),
-              child: AssetOrIconDisc(child: PhoneGlyph(size: 22)),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AppPhoneField(
+                insetLabel: true,
+                label: 'Mobile number',
+                controller: c.phone,
+                textInputAction: TextInputAction.next,
+                validator: (String? v) => AppValidators.pakistaniPhone(v),
+                // Reference style: rose handset glyph in the field's leading disc.
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 8),
+                  child: AssetOrIconDisc(child: PhoneGlyph(size: 22)),
+                ),
+              ),
+              _AvailabilityText(
+                available: c.phoneAvailable.value,
+                message: c.phoneCheckMessage.value,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 42),
         Reveal(
             delayMs: 120,
-            child: AppTextFormField(
-              insetLabel: true,
-              label: 'Email address',
-              controller: c.email,
-              hint: 'you@example.com',
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              autofillHints: const <String>[AutofillHints.email],
-              validator: (String? v) => AppValidators.email(v),
-              // Matching rose envelope glyph — same disc treatment as the
-              // phone field above.
-              prefixIcon: const Padding(
-                padding: EdgeInsets.only(left: 14, right: 8),
-                child: AssetOrIconDisc(child: MailGlyph(size: 22)),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                AppTextFormField(
+                  insetLabel: true,
+                  label: 'Email address',
+                  controller: c.email,
+                  hint: 'you@example.com',
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.done,
+                  autofillHints: const <String>[AutofillHints.email],
+                  validator: (String? v) => AppValidators.email(v),
+                  // Matching rose envelope glyph — same disc treatment as the
+                  // phone field above.
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(left: 14, right: 8),
+                    child: AssetOrIconDisc(child: MailGlyph(size: 22)),
+                  ),
+                ),
+                _AvailabilityText(
+                  available: c.emailAvailable.value,
+                  message: c.emailCheckMessage.value,
+                ),
+              ],
             ),
           ),
         if (c.otpEnabled) _EmailVerification(c: c),
       ],
+    );
+  }
+}
+
+/// Green "available" / red "already registered" line under a field, driven by
+/// the live `POST /auth/check` result. Hidden until the server has answered.
+class _AvailabilityText extends StatelessWidget {
+  const _AvailabilityText({required this.available, required this.message});
+
+  final bool? available;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    if (available == null || message.isEmpty) return const SizedBox.shrink();
+    final bool ok = available!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 14),
+      child: Row(
+        children: <Widget>[
+          Icon(
+            ok ? Icons.check_circle_rounded : Icons.error_rounded,
+            size: 15,
+            color: ok ? Colors.green : AppColors.error,
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 12,
+                color: ok ? Colors.green : AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

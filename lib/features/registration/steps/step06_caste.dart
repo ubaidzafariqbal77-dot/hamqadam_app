@@ -105,7 +105,7 @@ class _Step06ViewState extends State<Step06View> {
           child: Container(
             padding: const EdgeInsets.fromLTRB(14, 16, 14, 6),
             decoration: BoxDecoration(
-              color: dark ? AppColors.darkSurface : const Color(0xFFFDF1F5),
+              color: dark ? AppColors.darkSurface : const Color(0xFFFFF0F4),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: dark

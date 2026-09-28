@@ -88,10 +88,35 @@ class _CompatibilityCard extends StatelessWidget {
   }
 
   String get _levelLabel {
+    // The QA reference's five tiers — exact wording, per band.
     if (_shownPercentage >= 80) return 'Very high compatibility';
     if (_shownPercentage >= 60) return 'High compatibility';
     if (_shownPercentage >= 40) return 'Moderate compatibility';
-    return 'Growing compatibility';
+    if (_shownPercentage >= 20) return 'Low compatibility';
+    return 'Very low compatibility';
+  }
+
+  /// The "AI Compatibility Summary:" block's lines — the client's format
+  /// wants the summary as separate sentences, one per line, not a paragraph.
+  ///
+  /// Prefer the backend's own reasons list (already sentence-shaped); when a
+  /// source sends none, fall back to the softened explanation split on
+  /// sentence ends so the block never draws as one long paragraph.
+  List<String> get summaryLines {
+    final List<String> reasons = data.reasons
+        .map((String r) => r.trim())
+        .where((String r) => r.isNotEmpty)
+        .toList(growable: false);
+    if (reasons.isNotEmpty) return reasons.take(5).toList(growable: false);
+
+    final String? explained = data.displayExplanation?.trim();
+    if (explained == null || explained.isEmpty) return const <String>[];
+    return explained
+        .split(RegExp(r'(?<=[.!?])\s+'))
+        .map((String s) => s.trim())
+        .where((String s) => s.isNotEmpty)
+        .take(5)
+        .toList(growable: false);
   }
 
   @override
@@ -187,17 +212,38 @@ class _CompatibilityCard extends StatelessWidget {
             ),
           ),
 
-          // ---- The model's explanation, softened for display -----------
-          if (data.displayExplanation != null && data.displayExplanation!.trim().isNotEmpty) ...<Widget>[
+          // ---- "AI Compatibility Summary:" — the client's exact
+          // heading, followed by the summary sentences one per line -------
+          if (summaryLines.isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             Padding(
               padding: const EdgeInsets.only(left: 14),
               child: Text(
-                data.displayExplanation!.trim(),
-                style: AppTextStyles.caption.copyWith(
-                  height: 1.5,
-                  color: AppColors.lightInputText,
+                'AI Compatibility Summary:',
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.lightTextPrimary,
                 ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (final String line in summaryLines)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        line,
+                        style: AppTextStyles.caption.copyWith(
+                          height: 1.5,
+                          color: AppColors.lightInputText,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],

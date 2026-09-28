@@ -124,10 +124,11 @@ class _SplashViewState extends State<SplashView> with SingleTickerProviderStateM
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
+        backgroundColor: Colors.white,
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            // Soft pink radiant backdrop (light, airy, brand-tinted).
+            // White backdrop with faint pink bokeh (app-wide white voice).
             const _Backdrop(),
 
             // Sparkle dust, clustered to the upper-right / lower-left like the
@@ -186,7 +187,7 @@ class _SplashCard extends StatelessWidget {
             border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 1.2),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: const Color(0xFFB4487B).withValues(alpha: 0.18),
+                color: AppColors.primary.withValues(alpha: 0.12),
                 blurRadius: 44,
                 offset: const Offset(0, 22),
               ),
@@ -254,8 +255,9 @@ class _SplashCard extends StatelessWidget {
   }
 }
 
-/// Soft pink radiant gradient with gentle bokeh blobs — the backdrop family of
-/// the reference art, tuned to the HamQadam brand palette.
+/// Clean WHITE backdrop with faint hot-pink bokeh — the app-wide white +
+/// hot-pink voice. The old rosy gradient canvas is gone; the sparkles switch
+/// to soft pink so they stay visible on white.
 class _Backdrop extends StatelessWidget {
   const _Backdrop();
 
@@ -264,12 +266,11 @@ class _Backdrop extends StatelessWidget {
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: <Color>[
-            Color(0xFFFBE0EB), // airy rose
-            Color(0xFFF7C6D9), // mid rose
-            Color(0xFFF3B0C8), // deeper rose
+            Colors.white,
+            Color(0xFFFAFAFA), // near-white fall, same family as onboarding
           ],
         ),
       ),
@@ -278,17 +279,17 @@ class _Backdrop extends StatelessWidget {
           Positioned(
             top: -120,
             right: -90,
-            child: _Bokeh(size: 340, opacity: 0.5),
+            child: _Bokeh(size: 340, opacity: 0.30),
           ),
           Positioned(
             bottom: -140,
             left: -110,
-            child: _Bokeh(size: 400, opacity: 0.42),
+            child: _Bokeh(size: 400, opacity: 0.24),
           ),
           Positioned(
             top: 120,
             left: -70,
-            child: _Bokeh(size: 220, opacity: 0.30),
+            child: _Bokeh(size: 220, opacity: 0.18),
           ),
         ],
       ),
@@ -312,8 +313,8 @@ class _Bokeh extends StatelessWidget {
           shape: BoxShape.circle,
           gradient: RadialGradient(
             colors: <Color>[
-              Colors.white.withValues(alpha: opacity),
-              Colors.white.withValues(alpha: 0),
+              AppColors.primary.withValues(alpha: opacity),
+              AppColors.primary.withValues(alpha: 0),
             ],
           ),
         ),
@@ -357,10 +358,10 @@ class _Sparkles extends StatelessWidget {
                     height: size,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: opacity),
+                      color: AppColors.primary.withValues(alpha: opacity * 0.8),
                       boxShadow: <BoxShadow>[
                         BoxShadow(
-                          color: Colors.white.withValues(alpha: opacity * 0.9),
+                          color: AppColors.primary.withValues(alpha: opacity * 0.5),
                           blurRadius: size * 2.5,
                           spreadRadius: size * 0.8,
                         ),

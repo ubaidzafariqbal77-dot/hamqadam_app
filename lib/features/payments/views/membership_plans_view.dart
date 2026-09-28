@@ -406,7 +406,7 @@ class _PlanCard extends StatelessWidget {
             ],
           ],
 
-          if (onSubscribe != null) ...<Widget>[
+          if (onSubscribe != null && !plan.isFree) ...<Widget>[
             const SizedBox(height: AppSpacing.md),
             SizedBox(
               width: double.infinity,
@@ -418,13 +418,54 @@ class _PlanCard extends StatelessWidget {
                 ),
                 onPressed: onSubscribe,
                 child: Text(
-                  plan.isFree ? 'Get This Plan' : 'Subscribe — ${plan.priceFormatted}',
+                  'Subscribe — ${plan.priceFormatted}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 13.5,
                   ),
                 ),
+              ),
+            ),
+          ] else if (plan.isFree) ...<Widget>[
+            // The Free plan is every member's starting tier — it is claimed by
+            // default, so its button is disabled and the card says "Claimed"
+            // (or "Currently Active" when it really is the active package).
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: isCurrent
+                    ? AppColors.success.withValues(alpha: 0.1)
+                    : theme.hintColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(
+                  color: isCurrent
+                      ? AppColors.success.withValues(alpha: 0.3)
+                      : theme.hintColor.withValues(alpha: 0.25),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Icon(
+                    isCurrent
+                        ? Icons.check_circle_rounded
+                        : Icons.redeem_rounded,
+                    size: 18,
+                    color: isCurrent ? AppColors.success : theme.hintColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isCurrent ? 'Currently Active' : 'Claimed',
+                    style: TextStyle(
+                      color: isCurrent ? AppColors.success : theme.hintColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                ],
               ),
             ),
           ] else ...<Widget>[

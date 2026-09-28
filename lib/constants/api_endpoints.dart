@@ -18,6 +18,15 @@ class ApiEndpoints {
   static const String logoutAll = '/auth/logout-all';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
+
+  /// Registration-time availability check (email / phone / CNIC).
+  /// Public + throttled: `{ type, value } → { available, message }`.
+  static const String accountCheck = '/auth/check';
+
+  /// In-app password change (drawer). `{ current_password, password,
+  /// password_confirmation }` — 422 with field errors when the current
+  /// password is wrong.
+  static const String changePassword = '/auth/change-password';
   static const String deleteAccount = '/auth/account';
   static const String authDevices = '/auth/devices';
   static const String authEmailVerificationCode = '/auth/email/verification-code';
@@ -278,12 +287,26 @@ class ApiEndpoints {
   /// Per side: silences push/tray notifications for me only.
   static String chatMute(int threadId) => '/chat/threads/$threadId/mute';
 
+  /// `POST /chat/threads/{thread}/delete` — hides the conversation from MY
+  /// list only (per-side delete stamp). The other side is untouched, and the
+  /// next message they send brings the thread back like a new chat.
+  static String chatDeleteThread(int threadId) => '/chat/threads/$threadId/delete';
+
   /// `GET /chat/threads/{thread}/export` — full JSON backup of the chat.
   static String chatExport(int threadId) => '/chat/threads/$threadId/export';
 
   /// `POST /chat/messages/{message}/reaction` — body `{emoji: '❤️'}`.
   /// Sending the same emoji again (or null) clears the reaction.
   static String chatMessageReaction(int messageId) => '/chat/messages/$messageId/reaction';
+
+  // ---- Rewards -----------------------------------------------------------------
+  /// Welcome-bonus state (`GET /rewards/welcome`): eligibility, claimed flag,
+  /// coins and balance — the Redeem section renders from this.
+  static const String rewardsWelcome = '/rewards/welcome';
+
+  /// Claims the 25-coin welcome bonus (`POST /rewards/welcome/claim`).
+  /// Verified members only, once per account.
+  static const String rewardsWelcomeClaim = '/rewards/welcome/claim';
 
   // ---- Payments & Subscriptions ---------------------------------------------
   /// List of available membership plans (`GET /payments/plans`).

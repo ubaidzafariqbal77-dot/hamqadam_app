@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -5,8 +7,11 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/step_controller.dart';
+import '../../../core/api/api_client.dart';
 import '../../../core/utils/cnic_format.dart';
 import '../../../core/utils/media_picker_helper.dart';
+import '../../../exceptions/app_exceptions.dart';
+import '../../../repositories/account_check_repository.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
@@ -42,6 +47,17 @@ class Step14Controller extends StepController {
   /// Backing controller for the CNIC field.
   final TextEditingController cnicCtrl = TextEditingController();
 
+  // ---- Live CNIC availability check (green Available / red already
+  // registered, same recipe as step 5's phone/email) ----
+  AccountCheckRepository get _checkRepo => Get.isRegistered<AccountCheckRepository>()
+      ? Get.find<AccountCheckRepository>()
+      : Get.put(AccountCheckRepository(Get.find<ApiClient>()), permanent: true);
+
+  final Rxn<bool> cnicAvailable = Rxn<bool>();
+  final RxString cnicCheckMessage = ''.obs;
+  Timer? _cnicDebounce;
+  String _lastCnicChecked = '';
+
   /// Reformats to `XXXXX-XXXXXXX-X` as the member types, keeping the caret at
   /// the end so the inserted dashes do not fight the keyboard.
   void onCnicTyped(String raw) {
@@ -53,6 +69,28 @@ class Step14Controller extends StepController {
       );
     }
     cnicNumber.value = formatted;
+
+    // Debounced server check once the number is complete.
+    _cnicDebounce?.cancel();
+    if (!CnicFormat.isValid(formatted)) {
+      cnicAvailable.value = null;
+      cnicCheckMessage.value = '';
+      return;
+    }
+    if (formatted == _lastCnicChecked && cnicAvailable.value != null) return;
+    _cnicDebounce = Timer(const Duration(milliseconds: 700), () => _checkCnic(formatted));
+  }
+
+  Future<void> _checkCnic(String value) async {
+    _lastCnicChecked = value;
+    try {
+      final AccountCheckResult r = await _checkRepo.check(type: 'cnic', value: value);
+      if (value != cnicNumber.value) return;
+      cnicAvailable.value = r.available;
+      cnicCheckMessage.value = r.message ?? '';
+    } on AppException {
+      // Silent — the server re-validates on submit.
+    } catch (_) {}
   }
 
   Future<void> pickFront() async {
@@ -73,7 +111,10 @@ class Step14Controller extends StepController {
   }
 
   @override
-  void disposeFields() => cnicCtrl.dispose();
+  void disposeFields() {
+    _cnicDebounce?.cancel();
+    cnicCtrl.dispose();
+  }
 
   /// Removing the photo leaves the typed number alone — it is the member's own
   /// input, not something derived from the image.
@@ -207,16 +248,50 @@ class _Step14ViewState extends State<Step14View> {
       children: <Widget>[
         // 1 — CNIC number, typed by the member. Always visible: it no longer
         // depends on a photo having been read.
-        AppTextFormField(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            AppTextFormField(
               insetLabel: true,
-          label: 'CNIC number',
-          controller: c.cnicCtrl,
-          hint: 'XXXXX-XXXXXXX-X',
-          keyboardType: TextInputType.number,
-          onChanged: c.onCnicTyped,
-          validator: (String? v) => CnicFormat.isValid(v ?? '')
-              ? null
-              : 'Enter the 13-digit number as XXXXX-XXXXXXX-X',
+              label: 'CNIC number',
+              controller: c.cnicCtrl,
+              hint: 'XXXXX-XXXXXXX-X',
+              keyboardType: TextInputType.number,
+              onChanged: c.onCnicTyped,
+              validator: (String? v) => CnicFormat.isValid(v ?? '')
+                  ? null
+                  : 'Enter the 13-digit number as XXXXX-XXXXXXX-X',
+            ),
+            Obx(() {
+              if (c.cnicAvailable.value == null || c.cnicCheckMessage.value.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              final bool ok = c.cnicAvailable.value!;
+              return Padding(
+                padding: const EdgeInsets.only(top: 6, left: 14),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      ok ? Icons.check_circle_rounded : Icons.error_rounded,
+                      size: 15,
+                      color: ok ? Colors.green : AppColors.error,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        c.cnicCheckMessage.value,
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 12,
+                          color: ok ? Colors.green : AppColors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
         ),
 
         // 2 — CNIC FRONT.

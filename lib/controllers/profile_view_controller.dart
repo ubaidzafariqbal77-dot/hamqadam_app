@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
+import '../controllers/interest_controller.dart';
 import '../exceptions/app_exceptions.dart';
 import '../features/discover/widgets/public_profile_detail_sheet.dart';
 import '../models/profile_view_model.dart';
@@ -178,7 +179,12 @@ class ProfileViewController extends GetxController {
   /// Consumes one profile-view allowance and opens the public profile sheet.
   Future<void> openProfileWithView(BuildContext context, int profileId) async {
     PublicProfileDetailSheet.show(context, profileId: profileId);
-    // Refresh balance and viewed lists in background
+    // Refresh balance and viewed lists in background. The MAIN coin wallet is
+    // re-synced too: the server deducts it with the package counter on every
+    // consumed view, and the two must never disagree on screen (QA item 12).
     loadAll();
+    if (Get.isRegistered<InterestController>()) {
+      Get.find<InterestController>().refreshCoins();
+    }
   }
 }

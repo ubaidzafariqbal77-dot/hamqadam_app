@@ -201,6 +201,13 @@ class ChatRepository {
     return data.isEmpty ? null : ChatThread.fromJson(data);
   }
 
+  /// `POST /chat/threads/{thread}/delete` — hides the conversation from the
+  /// current user's list only. History and the other side stay untouched; the
+  /// next message from the peer un-hides the thread.
+  Future<void> deleteThread(int threadId) async {
+    await _client.post(ApiEndpoints.chatDeleteThread(threadId));
+  }
+
   /// `GET /chat/threads/{thread}/export` — one-shot JSON backup (thread info,
   /// peer, and every visible message with attachments and reactions).
   Future<Map<String, dynamic>> exportThread(int threadId) async {

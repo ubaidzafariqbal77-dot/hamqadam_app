@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 
-/// Premium gradient AppBar with a softly rounded bottom edge, elegant shadow
-/// and white content. Drop-in for `Scaffold.appBar`.
+/// The Discover screen's white reference AppBar, now app-wide.
 ///
-/// The gradient is the registration flow's muted dusty rose
-/// ([AppColors.regPrimaryGradient]), not the saturated brand pink — every
-/// screen the app opens (drawer, tabs, profile) reads as one family with the
-/// signup screens.
+/// Every screen used to draw the dusty-rose gradient bar; the Discover
+/// redesign moved to the HTML reference's sticky white header — serif pink
+/// title, gray subtitle, soft-pink icon chips — and the same treatment now
+/// applies everywhere so the app reads as one family again. Dark text on
+/// white, a hairline shadow, and actions drawn in the soul-pink ink.
+///
+/// Drop-in for `Scaffold.appBar` — the constructor is unchanged, so no call
+/// site needed edits.
 class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
   const PremiumAppBar({
     super.key,
@@ -34,31 +36,28 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      backgroundColor: Colors.transparent,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
+      backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       centerTitle: centerTitle,
       leading: leading,
-      iconTheme: const IconThemeData(color: Colors.white),
-      actionsIconTheme: const IconThemeData(color: Colors.white),
+      iconTheme: const IconThemeData(color: Color(0xFFFF0F4D)),
+      actionsIconTheme: const IconThemeData(color: Color(0xFFFF0F4D)),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
       ),
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: AppColors.regPrimaryGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: Colors.white,
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
           boxShadow: <BoxShadow>[
+            // The reference header's soft drop: a faint neutral shadow
+            // (the old rose glow read as a dirty smear under the white bar).
             BoxShadow(
-              color: Color(0x33CE8492), // regPrimaryGradient end @ 20%
-              blurRadius: 18,
-              offset: Offset(0, 6),
-              spreadRadius: -2,
+              color: Color(0x14000000),
+              blurRadius: 14,
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -70,7 +69,7 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
           Text(
             title,
             style: AppTextStyles.title.copyWith(
-              color: Colors.white,
+              color: const Color(0xFF151515),
               fontSize: 18,
             ),
           ),
@@ -78,8 +77,8 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
             Text(
               subtitle!,
               style: AppTextStyles.caption.copyWith(
-                color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 12,
+                color: const Color(0xFF9CA3AF),
+                fontSize: 11,
               ),
             ),
         ],

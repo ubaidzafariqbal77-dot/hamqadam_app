@@ -40,41 +40,41 @@ class PremiumBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.sm),
-        child: Container(
-          height: 66,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 8),
-          decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: AppColors.regPrimaryGradient,
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: AppColors.regAccent.withValues(alpha: 0.40),
-                blurRadius: 22,
-                offset: const Offset(0, 10),
-                spreadRadius: -4,
-              ),
-            ],
-          ),
-          child: Row(
-            children: List<Widget>.generate(items.length, (int i) {
-              return Expanded(
-                child: _NavCell(
-                  item: items[i],
-                  selected: i == currentIndex,
-                  onTap: () => onTap(i),
-                ),
-              );
-            }),
-          ),
+    // No SafeArea wrapper on purpose: SafeArea's bottom inset lifted the bar
+    // off the bottom edge on notched devices. MediaQuery padding is consumed
+    // INSIDE the bar instead, so the pink gradient stays flush with the
+    // physical bottom of the phone.
+    // Edge-to-edge: corners bhi mobile ke corners se attached — rounded
+    // TOP corners only, bottom flush with the screen edge.
+    return Container(
+      height: 66,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 8),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppColors.regPrimaryGradient,
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0x66FF0F4D),
+            blurRadius: 22,
+            offset: Offset(0, -6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Row(
+        children: List<Widget>.generate(items.length, (int i) {
+          return Expanded(
+            child: _NavCell(
+              item: items[i],
+              selected: i == currentIndex,
+              onTap: () => onTap(i),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -95,13 +95,13 @@ class _NavCell extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: EdgeInsets.symmetric(horizontal: selected ? 14 : 8, vertical: 8),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? Colors.white.withValues(alpha: 0.22) : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -110,33 +110,26 @@ class _NavCell extends StatelessWidget {
               children: <Widget>[
                 Icon(
                   selected ? item.activeIcon : item.icon,
-                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.75),
-                  size: selected ? 24 : 22,
+                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                  // Slightly smaller icons leave the text room to breathe —
+                  // every label is always visible under its icon.
+                  size: selected ? 21 : 20,
                 ),
                 if (item.badge > 0)
                   Positioned(top: -5, right: -7, child: _Badge(count: item.badge)),
               ],
             ),
-            // Label appears only for the selected item (space-efficient, premium).
-            Flexible(
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-                child: selected
-                    ? Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          item.label,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.fade,
-                          style: AppTextStyles.caption.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+            const SizedBox(height: 2),
+            Text(
+              item.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                fontSize: 10,
+                height: 1.1,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               ),
             ),
           ],

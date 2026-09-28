@@ -322,139 +322,124 @@ class _HandoffContentState extends State<_HandoffContent>
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+    // The reference's closing page: brand logo + wordmark, the serif
+    // "It's who you marry." headline with the pink emphasis line, a rounded
+    // hero photo, then the full-width Continue pill. (Tapping anywhere still
+    // opens the entry dialog — the parent GestureDetector keeps working.)
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
         children: <Widget>[
-          const SizedBox(height: AppSpacing.lg),
-          Expanded(
-            child: Center(
-              child: ScaleTransition(
-                scale: _pulse,
-                child: _GlassCard(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(26),
-                        child: Image.asset(
-                          'assets/icons/logo.png',
-                          width: 110,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.favorite_rounded,
-                            color: AppColors.primary,
-                            size: 92,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Text(
-                        AppStrings.appName,
-                        style: AppTextStyles.headline.copyWith(
-                          fontSize: 26,
-                          color: AppColors.lightTextPrimary,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        AppStrings.tagline,
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(
-                          color: AppColors.lightTextSecondary,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          color: AppColors.primary.withValues(alpha: 0.10),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.25),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(
-                              Icons.touch_app_rounded,
-                              size: 16,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Tap anywhere to get started',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+          const SizedBox(height: AppSpacing.md),
+          // Brand logo + wordmark + tagline.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Image.asset(
+              'assets/icons/logo.png',
+              width: 74,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.favorite_rounded,
+                color: Color(0xFFE0175B),
+                size: 64,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            AppStrings.appName,
+            style: AppTextStyles.headline.copyWith(
+              fontSize: 24,
+              color: const Color(0xFFC2185B),
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+          Text(
+            AppStrings.tagline,
+            style: AppTextStyles.caption.copyWith(
+              fontSize: 10,
+              letterSpacing: 1.6,
+              color: const Color(0xFFC2185B).withValues(alpha: 0.75),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Headline: ink lines, then the serif pink emphasis.
+          Text(
+            'The biggest decision of your life is not business or job.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.headline.copyWith(
+              fontSize: 24,
+              height: 1.25,
+              color: const Color(0xFF2D3748),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "It's who you marry.",
+            textAlign: TextAlign.center,
+            style: AppTextStyles.displaySerif.copyWith(
+              fontSize: 30,
+              height: 1.15,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFFC2185B),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Choose with purpose.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 15,
+              color: const Color(0xFF2D3748),
+            ),
+          ),
+          Text(
+            'Choose Forever.',
+            textAlign: TextAlign.center,
+            style: AppTextStyles.body.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFFC2185B),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Rounded hero photo.
+          ScaleTransition(
+            scale: _pulse,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                'assets/images/onboard3.png',
+                fit: BoxFit.cover,
+                height: 240,
+                width: double.infinity,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 240,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFF0F4),
+                    borderRadius: BorderRadius.all(Radius.circular(24)),
+                  ),
+                  child: const Icon(
+                    Icons.favorite_rounded,
+                    color: Color(0xFFE0175B),
+                    size: 72,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: 20),
+          // Single CTA: the bottom bar's Get Started pill is THE one button on
+          // the hand-off page. The old in-page Continue pill duplicated it and
+          // the two stacked screens showed two identical-looking buttons.
+          const SizedBox(height: AppSpacing.lg),
         ],
       ),
     );
   }
 }
 
-/// Frosted-glass rounded card shared by the hand-off page (splash-family).
-class _GlassCard extends StatelessWidget {
-  const _GlassCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(36),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 34),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(36),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: <Color>[
-                Colors.white.withValues(alpha: 0.82),
-                Colors.white.withValues(alpha: 0.62),
-              ],
-            ),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.85),
-              width: 1.2,
-            ),
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: const Color(0xFFB4487B).withValues(alpha: 0.18),
-                blurRadius: 44,
-                offset: const Offset(0, 22),
-              ),
-            ],
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
 
 class _TopBar extends StatelessWidget {
   const _TopBar({required this.showSkip, required this.onSkip});
@@ -476,27 +461,17 @@ class _TopBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: <Widget>[
+            // The reference's soft-pink circle mark with the white heart.
             Container(
               width: 38,
               height: 38,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: AppColors.brandGradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: Color(0x40D63F73),
-                    blurRadius: 14,
-                    offset: Offset(0, 5),
-                  ),
-                ],
+                color: Color(0xFFFFE1EA),
               ),
               child: const Icon(
                 Icons.favorite_rounded,
-                color: Colors.white,
+                color: Color(0xFFE0175B),
                 size: 18,
               ),
             ),
@@ -520,7 +495,7 @@ class _TopBar extends StatelessWidget {
                   child: Text(
                     'Skip',
                     style: AppTextStyles.bodyStrong.copyWith(
-                      color: AppColors.lightTextSecondary,
+                      color: const Color(0xFFE0175B),
                     ),
                   ),
                 ),
@@ -633,27 +608,19 @@ class _Dots extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: List<Widget>.generate(count, (int i) {
         final bool active = i == index;
+        // The reference's pager: solid hot-pink active dot, soft pink idle
+        // dots — all circles, no pill stretch.
         return AnimatedContainer(
           duration: const Duration(milliseconds: 280),
           curve: Curves.easeOut,
           margin: const EdgeInsets.only(right: 6),
           height: 9,
-          width: active ? 28 : 9,
+          width: 9,
           decoration: BoxDecoration(
-            gradient: active
-                ? const LinearGradient(colors: AppColors.brandGradient)
-                : null,
-            color: active ? null : Colors.white.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: active
-                ? const <BoxShadow>[
-                    BoxShadow(
-                      color: Color(0x33D63F73),
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ]
-                : null,
+            color: active
+                ? const Color(0xFFE0175B)
+                : const Color(0xFFFFD3E1),
+            shape: BoxShape.circle,
           ),
         );
       }),
@@ -661,34 +628,32 @@ class _Dots extends StatelessWidget {
   }
 }
 
-/// Soft pink radiant gradient with gentle bokeh blobs — the same backdrop
-/// family as the splash, so first launch reads as one continuous scene.
+/// White backdrop with faint neutral bokeh — the app-wide white + hot-pink
+/// combination. The old rose gradient read as the previous theme.
 class _Backdrop extends StatelessWidget {
   const _Backdrop();
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
+    return const DecoratedBox(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: <Color>[
-            Color(0xFFFBE0EB), // airy rose
-            Color(0xFFF7C6D9), // mid rose
-            Color(0xFFF3B0C8), // deeper rose
+            Colors.white,
+            Color(0xFFFAFAFA),
           ],
         ),
       ),
       child: Stack(
         children: <Widget>[
-          Positioned(top: -120, right: -90, child: _Bokeh(size: 340, opacity: 0.5)),
+          Positioned(top: -120, right: -90, child: _Bokeh(size: 340, opacity: 0.35)),
           Positioned(
             bottom: -140,
             left: -110,
-            child: _Bokeh(size: 400, opacity: 0.42),
+            child: _Bokeh(size: 400, opacity: 0.30),
           ),
-          Positioned(top: 120, left: -70, child: _Bokeh(size: 220, opacity: 0.30)),
         ],
       ),
     );

@@ -35,7 +35,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
   final TextEditingController _couponInput = TextEditingController();
   final TextEditingController _phoneInput = TextEditingController();
 
-  String _selectedGateway = 'stripe'; // 'stripe' | 'easypaisa' | 'jazzcash'
+  String _selectedGateway = 'stripe'; // card payments only
 
   /// Payment methods exactly as `GET /payments/gateways` reports them, so the
   /// sheet never offers a method the admin has switched off.
@@ -43,6 +43,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
   bool _gatewaysLoading = true;
 
   /// Static stand-in used while the endpoint is in flight or unreachable.
+  /// Card payments ONLY (product decision) — wallets were removed.
   static const List<PaymentGatewayInfo> _fallbackGateways = <PaymentGatewayInfo>[
     PaymentGatewayInfo(
       id: 1,
@@ -55,28 +56,6 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
       available: true,
       sandbox: false,
       checkoutType: 'stripe_checkout',
-    ),
-    PaymentGatewayInfo(
-      id: 2,
-      key: 'easypaisa',
-      name: 'EasyPaisa',
-      label: 'EasyPaisa Wallet',
-      description: 'Direct mobile wallet payment',
-      enabled: true,
-      configured: true,
-      available: true,
-      sandbox: false,
-    ),
-    PaymentGatewayInfo(
-      id: 3,
-      key: 'jazzcash',
-      name: 'JazzCash',
-      label: 'JazzCash Wallet',
-      description: 'Direct mobile account payment',
-      enabled: true,
-      configured: true,
-      available: true,
-      sandbox: false,
     ),
   ];
 

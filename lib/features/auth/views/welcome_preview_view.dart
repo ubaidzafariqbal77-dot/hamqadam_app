@@ -6,8 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../constants/api_endpoints.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../core/api/api_client.dart';
+import '../../../models/lookup_item_model.dart';
 import '../widgets/entry_dialog.dart';
 import '../../help_center/views/guest_help_view.dart';
 
@@ -40,22 +43,31 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
   static const List<_PreviewProfile> _fallbackProfiles = <_PreviewProfile>[
     _PreviewProfile(
       name: 'Eleanor Rowe',
-      meta: 'Age 27 · San Francisco · Product Designer',
       about:
           'Creative strategist passionate about design systems and user-centered solutions.',
-      badge: 'VERIFIED',
+      verified: true,
+      age: 27,
+      city: 'San Francisco',
+      profession: 'Product Designer',
+      family: 'Family Oriented',
     ),
     _PreviewProfile(
       name: 'Marcus Chen',
-      meta: 'Age 30 · New York · Software Engineer',
       about: 'Builder at heart, loves scalable systems and clean code.',
-      badge: 'VERIFIED',
+      verified: true,
+      age: 30,
+      city: 'New York',
+      profession: 'Software Engineer',
+      family: 'Family Oriented',
     ),
     _PreviewProfile(
       name: 'Isabella Martinez',
-      meta: 'Age 26 · Austin · UX Researcher',
       about: 'Empathy-driven, exploring behavioral patterns and user insights.',
-      badge: 'VERIFIED',
+      verified: true,
+      age: 26,
+      city: 'Austin',
+      profession: 'UX Researcher',
+      family: 'Family Oriented',
     ),
   ];
 
@@ -75,8 +87,10 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
       final ApiClient client = Get.find<ApiClient>();
       final res = await client.get(ApiEndpoints.publicDiscover);
       final List<dynamic> raw = (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
+      // Lookup names (religion/sect/education) resolve client-side from the
+      // dropdown reference cache — the guest payload carries ids only.
       final List<_PreviewProfile> fetched = raw
-          .map(_PreviewProfile.fromJson)
+          .map((dynamic e) => _PreviewProfile.fromJson(_withLookupNames(e)))
           .whereType<_PreviewProfile>()
           .toList(growable: false);
       if (!mounted) return;
@@ -89,6 +103,38 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  /// Adds human-readable names for the id-only lookup fields (religion, sect,
+  /// education) the guest feed sends, using the bundled dropdown reference.
+  /// A failed lookup leaves the field empty — the card simply drops that row.
+  Map<String, dynamic> _withLookupNames(dynamic raw) {
+    final Map<String, dynamic> map = <String, dynamic>{
+      if (raw is Map<String, dynamic>) ...raw,
+    };
+    try {
+      final LookupController lookup = Get.find<LookupController>();
+      String? nameOf(String key, dynamic id) {
+        final int? i = id is num ? id.toInt() : int.tryParse('$id');
+        if (i == null) return null;
+        for (final LookupItem item in lookup.itemsOf(key)) {
+          if (item.id == i) return item.name;
+        }
+        return null;
+      }
+
+      map['religion'] =
+          map['religion'] ?? nameOf(LookupKeys.religions, map['religion_id']);
+      map['sect'] = map['sect'] ??
+          nameOf(LookupKeys.sectMain, map['sect_main_id']) ??
+          nameOf(LookupKeys.schoolOfThought, map['school_of_thought_id']);
+      map['education'] = map['education'] ??
+          nameOf(LookupKeys.educationLevels, map['education_level_id']) ??
+          nameOf(LookupKeys.degrees, map['degree_id']);
+    } catch (_) {
+      // Lookups unavailable (very first launch) — the card shows what it has.
+    }
+    return map;
   }
 
   Future<void> _openWhatsApp() async {
@@ -318,6 +364,10 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 }
 
 /// One preview profile card — a taste of the real feed behind login.
+/// The guest preview card — the SAME design as the signed-in Discover card:
+/// portrait photo left (Verified chip top-left, heart bottom-right), content
+/// right (name, age/height/faith chips, location, education+job row, family
+/// line). Tapping anywhere opens the Create Account / Login dialog.
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({required this.profile, required this.onTap});
 
@@ -326,14 +376,20 @@ class _PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String heightLabel = profile.heightLabel ?? '';
+    final List<String> metaParts = <String>[
+      if (profile.age != null) '${profile.age} Years',
+      if (heightLabel.isNotEmpty) heightLabel,
+    ];
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: const Color(0xFFB4487B).withValues(alpha: 0.08),
@@ -342,17 +398,18 @@ class _PreviewCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            // ---- PHOTO — Verified chip top-left, heart bottom-right -----
+            Stack(
+              clipBehavior: Clip.none,
               children: <Widget>[
                 Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
+                  width: 96,
+                  height: 116,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
                     color: AppColors.lightSurfaceAlt,
                   ),
                   clipBehavior: Clip.antiAlias,
@@ -368,68 +425,321 @@ class _PreviewCard extends StatelessWidget {
                       : const Icon(
                           Icons.person_rounded,
                           color: AppColors.lightTextSecondary,
+                          size: 40,
                         ),
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        profile.name,
-                        style: AppTextStyles.subtitle.copyWith(
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.lightTextPrimary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                // Verified chip — white pill with the pink tick.
+                if (profile.verified)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(999),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        profile.meta,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.lightTextSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(Icons.verified_rounded,
+                              size: 10, color: AppColors.primary),
+                          SizedBox(width: 3),
+                          Text(
+                            'Verified',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.lightTextPrimary,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    profile.badge,
-                    style: AppTextStyles.badge.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
+                // Favourite heart — same white circular button; a guest tap
+                // opens the entry dialog like everything else here.
+                Positioned(
+                  bottom: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite_border_rounded,
+                        size: 16,
+                        color: AppColors.lightTextSecondary,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            if (profile.about.isNotEmpty) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                profile.about,
-                style: AppTextStyles.caption.copyWith(
-                  height: 1.45,
-                  color: AppColors.lightInputText,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 12),
+
+            // ---- CONTENT — the Discover card's fact layout ---------------
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text(
+                    profile.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.lightTextPrimary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 5),
+
+                  // Chips row — age · height · faith · sect.
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 3,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      if (profile.age != null)
+                        _PreviewIconChip(
+                            icon: Icons.cake_outlined,
+                            label: '${profile.age} Years'),
+                      if (heightLabel.isNotEmpty) ...<Widget>[
+                        const _PreviewDot(),
+                        _PreviewIconChip(
+                            icon: Icons.height_rounded, label: heightLabel),
+                      ],
+                      if (profile.religion != null) ...<Widget>[
+                        const _PreviewDot(),
+                        _PreviewIconChip(
+                            icon: Icons.nightlight_round,
+                            label: profile.religion!),
+                      ],
+                      if (profile.sect != null) ...<Widget>[
+                        const _PreviewDot(),
+                        _PreviewIconChip(
+                            icon: Icons.menu_book_rounded,
+                            label: profile.sect!),
+                      ],
+                    ],
+                  ),
+
+                  // Location.
+                  if (profile.city != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: _PreviewFactCell(
+                          icon: Icons.location_on_outlined,
+                          label: profile.city!),
+                    ),
+
+                  // Education + job — two-column row.
+                  if (profile.education != null || profile.profession != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Row(
+                        children: <Widget>[
+                          if (profile.education != null)
+                            Expanded(
+                              child: _PreviewFactCell(
+                                  icon: Icons.school_outlined,
+                                  label: profile.education!),
+                            ),
+                          if (profile.profession != null)
+                            Expanded(
+                              child: _PreviewFactCell(
+                                  icon: Icons.work_outline_rounded,
+                                  label: profile.profession!),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                  // Family line.
+                  if (profile.family != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: _PreviewFactCell(
+                          icon: Icons.home_outlined, label: profile.family!),
+                    ),
+
+                  // Introduction — the about line the old card showed.
+                  if (profile.about.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 6),
+                    Text(
+                      profile.about,
+                      style: AppTextStyles.caption.copyWith(
+                        height: 1.4,
+                        color: AppColors.lightInputText,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+
+                  // Bottom row — the "94% Match"-style pill slot shows the
+                  // member count badge for guests, plus the proposal button.
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF0F4),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const Icon(Icons.favorite_rounded,
+                                size: 10, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text(
+                              metaParts.isEmpty ? 'HamQadam Match' : metaParts.first,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: onTap,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: AppColors.brandGradient),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(Icons.send_rounded,
+                                  size: 11, color: Colors.white),
+                              SizedBox(width: 5),
+                              Text(
+                                'Send Proposal',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Tiny glyph chip for the guest card's facts row (same recipe as the
+/// Discover card's _IconChip).
+class _PreviewIconChip extends StatelessWidget {
+  const _PreviewIconChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 10, color: AppColors.primary),
+        const SizedBox(width: 3),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+            color: AppColors.lightTextPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Pink glyph + label fact line (same recipe as the Discover card's
+/// _FactCell).
+class _PreviewFactCell extends StatelessWidget {
+  const _PreviewFactCell({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 11, color: AppColors.primary),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: AppColors.lightTextSecondary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dotted separator between the guest card's chips.
+class _PreviewDot extends StatelessWidget {
+  const _PreviewDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 3,
+      height: 3,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.lightTextHint,
       ),
     );
   }
@@ -443,23 +753,23 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 118,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      height: 138,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: <Widget>[
           Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
+            width: 96,
+            height: 116,
+            decoration: BoxDecoration(
               color: AppColors.lightSurfaceAlt,
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,43 +814,74 @@ class _SkeletonCard extends StatelessWidget {
 class _PreviewProfile {
   const _PreviewProfile({
     required this.name,
-    required this.meta,
     required this.about,
-    required this.badge,
+    required this.verified,
     this.photoUrl,
+    this.age,
+    this.heightLabel,
+    this.city,
+    this.religion,
+    this.sect,
+    this.education,
+    this.profession,
+    this.family,
   });
 
   final String name;
-  final String meta;
   final String about;
-  final String badge;
+  final bool verified;
   final String? photoUrl;
+  final int? age;
+  final String? heightLabel;
+  final String? city;
+  final String? religion;
+  final String? sect;
+  final String? education;
+  final String? profession;
+  final String? family;
 
   static _PreviewProfile? fromJson(dynamic raw) {
     if (raw is! Map) return null;
     final String name = (raw['name'] ?? '').toString().trim();
     if (name.isEmpty) return null;
 
-    final String city = (raw['city'] ?? '').toString().trim();
-    final String profession = (raw['profession'] ?? '').toString().trim();
-    final List<String> metaParts = <String>[
-      // Backend computes age from the birthday; test rows without a real one
-      // come through as 0 — hiding those keeps the card line clean.
-      if ((raw['age'] as num?)?.toInt() case final int age? when age > 0)
-        'Age $age',
-      if (city.isNotEmpty) city,
-      if (profession.isNotEmpty) profession,
-    ];
-
     return _PreviewProfile(
       name: name,
-      meta: metaParts.join(' · '),
       about: (raw['introduction'] ?? '').toString().trim(),
-      badge: raw['verified'] == true ? 'VERIFIED' : 'NEW',
+      verified: raw['verified'] == true,
       photoUrl: (raw['photo'] ?? '').toString().trim().isEmpty
           ? null
           : (raw['photo'] ?? '').toString(),
+      // Backend computes age from the birthday; test rows without a real one
+      // come through as 0 — hiding those keeps the card line clean.
+      age: switch (raw['age']) {
+        final num n when n.toInt() > 0 => n.toInt(),
+        _ => null,
+      },
+      heightLabel: _heightFromRaw(raw['height']),
+      city: _clean(raw['city']),
+      religion: _clean(raw['religion']),
+      sect: _clean(raw['sect']),
+      education: _clean(raw['education']),
+      profession: _clean(raw['profession']),
+      family: _clean(raw['family']),
     );
+  }
+
+  static String? _clean(dynamic v) {
+    final String s = (v ?? '').toString().trim();
+    return s.isEmpty ? null : s;
+  }
+
+  static String? _heightFromRaw(dynamic v) {
+    final String s = (v ?? '').toString().trim();
+    if (s.isEmpty || s == 'null') return null;
+    final double? h = double.tryParse(s);
+    if (h == null || h <= 0) return null;
+    final int feet = h.floor();
+    final int inches = ((h - feet) * 12).round();
+    if (inches > 11) return "${feet + 1}' 0\"";
+    return "$feet' $inches\"";
   }
 }
 

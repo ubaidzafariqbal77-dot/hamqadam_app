@@ -637,7 +637,7 @@ class _GenderCard extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 7),
         padding: const EdgeInsets.fromLTRB(16, 22, 16, 22),
         decoration: BoxDecoration(
-          color: dark ? AppColors.darkSurface : const Color(0xFFFDF6F8),
+          color: dark ? AppColors.darkSurface : const Color(0xFFFFF0F4),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
             color: isSelected ? AppColors.regAccent : AppColors.roseFieldBorder,

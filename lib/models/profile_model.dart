@@ -94,7 +94,13 @@ class ProfileModel {
       family: ProfileSection.fromJson(_asMap(json['family'])),
       marriageExpectations: ProfileSection.fromJson(_asMap(json['marriage_expectations'])),
       photos: ProfilePhotos.fromJson(_asMap(json['photos'])),
-      verification: ProfileVerification.fromJson(_asMap(json['verification'])),
+      verification: ProfileVerification.fromJson(
+        _asMap(json['verification']),
+        // The API sends the trust checklist as a TOP-LEVEL `checks` object
+        // (older payloads nested it under `verification.checks`) — accept both
+        // so the Trust & Verification card never falls back to unknown rows.
+        topLevelChecks: _asMap(json['checks']),
+      ),
       badges: MemberBadges.fromJson(_asMap(json['badges'])),
       registration: ProfileRegistration.fromJson(_asMap(json['registration'])),
     );
@@ -242,13 +248,22 @@ class ProfileVerification {
   /// ours.
   bool get aiClearedAwaitingReview => !documentsVerified && !documentsRejected && ai.isApproved;
 
-  factory ProfileVerification.fromJson(Map<String, dynamic> json) {
+  factory ProfileVerification.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, dynamic> topLevelChecks = const <String, dynamic>{},
+  }) {
+    // `checks` lives top-level on the current API; the nested
+    // `verification.checks` shape is the legacy fallback.
+    final Map<String, dynamic> checksJson = topLevelChecks.isNotEmpty
+        ? topLevelChecks
+        : _asMap(json['checks']);
+
     return ProfileVerification(
       status: json['status']?.toString(),
       ai: json['ai'] is Map<String, dynamic>
           ? AiVerificationModel.fromProfileBlock(json['ai'] as Map<String, dynamic>)
           : const AiVerificationModel(status: 'not_started'),
-      checks: ProfileTrustChecks.fromJson(_asMap(json['checks'])),
+      checks: ProfileTrustChecks.fromJson(checksJson),
     );
   }
 }

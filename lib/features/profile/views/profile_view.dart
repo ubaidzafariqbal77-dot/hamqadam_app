@@ -6,6 +6,8 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../constants/feature_access.dart';
 import '../../../controllers/profile_controller.dart';
+import '../../../controllers/rewards_controller.dart';
+import '../../../repositories/rewards_repository.dart';
 import '../../../controllers/verification_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
@@ -15,6 +17,7 @@ import '../../../models/profile_model.dart';
 import '../../../models/verification_model.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../profile_views/views/profile_views_view.dart';
+import '../../rewards/views/welcome_bonus_claim_view.dart';
 import 'edit_profile_view.dart';
 
 /// Premium, fully dynamic profile screen backed by [ProfileController]
@@ -144,6 +147,10 @@ class _ProfileBody extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           const _ProfileViewsBanner(),
           const SizedBox(height: AppSpacing.md),
+          // Welcome-bonus Redeem section (Task1): 25 free coins, claimable
+          // once the profile is FULLY verified. Server decides the state.
+          const _RedeemCard(),
+          const SizedBox(height: AppSpacing.md),
           // Only while unverified: the same prompt the web dashboard shows, so
           // a member who was sent away from the signup gate unverified has an
           // obvious way back in.
@@ -245,29 +252,23 @@ class _HeroCard extends StatelessWidget {
 
       return Container(
         decoration: BoxDecoration(
-          // Three stops ending in a deep plum. The old two-stop brand gradient
-          // was the same flat pink as the app bar directly above it, so the
-          // hero had no edge and the whole top of the screen read as one slab
-          // of colour. Falling into a darker tone gives the card a horizon and
-          // lets white type sit on something solid at the bottom, where the
-          // name and the stats are.
-          //
-          // Re-toned to the registration flow's dusty rose (the stops run from
-          // [regPrimaryGradient]'s light end down into a deep rose ink) so the
-          // Profile tab frames the same family of colour as the signup screens.
-          gradient: const LinearGradient(
-            colors: <Color>[Color(0xFFE9A8B5), Color(0xFFD48796), Color(0xFF9E5566)],
-            stops: <double>[0.0, 0.52, 1.0],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          // SoulMeet-style PREMIUM WHITE hero: a clean white card, soft
+          // neutral shadow and hot-pink accents — the member's photo and name
+          // carry the card, pink is only the voice, never the canvas.
+          color: Colors.white,
           borderRadius: BorderRadius.circular(26),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: const Color(0xFF9E5566).withValues(alpha: 0.30),
-              blurRadius: 32,
-              offset: const Offset(0, 16),
+              color: AppColors.primary.withValues(alpha: 0.06),
+              blurRadius: 28,
+              offset: const Offset(0, 14),
               spreadRadius: -10,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -275,7 +276,7 @@ class _HeroCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(26),
           child: Stack(
             children: <Widget>[
-              // Soft light bloom, so the flat gradient reads as depth.
+              // Faint pink blooms keep the white card from reading flat.
               const Positioned(top: -50, right: -40, child: _Bloom(size: 170)),
               const Positioned(bottom: -70, left: -50, child: _Bloom(size: 150)),
               Padding(
@@ -310,7 +311,7 @@ class _HeroCard extends StatelessWidget {
                             u.displayName,
                             textAlign: TextAlign.center,
                             style: AppTextStyles.display.copyWith(
-                              color: Colors.white,
+                              color: AppColors.roseTitleInk,
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
@@ -320,7 +321,7 @@ class _HeroCard extends StatelessWidget {
                         ),
                         if (profile.verification.identityVerified) ...<Widget>[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified_rounded, color: Colors.white, size: 21),
+                          const Icon(Icons.verified_rounded, color: AppColors.primary, size: 21),
                         ],
                       ],
                     ),
@@ -338,7 +339,7 @@ class _HeroCard extends StatelessWidget {
                           Icon(
                             Icons.place_rounded,
                             size: 14,
-                            color: Colors.white.withValues(alpha: 0.75),
+                            color: AppColors.primary.withValues(alpha: 0.75),
                           ),
                           const SizedBox(width: 4),
                           Flexible(
@@ -347,7 +348,7 @@ class _HeroCard extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.caption.copyWith(
-                                color: Colors.white.withValues(alpha: 0.82),
+                                color: AppColors.lightTextSecondary,
                                 fontWeight: FontWeight.w500,
                                 fontSize: 13,
                               ),
@@ -411,8 +412,8 @@ class _HeroMetaLine extends StatelessWidget {
             child: Container(
               width: 3,
               height: 3,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.45),
+              decoration: const BoxDecoration(
+                color: Color(0xFFD1D5DB),
                 shape: BoxShape.circle,
               ),
             ),
@@ -423,12 +424,12 @@ class _HeroMetaLine extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(facts[i].icon, size: 15, color: Colors.white.withValues(alpha: 0.80)),
+            Icon(facts[i].icon, size: 15, color: AppColors.primary.withValues(alpha: 0.85)),
             const SizedBox(width: 5),
             Text(
               facts[i].text,
               style: AppTextStyles.caption.copyWith(
-                color: Colors.white,
+                color: AppColors.lightTextPrimary,
                 fontWeight: FontWeight.w600,
                 fontSize: 13.5,
               ),
@@ -458,7 +459,7 @@ class _Bloom extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       gradient: RadialGradient(
-        colors: <Color>[Colors.white.withValues(alpha: 0.22), Colors.white.withValues(alpha: 0)],
+        colors: <Color>[AppColors.primary.withValues(alpha: 0.10), AppColors.primary.withValues(alpha: 0)],
       ),
     ),
   );
@@ -488,8 +489,16 @@ class _Avatar extends StatelessWidget {
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.25),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.75), width: 2),
+                color: Colors.white,
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.55), width: 2),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.18),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
+                    spreadRadius: -4,
+                  ),
+                ],
               ),
               child: ClipOval(
                 child: SizedBox(
@@ -566,11 +575,13 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
-        color: verified ? Colors.white : Colors.white.withValues(alpha: 0.22),
+        color: verified
+            ? AppColors.successSoft
+            : const Color(0xFFFFF1F4),
         borderRadius: BorderRadius.circular(AppRadius.pill),
         border: verified
-            ? null
-            : Border.all(color: Colors.white.withValues(alpha: 0.55)),
+            ? Border.all(color: AppColors.success.withValues(alpha: 0.35))
+            : Border.all(color: const Color(0xFFFFE0E9)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -584,12 +595,12 @@ class _StatusPill extends StatelessWidget {
                   const Icon(Icons.verified_rounded, size: 14, color: AppColors.info),
             )
           else
-            Icon(_icon, size: 14, color: Colors.white),
+            Icon(_icon, size: 14, color: AppColors.primary),
           const SizedBox(width: 5),
           Text(
             gate.label,
             style: AppTextStyles.badge.copyWith(
-              color: verified ? AppColors.primaryDark : Colors.white,
+              color: verified ? AppColors.success : AppColors.primary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -630,9 +641,9 @@ class _StatStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 13),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.13),
+        color: const Color(0xFFFAFAFA),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+        border: Border.all(color: const Color(0xFFF3F4F6)),
       ),
       child: Row(
         children: <Widget>[
@@ -659,7 +670,7 @@ class _StatCell extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: AppTextStyles.bodyStrong.copyWith(
-          color: Colors.white,
+          color: AppColors.primary,
           fontSize: 17,
           height: 1.1,
           fontWeight: FontWeight.w800,
@@ -672,7 +683,7 @@ class _StatCell extends StatelessWidget {
       Text(
         label,
         style: AppTextStyles.badge.copyWith(
-          color: Colors.white.withValues(alpha: 0.72),
+          color: AppColors.lightTextSecondary,
           letterSpacing: 0.1,
           fontWeight: FontWeight.w500,
         ),
@@ -685,7 +696,7 @@ class _StatDivider extends StatelessWidget {
   const _StatDivider();
   @override
   Widget build(BuildContext context) =>
-      Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.28));
+      Container(width: 1, height: 28, color: const Color(0xFFE5E7EB));
 }
 
 class _EditButton extends StatelessWidget {
@@ -696,9 +707,16 @@ class _EditButton extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.22),
+        gradient: const LinearGradient(colors: AppColors.brandGradient),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.30),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+            spreadRadius: -2,
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -723,24 +741,201 @@ class _GlassChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(horizontal: icon == null ? 11 : 9, vertical: 5),
     decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.18),
+      color: const Color(0xFFFFF1F4),
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+      border: Border.all(color: const Color(0xFFFFE0E9)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         if (icon != null) ...<Widget>[
-          Icon(icon, size: 13, color: Colors.white),
+          Icon(icon, size: 13, color: AppColors.primary),
           const SizedBox(width: 4),
         ],
         Text(
           text,
-          style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     ),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Redeem — welcome bonus (25 coins, verified members, once)
+// ---------------------------------------------------------------------------
+
+/// Static fallback for contexts without the DI graph (tests, previews): the
+/// locked card, tappable straight into the claim screen.
+class _RedeemCardStatic extends StatelessWidget {
+  const _RedeemCardStatic();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => WelcomeBonusClaimView.open(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: 14,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
+        ),
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 46,
+              height: 46,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(colors: AppColors.brandGradient),
+              ),
+              child: const Icon(
+                Icons.card_giftcard_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    'Redeem 25 free coins',
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      color: AppColors.roseTitleInk,
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Unlocks after profile verification.',
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.lightTextSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.primary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The profile tab's Redeem card. Mirrors the server's welcome-bonus state:
+/// locked until fully verified, CLAIM once, then a quiet "claimed" summary.
+class _RedeemCard extends StatelessWidget {
+  const _RedeemCard();
+
+  @override
+  Widget build(BuildContext context) {
+    // Tests may build the profile tab without the full DI graph; a missing
+    // controller renders the locked card instead of crashing the screen.
+    final RewardsController? c = Get.isRegistered<RewardsController>()
+        ? Get.find<RewardsController>()
+        : null;
+    if (c == null) return const _RedeemCardStatic();
+
+    return Obx(() {
+      final WelcomeBonusState s = c.state.value;
+      final bool done = s.claimed;
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: const Color(0xFFF3F4F6)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            onTap: () => WelcomeBonusClaimView.open(),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 14,
+              ),
+              child: Row(
+                children: <Widget>[
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: done
+                          ? null
+                          : const LinearGradient(colors: AppColors.brandGradient),
+                      color: done ? const Color(0xFFFFF1F4) : null,
+                    ),
+                    child: Icon(
+                      done ? Icons.verified_rounded : Icons.card_giftcard_rounded,
+                      color: done ? AppColors.primary : Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          done
+                              ? 'Welcome bonus claimed'
+                              : 'Redeem ${s.coins} free coins',
+                          style: AppTextStyles.bodyStrong.copyWith(
+                            color: AppColors.roseTitleInk,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          done
+                              ? 'Your one-time welcome bonus has been added.'
+                              : s.eligible
+                                  ? 'Verified member gift — tap to claim.'
+                                  : 'Unlocks after profile verification.',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    done ? Icons.check_circle_rounded : Icons.chevron_right_rounded,
+                    color: done ? AppColors.success : AppColors.primary,
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------

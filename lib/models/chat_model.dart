@@ -473,6 +473,9 @@ class ChatThread {
     this.disappearAfter = 0,
     this.isArchived = false,
     this.isMuted = false,
+    this.viewerCoinBalance = 0,
+    this.sendCost = 2,
+    this.readCost = 2,
   });
 
   final int id;
@@ -498,6 +501,19 @@ class ChatThread {
 
   /// Notifications silenced for this member only; messages keep arriving.
   final bool isMuted;
+
+  /// Coin paywall (Task4): the viewer's live balance and the per-message
+  /// prices. Zero balance ⇒ blurred previews in the list and a paywall on
+  /// the conversation screen.
+  final int viewerCoinBalance;
+  final int sendCost;
+  final int readCost;
+
+  /// The member cannot afford to SEND a message right now.
+  bool get cannotAffordSend => viewerCoinBalance < sendCost;
+
+  /// The member has no coins at all — incoming previews blur.
+  bool get blurIncoming => viewerCoinBalance <= 0;
 
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
@@ -540,6 +556,9 @@ class ChatThread {
     int? disappearAfter,
     bool? isArchived,
     bool? isMuted,
+    int? viewerCoinBalance,
+    int? sendCost,
+    int? readCost,
   }) {
     return ChatThread(
       id: id ?? this.id,
@@ -557,6 +576,9 @@ class ChatThread {
       disappearAfter: disappearAfter ?? this.disappearAfter,
       isArchived: isArchived ?? this.isArchived,
       isMuted: isMuted ?? this.isMuted,
+      viewerCoinBalance: viewerCoinBalance ?? this.viewerCoinBalance,
+      sendCost: sendCost ?? this.sendCost,
+      readCost: readCost ?? this.readCost,
     );
   }
 
@@ -611,6 +633,9 @@ class ChatThread {
       disappearAfter: json['disappear_after'] as int? ?? 0,
       isArchived: json['archived'] as bool? ?? false,
       isMuted: json['muted'] as bool? ?? false,
+      viewerCoinBalance: (json['viewer_coin_balance'] as num?)?.toInt() ?? 0,
+      sendCost: (json['send_cost'] as num?)?.toInt() ?? 2,
+      readCost: (json['read_cost'] as num?)?.toInt() ?? 2,
     );
   }
 }

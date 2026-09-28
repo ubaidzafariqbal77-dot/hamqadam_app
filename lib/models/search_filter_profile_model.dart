@@ -18,6 +18,13 @@ class SearchProfileModel {
     this.cityId,
     this.stateId,
     this.countryId,
+    this.sectMainId,
+    this.schoolOfThoughtId,
+    this.educationLevelId,
+    this.degreeId,
+    this.professionId,
+    this.familyValues,
+    this.additionalPhotoCount = 0,
     this.identityVerified = false,
     this.verifiedAt,
     this.compatibilityPercentage,
@@ -42,6 +49,22 @@ class SearchProfileModel {
   final int? cityId;
   final int? stateId;
   final int? countryId;
+
+  /// Sect / denomination for the card's "Muslim · Sunni" chips.
+  final int? sectMainId;
+  final int? schoolOfThoughtId;
+
+  /// Education + career facts for the listing card ("Master's / Designer").
+  final int? educationLevelId;
+  final int? degreeId;
+  final int? professionId;
+
+  /// The card's "Family Oriented" line (the member's own family-values pick).
+  final String? familyValues;
+
+  /// Extra gallery photos behind the card image's count badge (front photo
+  /// excluded — 0 hides the badge).
+  final int additionalPhotoCount;
   final bool identityVerified;
   final DateTime? verifiedAt;
   final int? compatibilityPercentage;
@@ -107,6 +130,14 @@ class SearchProfileModel {
       cityId: _asIntOrNull(json['city_id']),
       stateId: _asIntOrNull(json['state_id']),
       countryId: _asIntOrNull(json['country_id']),
+      sectMainId: _asIntOrNull(field('sect_main_id')),
+      schoolOfThoughtId: _asIntOrNull(field('school_of_thought_id')),
+      educationLevelId: _asIntOrNull(field('education_level_id')),
+      degreeId: _asIntOrNull(field('degree_id')),
+      professionId: _asIntOrNull(field('profession_id')),
+      familyValues: field('family_values')?.toString(),
+      additionalPhotoCount:
+          _asIntOrNull(field('additional_photo_count')) ?? 0,
       compatibilityPercentage: _asIntOrNull(json['compatibility_percentage']),
       identityVerified: verification.isNotEmpty
           ? _asBool(verification['identity_verified'])

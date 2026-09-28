@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../payments/views/membership_plans_view.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
@@ -205,11 +206,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         if (didPop) _controller.closeThread();
       },
       child: Scaffold(
-        // Warm parchment canvas, WhatsApp-style: bubbles pop against a
-        // neutral tinted background instead of pure white.
+        // SoulMeet canvas: plain white, so the bubbles read clean and premium
         backgroundColor: isDark
             ? AppColors.darkBackground
-            : const Color(0xFFF7F1EC),
+            : AppColors.lightBackground,
         appBar: _buildAppBar(context, isDark),
         body: Column(
           children: <Widget>[
@@ -333,7 +333,14 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     final ChatMessage msg = list[index];
                     final bool isMine = msg.isMine(_controller.myUserId);
 
-                    return _MessageBubble(
+                    // Coin paywall (Task4): with a zero balance the member's
+                    // own incoming messages blur; tapping one opens the
+                    // packages screen to buy coins.
+                    final bool blurThis = !isMine &&
+                        (widget.thread.blurIncoming ||
+                            (_controller.activeThread.value?.blurIncoming ?? false));
+
+                    final Widget bubble = _MessageBubble(
                       message: msg,
                       isMine: isMine,
                       participantName: widget.thread.participant.name,
@@ -345,6 +352,22 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       // emoji twice behaves on the server.
                       onReact: (String? emoji) =>
                           _controller.reactToMessage(msg, emoji),
+                    );
+
+                    if (!blurThis) return bubble;
+
+                    return GestureDetector(
+                      onTap: () => Get.to<void>(
+                          () => const MembershipPlansView()),
+                      child: ShaderMask(
+                        shaderCallback: (Rect r) => const LinearGradient(
+                          colors: <Color>[
+                            Color(0x996B7280),
+                            Color(0x996B7280),
+                          ],
+                        ).createShader(r),
+                        child: AbsorbPointer(child: bubble),
+                      ),
                     );
 
                   },
@@ -1248,10 +1271,11 @@ class _MessageBubble extends StatelessWidget {
             : message.localAttachmentPaths)
         : const <String>[];
 
-    // Bubble bg
+    // Bubble bg — mine hot-pink with white ink, theirs a light neutral so it
+    // still reads on the pure-white canvas.
     final Color bubbleBg = isMine
         ? AppColors.primary
-        : (isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface);
+        : (isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6));
 
     // For image-only messages, use zero padding + rounded clipping
     final bool hasOnlyImages = images.isNotEmpty && docs.isEmpty && message.message.isEmpty;

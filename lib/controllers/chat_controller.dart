@@ -18,6 +18,7 @@ import '../core/utils/app_logger.dart';
 import '../core/storage/current_user_service.dart';
 import '../features/chat/views/chat_conversation_view.dart';
 import '../features/chat/views/chat_inbox_view.dart';
+import '../features/payments/views/membership_plans_view.dart';
 import '../models/chat_model.dart';
 import '../repositories/chat_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -1063,7 +1064,15 @@ class ChatController extends GetxController {
       _patchThreadPreview(sent, incrementUnread: false);
     } catch (e) {
       _markLocalFailed(localId);
-      AppSnackbar.error('Message not sent. Tap to retry.');
+      // Coin paywall (Task4): the server charges 2 coins per send and answers
+      // 402 when the wallet is empty. Route the member to the packages
+      // screen instead of a dead "not sent" toast.
+      if (e is AppException && e.statusCode == 402) {
+        AppSnackbar.error(e.message);
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error('Message not sent. Tap to retry.');
+      }
       AppLogger.w('Send failed for $localId: $e');
     } finally {
       isSending.value = false;
@@ -1420,6 +1429,24 @@ class ChatController extends GetxController {
       await loadArchivedThreads(silent: true);
     } catch (e) {
       AppSnackbar.error('Could not archive this chat: $e');
+    }
+  }
+
+  /// Deletes a conversation from MY list (long-press → Delete conversation).
+  ///
+  /// Per side like archive: the other member keeps the chat, and the next
+  /// message they send un-hides the thread. Dropped from the list straight
+  /// away, then both server lists are re-synced.
+  Future<void> deleteThreadConversation(ChatThread thread) async {
+    if (thread.id <= 0) return;
+    try {
+      await _repo.deleteThread(thread.id);
+      _removeThreadLocally(thread.id);
+      AppSnackbar.success('Conversation deleted.');
+      await loadThreads(silent: true);
+      await loadArchivedThreads(silent: true);
+    } catch (e) {
+      AppSnackbar.error('Could not delete this conversation: $e');
     }
   }
 

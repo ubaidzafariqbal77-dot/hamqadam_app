@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../core/api/api_response.dart';
 import '../core/storage/secure_storage_service.dart';
+import 'interest_controller.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/search_filter_profile_model.dart';
 import '../models/shortlist_model.dart';
@@ -29,6 +30,14 @@ class ShortlistController extends GetxController {
   bool get _hasToken =>
       Get.isRegistered<SecureStorageService>() &&
       Get.find<SecureStorageService>().hasToken;
+
+  /// Coin-based features (shortlist included) deduct server-side; the wallet
+  /// surfaces it only on its next read. QA item 12: history and the visible
+  /// balance must stay in step, so re-pull the balance after a paid action.
+  void _syncCoinBalance() {
+    if (!Get.isRegistered<InterestController>()) return;
+    Get.find<InterestController>().refreshCoins();
+  }
 
   @override
   void onInit() {
@@ -133,14 +142,19 @@ class ShortlistController extends GetxController {
         AppSnackbar.info('Removed $name from Shortlist.');
         return false;
       } else {
-        // Add to shortlist
+        // Add to shortlist — QA wording: the exact popup the client asked
+        // for, and the wallet re-synced because shortlisting costs coins.
         await _repo.addToShortlist(userId);
         shortlistedUserIds.add(userId);
-        AppSnackbar.success('Added $name to Shortlist.');
+        AppSnackbar.success('The profile has been shortlisted.');
+        _syncCoinBalance();
         return true;
       }
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
+      // Shortlisting costs a coin — a 402 means the balance changed, so
+      // re-sync the wallet the header shows.
+      if (e.statusCode == 402) _syncCoinBalance();
       return currentlyShortlisted;
     } catch (e) {
       AppSnackbar.error('Failed to update shortlist.');

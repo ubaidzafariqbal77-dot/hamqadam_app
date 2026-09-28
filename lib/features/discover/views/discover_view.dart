@@ -1257,9 +1257,11 @@ class _SingleUserProfileCard extends StatelessWidget {
           border: Border.all(color: _Soul.gray100),
           boxShadow: _Soul.cardShadow,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
           children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
             // ---------------------------------------------------------
             // PHOTO — the reference card's portrait image: Verified chip
             // top-left, extra-photos badge bottom-left, favourite heart
@@ -1368,10 +1370,11 @@ class _SingleUserProfileCard extends StatelessWidget {
                     ),
                   ),
                 // Favourite heart — the reference's white circular button
-                // bottom-right; taps do NOT open the profile.
+                // bottom-right, INSIDE the photo bounds (negative offsets
+                // made it hang outside the card on real devices).
                 Positioned(
-                  bottom: -6,
-                  right: -6,
+                  bottom: 6,
+                  right: 6,
                   child: GestureDetector(
                     onTap: () => controller.toggleShortlist(
                       profile.id,
@@ -1432,7 +1435,9 @@ class _SingleUserProfileCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             color: _Soul.ink900,
                           ),
-                          maxLines: 1,
+                          // Full name — wrap to a second line instead of
+                          // truncating with an ellipsis.
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1564,9 +1569,13 @@ class _SingleUserProfileCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                      // "Why this match?" — opens the dedicated dialogue box
-                      // holding ONLY the why-match data (AI summary + reasons).
-                      if (matchPercentage != null && matchPercentage > 0) ...<Widget>[
+                      // "Why this match?" — ONLY while the AI Match filter
+                      // (top-5 matchmaking mode) is applied; the reasons come
+                      // from the compatibility engine, so the link means
+                      // nothing on a plain search result.
+                      if (controller.aiFiltered.value &&
+                          matchPercentage != null &&
+                          matchPercentage > 0) ...<Widget>[
                         const SizedBox(width: 8),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
@@ -1598,46 +1607,83 @@ class _SingleUserProfileCard extends StatelessWidget {
                         ),
                       ],
                       const Spacer(),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () =>
-                              SendProposalDialog.show(context, profile),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Ink(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: _Soul.pinkGradient,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: _Soul.pinkShadow,
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Icon(Icons.send_rounded,
-                                    size: 11, color: Colors.white),
-                                SizedBox(width: 5),
-                                Text(
-                                  'Send Proposal',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
+          ],
+            ),
+        // -------------------------------------------------------------
+        // Action strip — the six-icon row (Send Interest / Chat / Full
+        // Profile / More / Ignore / Report) that sat below every card in
+        // the original design. Equal-flex cells so nothing overflows.
+        // -------------------------------------------------------------
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
+          decoration: BoxDecoration(
+            color: _Soul.ink50,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: <Widget>[
+              // Send Interest — heart cell; shows a tick when already sent.
+              Obx(() {
+                final bool sent =
+                    interestCtrl?.hasSentInterestTo(profile.id) == true;
+                return _ActionCell(
+                  icon: sent
+                      ? Icons.check_rounded
+                      : Icons.favorite_border_rounded,
+                  iconColor: sent ? AppColors.success : _Soul.pink600,
+                  tooltip: 'Send Interest',
+                  onTap: () =>
+                      SendInterestDialog.show(context, profile),
+                );
+              }),
+              // Chat.
+              _ActionCell(
+                icon: Icons.chat_bubble_outline_rounded,
+                iconColor: _Soul.ink900,
+                tooltip: 'Chat',
+                onTap: () => _handleChatTap(context, profile),
+              ),
+              // Full profile.
+              _ActionCell(
+                icon: Icons.person_outline_rounded,
+                iconColor: _Soul.ink900,
+                tooltip: 'Full Profile',
+                onTap: () => PublicProfileDetailSheet.show(
+                  context,
+                  profileId: profile.id,
+                  searchProfile: profile,
+                ),
+              ),
+              // More options.
+              _ActionCell(
+                icon: Icons.more_vert_rounded,
+                iconColor: _Soul.ink900,
+                tooltip: 'More options',
+                onTap: () => _showOptionsMenu(context),
+              ),
+              // Ignore.
+              _ActionCell(
+                icon: Icons.do_not_disturb_on_rounded,
+                iconColor: _Soul.ink900,
+                tooltip: 'Ignore',
+                onTap: onIgnore,
+              ),
+              // Report.
+              _ActionCell(
+                icon: Icons.flag_outlined,
+                iconColor: AppColors.error,
+                tooltip: 'Report',
+                onTap: () => ReportProfileDialog.show(context, profile),
+              ),
+            ],
+          ),
+        ),
           ],
         ),
       ),

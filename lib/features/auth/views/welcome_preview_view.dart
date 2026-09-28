@@ -461,8 +461,8 @@ class _PreviewCard extends StatelessWidget {
                 // Favourite heart — same white circular button; a guest tap
                 // opens the entry dialog like everything else here.
                 Positioned(
-                  bottom: -6,
-                  right: -6,
+                  bottom: 6,
+                  right: 6,
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(

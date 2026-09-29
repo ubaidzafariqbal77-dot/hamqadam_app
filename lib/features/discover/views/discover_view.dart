@@ -1214,9 +1214,6 @@ class _SingleUserProfileCard extends StatelessWidget {
         ? Get.find<InterestController>()
         : null;
 
-    final String? marital = controller.maritalStatusLabel(
-      profile.maritalStatusId,
-    );
     final String? religion = controller.religionLabel(profile.religionId);
     final String? city = controller.cityLabel(profile.cityId);
     final String? sect = controller.sectLabel(profile.sectMainId);

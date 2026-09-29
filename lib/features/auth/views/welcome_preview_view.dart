@@ -14,18 +14,7 @@ import '../../../models/lookup_item_model.dart';
 import '../widgets/entry_dialog.dart';
 import '../../help_center/views/guest_help_view.dart';
 
-/// First-look marketing screen shown right after onboarding (reference:
-/// "Proposals for you"). It previews what members see after signing in —
-/// real handpicked profiles straight from the guest discover feed, with every
-/// interactive element opening the shared Create Account / Login dialog.
-///
-/// The feed loads WITHOUT login (`GET /public/discover` returns only the
-/// public marketing slice of each profile). If the network is down the sample
-/// cards below keep the screen presentable instead of showing an empty state
-/// to someone who has not signed up yet.
-///
-/// The WhatsApp banner at the bottom dials the owner directly: talking to a
-/// human is often what convinces a hesitant visitor to sign up.
+ 
 class WelcomePreviewView extends StatefulWidget {
   const WelcomePreviewView({super.key});
 
@@ -152,8 +141,58 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
       child: Scaffold(
-        // The reference's soft pink canvas; content scrolls so the WhatsApp
-        // banner is always reachable on small phones.
+        // The reference's soft pink canvas; content scrolls and the help /
+        // WhatsApp buttons float above the bottom-right corner.
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: <Widget>[
+            // Help Centre — neat white circle with the agent glyph, no
+            // banner screaming for attention.
+            Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              elevation: 3,
+              shadowColor: Colors.black.withValues(alpha: 0.18),
+              child: InkWell(
+                onTap: GuestHelpView.open,
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.support_agent_rounded,
+                    color: AppColors.primary,
+                    size: 22,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // WhatsApp — the single floating green button, icon only.
+            Material(
+              color: const Color(0xFF25D366),
+              borderRadius: BorderRadius.circular(999),
+              elevation: 4,
+              shadowColor: Colors.black.withValues(alpha: 0.22),
+              child: InkWell(
+                onTap: _openWhatsApp,
+                customBorder: const CircleBorder(),
+                child:   SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Image.asset( 
+                    'assets/icons/whatsapp.png',
+                    width: 22,
+                    height: 22,
+                    fit: BoxFit.contain,
+                  ),
+                  // Icon(Icons.chat_rounded, color: Colors.white, size: 28),
+                ),
+              ),
+            ),
+          ],
+        ),
         body: DecoratedBox(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -171,9 +210,9 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
                       AppSpacing.lg,
-                      AppSpacing.md,
-                      AppSpacing.lg,
+                      AppSpacing.xl,
                       AppSpacing.sm,
                     ),
                     child: Column(
@@ -210,28 +249,30 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.xl),
+                        const SizedBox(height: AppSpacing.xl + 4),
 
                         // ---- Headline -----------------------------------
                         Text(
                           'Proposals for you',
                           style: AppTextStyles.display.copyWith(
-                            fontSize: 26,
+                            fontSize: 30,
                             fontWeight: FontWeight.w800,
                             color: AppColors.lightTextPrimary,
                             letterSpacing: -0.5,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        const SizedBox(height: AppSpacing.sm + 2),
                         Text(
                           _memberCount > 0
                               ? 'Handpicked matches from $_memberCount verified members'
                               : 'Handpicked matches aligned with your preferences',
                           style: AppTextStyles.bodyStrong.copyWith(
+                            fontSize: 15,
+                            height: 1.45,
                             color: AppColors.lightTextSecondary,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.lg),
+                        const SizedBox(height: AppSpacing.xl - 4),
 
                         // ---- Search preview (tappable) ------------------
                         GestureDetector(
@@ -239,13 +280,21 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: 14,
+                              horizontal: AppSpacing.lg,
+                              vertical: 16,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius:
-                                  BorderRadius.circular(AppRadius.lg),
+                                  BorderRadius.circular(AppRadius.lg + 4),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: const Color(0xFFB4487B)
+                                      .withValues(alpha: 0.08),
+                                  blurRadius: 14,
+                                  offset: const Offset(0, 5),
+                                ),
+                              ],
                             ),
                             child: Row(
                               children: <Widget>[
@@ -268,14 +317,14 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
+                        const SizedBox(height: AppSpacing.lg + 4),
 
                         // ---- Match cards (live feed) --------------------
                         if (_loading)
                           ...List<Widget>.filled(
                             3,
                             const Padding(
-                              padding: EdgeInsets.only(bottom: AppSpacing.md),
+                              padding: EdgeInsets.only(bottom: AppSpacing.lg),
                               child: _SkeletonCard(),
                             ),
                           )
@@ -283,7 +332,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                           ..._profiles.map(
                             (_PreviewProfile p) => Padding(
                               padding:
-                                  const EdgeInsets.only(bottom: AppSpacing.md),
+                                  const EdgeInsets.only(bottom: AppSpacing.lg),
                               child: _PreviewCard(
                                 profile: p,
                                 onTap: () => _openEntryDialog(context),
@@ -305,7 +354,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                                     width: 1.4,
                                   ),
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
+                                    vertical: 16,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
@@ -328,7 +377,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                                   backgroundColor: AppColors.primary,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
+                                    vertical: 16,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
@@ -345,15 +394,13 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.sm),
+                        // Clearance so the Log in / Create Account row is
+                        // never covered by the floating buttons.
+                        const SizedBox(height: 72),
                       ],
                     ),
                   ),
                 ),
-
-                // ---- Help Center (guest form) + WhatsApp banner -------
-                _HelpCenterButton(),
-                const SizedBox(height: AppSpacing.sm),
-                _WhatsAppBanner(onTap: _openWhatsApp),
               ],
             ),
           ),
@@ -620,43 +667,7 @@ class _PreviewCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: onTap,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                                colors: AppColors.brandGradient),
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(Icons.send_rounded,
-                                  size: 11, color: Colors.white),
-                              SizedBox(width: 5),
-                              Text(
-                                'Send Proposal',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                ],
                   ),
                 ],
               ),
@@ -882,170 +893,5 @@ class _PreviewProfile {
     final int inches = ((h - feet) * 12).round();
     if (inches > 11) return "${feet + 1}' 0\"";
     return "$feet' $inches\"";
-  }
-}
-
-/// Green WhatsApp strip pinned above the bottom safe area, matching the
-/// reference. Tap opens the owner's chat.
-class _WhatsAppBanner extends StatelessWidget {
-  const _WhatsAppBanner({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
-      child: Material(
-        color: const Color(0xFF25D366),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 12,
-            ),
-            child: Row(
-              children: <Widget>[
-                // The real WhatsApp glyph — same artwork as the reference.
-                Image.asset(
-                  'assets/icons/whatsapp.png',
-                  width: 26,
-                  height: 26,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.chat_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Need help? Talk to owner directly',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        '+92 300 1234567',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Image.asset(
-                        'assets/icons/whatsapp.png',
-                        width: 14,
-                        height: 14,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.chat_rounded,
-                          color: Color(0xFF25D366),
-                          size: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'WhatsApp',
-                        style: AppTextStyles.badge.copyWith(
-                          color: const Color(0xFF25D366),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Soft pink Help Center strip pinned beside the WhatsApp banner — the
-/// pre-login visitor's way into the guest help form (name / email /
-/// description). No account needed; the team replies on the given email.
-class _HelpCenterButton extends StatelessWidget {
-  const _HelpCenterButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.regAccent,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: InkWell(
-        onTap: GuestHelpView.open,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: 12,
-          ),
-          child: Row(
-            children: <Widget>[
-              const Icon(Icons.support_agent_rounded, color: Colors.white, size: 24),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      'Need help? Ask our Help Center',
-                      style: AppTextStyles.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      'No account needed — we reply on your email',
-                      style: AppTextStyles.caption.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

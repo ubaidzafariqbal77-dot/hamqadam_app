@@ -233,33 +233,48 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        // ---- Brand row (tappable too) -------------------
+                        // ---- Brand row — centred serif wordmark + sparkle
                         GestureDetector(
                           onTap: () => _openEntryDialog(context),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: <Widget>[
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
                                 child: Image.asset(
                                   'assets/icons/logo.png',
-                                  width: 34,
-                                  height: 34,
+                                  width: 44,
+                                  height: 44,
                                   fit: BoxFit.contain,
                                   errorBuilder: (_, __, ___) => const Icon(
                                     Icons.favorite_rounded,
                                     color: AppColors.primary,
-                                    size: 28,
+                                    size: 36,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'HamQadam',
-                                style: AppTextStyles.title.copyWith(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.lightTextPrimary,
-                                ),
+                              const SizedBox(width: 10),
+                              // Serif wordmark with the sparkle accent from
+                              // the reference design.
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    'HamQadam',
+                                    style: AppTextStyles.displaySerif.copyWith(
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.lightTextPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  const Icon(
+                                    Icons.auto_awesome_rounded,
+                                    size: 14,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -268,21 +283,21 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
                         // ---- Headline -----------------------------------
                         Text(
-                          'Proposals for you',
-                          style: AppTextStyles.display.copyWith(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800,
+                          'HamQadam - Proposals for you',
+                          textAlign: TextAlign.center,
+                          style: AppTextStyles.displaySerif.copyWith(
+                            fontSize: 25,
                             color: AppColors.lightTextPrimary,
-                            letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.sm + 2),
                         Text(
                           _memberCount > 0
-                              ? 'Handpicked matches from $_memberCount verified members'
-                              : 'Handpicked matches aligned with your preferences',
+                              ? '$_memberCount curated matches, all verified · Updated today'
+                              : 'Curated matches, all verified · Updated today',
+                          textAlign: TextAlign.center,
                           style: AppTextStyles.bodyStrong.copyWith(
-                            fontSize: 15,
+                            fontSize: 14,
                             height: 1.45,
                             color: AppColors.lightTextSecondary,
                           ),
@@ -342,7 +357,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                             child: OutlinedButton.icon(
                               onPressed: _loadFeed,
                               icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text('Live profiles load nahi huin — dobara koshish karein'),
+                              label: const Text('Could not load live profiles — tap to retry'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primaryDark,
                                 backgroundColor: Colors.white,
@@ -460,19 +475,15 @@ class _PreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String heightLabel = profile.heightLabel ?? '';
-    final List<String> metaParts = <String>[
-      if (profile.age != null) '${profile.age} Years',
-      if (heightLabel.isNotEmpty) heightLabel,
-    ];
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: const Color(0xFFB4487B).withValues(alpha: 0.08),
@@ -481,75 +492,169 @@ class _PreviewCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            // ---- PHOTO — Verified chip top-left, heart bottom-right -----
-            Stack(
-              clipBehavior: Clip.none,
+            // ---- TOP: photo left · facts right · heart far right --------
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  width: 96,
-                  height: 116,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: AppColors.lightSurfaceAlt,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: (profile.photoUrl?.isNotEmpty ?? false)
-                      ? Image.network(
-                          profile.photoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.person_rounded,
-                            color: AppColors.lightTextSecondary,
-                          ),
-                        )
-                      : const Icon(
-                          Icons.person_rounded,
-                          color: AppColors.lightTextSecondary,
-                          size: 40,
-                        ),
-                ),
-                // Verified chip — white pill with the pink tick.
-                if (profile.verified)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Container(
+                      width: 104,
+                      height: 122,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.lightSurfaceAlt,
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(Icons.verified_rounded,
-                              size: 10, color: AppColors.primary),
-                          SizedBox(width: 3),
-                          Text(
-                            'Verified',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.lightTextPrimary,
+                      clipBehavior: Clip.antiAlias,
+                      child: (profile.photoUrl?.isNotEmpty ?? false)
+                          ? Image.network(
+                              profile.photoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.person_rounded,
+                                color: AppColors.lightTextSecondary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person_rounded,
+                              color: AppColors.lightTextSecondary,
+                              size: 40,
                             ),
-                          ),
-                        ],
-                      ),
                     ),
+                    // Verified pill — white, pink tick, overlapping the
+                    // photo's top-left edge like the reference.
+                    if (profile.verified)
+                      Positioned(
+                        top: -6,
+                        left: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(Icons.check_circle_rounded,
+                                  size: 12, color: AppColors.primary),
+                              SizedBox(width: 4),
+                              Text(
+                                'Verified',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: 14),
+
+                // ---- FACTS ------------------------------------------------
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      // Serif name, as drawn in the reference.
+                      Text(
+                        profile.name,
+                        style: AppTextStyles.displaySerif.copyWith(
+                          fontSize: 19,
+                          color: AppColors.lightTextPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 7),
+
+                      // "26 Years · 5'4\" · Islam" — plain dark line with
+                      // quiet dots between the parts.
+                      if (profile.age != null || heightLabel.isNotEmpty || profile.religion != null)
+                        _PlainFactsLine(parts: <String?>[
+                          if (profile.age != null) '${profile.age} Years',
+                          if (heightLabel.isNotEmpty) heightLabel,
+                          if (profile.religion != null) profile.religion,
+                        ]),
+                      const SizedBox(height: 6),
+
+                      // "📍 Rawalpindi · Marketing Professional".
+                      if (profile.city != null || profile.profession != null)
+                        Row(
+                          children: <Widget>[
+                            const Icon(Icons.location_on_outlined,
+                                size: 13, color: AppColors.lightTextSecondary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                <String?>[
+                                  profile.city,
+                                  profile.profession,
+                                ].whereType<String>().join(' · '),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.lightTextSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 6),
+
+                      // "🎓 MBA, LUMS".
+                      if (profile.education != null)
+                        Row(
+                          children: <Widget>[
+                            const Icon(Icons.school_outlined,
+                                size: 13, color: AppColors.lightTextSecondary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                profile.education!,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
-                // Favourite heart — same white circular button; a guest tap
-                // opens the entry dialog like everything else here.
-                Positioned(
-                  bottom: 6,
-                  right: 6,
+                ),
+
+                // Heart — the reference's floating circle at the right,
+                // vertically centred on the facts block.
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, top: 26),
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(
-                      padding: const EdgeInsets.all(7),
+                      padding: const EdgeInsets.all(8),
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
@@ -563,7 +668,7 @@ class _PreviewCard extends StatelessWidget {
                       ),
                       child: const Icon(
                         Icons.favorite_border_rounded,
-                        size: 16,
+                        size: 18,
                         color: AppColors.lightTextSecondary,
                       ),
                     ),
@@ -571,223 +676,103 @@ class _PreviewCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(width: 12),
 
-            // ---- CONTENT — the Discover card's fact layout ---------------
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-                    profile.name,
+            // ---- BOTTOM: age/profession pill + Send Proposal ------------
+            const SizedBox(height: 14),
+            Row(
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _badgeText(profile),
                     style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.lightTextPrimary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryInk,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 5),
-
-                  // Chips row — age · height · faith · sect.
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 3,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      if (profile.age != null)
-                        _PreviewIconChip(
-                            icon: Icons.cake_outlined,
-                            label: '${profile.age} Years'),
-                      if (heightLabel.isNotEmpty) ...<Widget>[
-                        const _PreviewDot(),
-                        _PreviewIconChip(
-                            icon: Icons.height_rounded, label: heightLabel),
-                      ],
-                      if (profile.religion != null) ...<Widget>[
-                        const _PreviewDot(),
-                        _PreviewIconChip(
-                            icon: Icons.nightlight_round,
-                            label: profile.religion!),
-                      ],
-                      if (profile.sect != null) ...<Widget>[
-                        const _PreviewDot(),
-                        _PreviewIconChip(
-                            icon: Icons.menu_book_rounded,
-                            label: profile.sect!),
-                      ],
-                    ],
-                  ),
-
-                  // Location.
-                  if (profile.city != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _PreviewFactCell(
-                          icon: Icons.location_on_outlined,
-                          label: profile.city!),
-                    ),
-
-                  // Education + job — two-column row.
-                  if (profile.education != null || profile.profession != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Row(
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
-                          if (profile.education != null)
-                            Expanded(
-                              child: _PreviewFactCell(
-                                  icon: Icons.school_outlined,
-                                  label: profile.education!),
+                          Icon(Icons.send_rounded,
+                              size: 14, color: AppColors.primaryInk),
+                          SizedBox(width: 6),
+                          Text(
+                            'Send Proposal',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryInk,
                             ),
-                          if (profile.profession != null)
-                            Expanded(
-                              child: _PreviewFactCell(
-                                  icon: Icons.work_outline_rounded,
-                                  label: profile.profession!),
-                            ),
+                          ),
                         ],
                       ),
                     ),
-
-                  // Family line.
-                  if (profile.family != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _PreviewFactCell(
-                          icon: Icons.home_outlined, label: profile.family!),
-                    ),
-
-                  // Introduction — the about line the old card showed.
-                  if (profile.about.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 6),
-                    Text(
-                      profile.about,
-                      style: AppTextStyles.caption.copyWith(
-                        height: 1.4,
-                        color: AppColors.lightInputText,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-
-                  // Bottom row — the "94% Match"-style pill slot shows the
-                  // member count badge for guests, plus the proposal button.
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF0F4),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            const Icon(Icons.favorite_rounded,
-                                size: 10, color: AppColors.primary),
-                            const SizedBox(width: 4),
-                            Text(
-                              metaParts.isEmpty ? 'HamQadam Match' : metaParts.first,
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
   }
-}
 
-/// Tiny glyph chip for the guest card's facts row (same recipe as the
-/// Discover card's _IconChip).
-class _PreviewIconChip extends StatelessWidget {
-  const _PreviewIconChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 10, color: AppColors.primary),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w600,
-            color: AppColors.lightTextPrimary,
-          ),
-        ),
-      ],
-    );
+  /// The reference's left pill — "26 · Marketing"-style: age and the
+  /// profession's leading word, degrading to what exists.
+  String _badgeText(_PreviewProfile p) {
+    final String? job = p.profession;
+    final String short = (job != null && job.trim().isNotEmpty)
+        ? job.trim().split(RegExp(r'\\s+')).first
+        : (p.verified ? 'Verified' : 'Profile');
+    return p.age != null ? '${p.age} · $short' : short;
   }
 }
 
-/// Pink glyph + label fact line (same recipe as the Discover card's
-/// _FactCell).
-class _PreviewFactCell extends StatelessWidget {
-  const _PreviewFactCell({required this.icon, required this.label});
+/// One dark-text fact line with quiet "·" separators — the reference's
+/// "26 Years · 5'4\" · Islam" row.
+class _PlainFactsLine extends StatelessWidget {
+  const _PlainFactsLine({required this.parts});
 
-  final IconData icon;
-  final String label;
+  final List<String?> parts;
 
   @override
   Widget build(BuildContext context) {
+    final List<String> clean =
+        parts.whereType<String>().where((String s) => s.trim().isNotEmpty).toList();
+    if (clean.isEmpty) return const SizedBox.shrink();
     return Row(
-      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Icon(icon, size: 11, color: AppColors.primary),
-        const SizedBox(width: 4),
-        Flexible(
+        Expanded(
           child: Text(
-            label,
+            clean.join('  ·  '),
             style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: AppColors.lightTextSecondary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.lightTextPrimary,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Dotted separator between the guest card's chips.
-class _PreviewDot extends StatelessWidget {
-  const _PreviewDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 3,
-      height: 3,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppColors.lightTextHint,
-      ),
     );
   }
 }

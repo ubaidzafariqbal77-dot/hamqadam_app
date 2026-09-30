@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
@@ -16,13 +14,14 @@ class GifItem {
   final String fullUrl;
 }
 
-/// Tenor-powered GIF picker.
+/// Giphy-powered GIF picker.
 ///
-/// Uses Tenor's public v2 API. The key below is Tenor's long-standing public
-/// "test" key — swap `tenorApiKey` for a registered app key before wide
-/// release if rate limits ever bite. Results are media-format agnostic: the
-/// response is walked for the smallest `gif` rendition for the preview and a
-/// mid-size `gif` for sending.
+/// Tenor shut down its public API (the old `LIVDSRZULELA` key now returns
+/// API_KEY_INVALID and new keys are no longer issued), so the picker moved to
+/// Giphy's v1 REST API. `rating: pg` keeps results clean for a matrimonial
+/// app. The preview is the 200px `fixed_width_downsampled` rendition; the
+/// full GIF is `downsized_medium` (mobile-friendly size) with `original` as
+/// fallback.
 class ChatGifPicker extends StatefulWidget {
   const ChatGifPicker({super.key, required this.onPick});
 
@@ -34,14 +33,17 @@ class ChatGifPicker extends StatefulWidget {
 }
 
 class _ChatGifPickerState extends State<ChatGifPicker> {
-  static const String _tenorApiKey = 'LIVDSRZULELA'; // Tenor public apps key
-  static const String _baseUrl = 'https://tenor.googleapis.com/v2/search';
+  static const String _giphyApiKey = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65';
+  static const String _searchUrl = 'https://api.giphy.com/v1/gifs/search';
+  static const String _trendingUrl = 'https://api.giphy.com/v1/gifs/trending';
+  static const int _pageSize = 24;
 
   final TextEditingController _search = TextEditingController();
   final List<GifItem> _gifs = <GifItem>[];
   bool _loading = false;
+  bool _hasMore = true;
   String _error = '';
-  int _nextPos = 0; // Tenor pagination token
+  int _offset = 0; // Giphy pagination cursor
 
   @override
   void initState() {
@@ -53,58 +55,74 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
     setState(() {
       _loading = true;
       _error = '';
-      if (!append) _gifs.clear();
+      if (!append) {
+        _gifs.clear();
+        _offset = 0;
+        _hasMore = true;
+      }
     });
     try {
+      final bool trending = query == 'trending';
       final Response<dynamic> res = await Dio().get<Map<String, dynamic>>(
-        _baseUrl,
+        trending ? _trendingUrl : _searchUrl,
         queryParameters: <String, dynamic>{
-          'key': _tenorApiKey,
-          'q': query,
-          'limit': 24,
-          'media_filter': 'gif',
-          'client_key': 'hamqadam_flutter',
-          if (append && _nextPos > 0) 'pos': _nextPos,
+          'api_key': _giphyApiKey,
+          'limit': _pageSize,
+          'rating': 'pg',
+          'bundle': 'messaging_non_clips',
+          if (!trending) 'q': query,
+          'offset': _offset,
         },
       );
       final Map<String, dynamic> body =
           (res.data is Map) ? res.data as Map<String, dynamic> : <String, dynamic>{};
-      final List<dynamic> results = (body['results'] as List<dynamic>?) ?? <dynamic>[];
+      final List<dynamic> results = (body['data'] as List<dynamic>?) ?? <dynamic>[];
+      final Map<String, dynamic> pagination =
+          (body['pagination'] as Map<String, dynamic>?) ?? <String, dynamic>{};
       final List<GifItem> parsed = <GifItem>[];
       for (final dynamic row in results) {
         if (row is! Map<String, dynamic>) continue;
-        final List<dynamic> formats =
-            (row['media_formats'] as Map<String, dynamic>?)?.values.toList() ?? <dynamic>[];
-        String? full;
-        String? preview;
-        for (final dynamic f in formats) {
-          if (f is! Map<String, dynamic>) continue;
-          final String url = (f['url'] ?? '').toString();
-          if (url.endsWith('.gif')) {
-            full ??= url;
-            // Anything under ~1MB works as a preview; the smallest wins.
-            final int size = (f['size'] as num?)?.toInt() ?? 1 << 30;
-            if (size < 300000) preview ??= url;
-          }
-        }
+        final Map<String, dynamic> images =
+            (row['images'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+        String? preview = _renditionUrl(
+          images,
+          const <String>['fixed_width_downsampled', 'fixed_width', 'fixed_height'],
+        );
+        String? full = _renditionUrl(images, const <String>['downsized_medium']) ??
+            _renditionUrl(images, const <String>['original']);
+        preview ??= full;
         if (full != null) {
-          parsed.add(GifItem(previewUrl: preview ?? full, fullUrl: full));
+          parsed.add(GifItem(previewUrl: preview!, fullUrl: full));
         }
       }
-      _nextPos = int.tryParse('${body['next'] ?? 0}') ?? 0;
+      _offset += parsed.length;
+      final int total = (pagination['total_count'] as num?)?.toInt() ?? 0;
       if (!mounted) return;
       setState(() {
         _gifs.addAll(parsed);
         _loading = false;
+        _hasMore = total == 0 || _offset < total;
         if (_gifs.isEmpty) _error = 'No GIFs found';
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'GIFs load nahi huin — internet check karein';
+        _error = 'Could not load GIFs — check your internet connection';
       });
     }
+  }
+
+  /// Walks the candidate rendition names in order and returns the first
+  /// non-empty `.gif` URL.
+  static String? _renditionUrl(Map<String, dynamic> images, List<String> names) {
+    for (final String name in names) {
+      final dynamic rendition = images[name];
+      if (rendition is! Map<String, dynamic>) continue;
+      final String url = (rendition['url'] ?? '').toString();
+      if (url.isNotEmpty && url.endsWith('.gif')) return url;
+    }
+    return null;
   }
 
   @override
@@ -129,7 +147,7 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
             decoration: InputDecoration(
               isDense: true,
               hintText: 'Search GIFs…',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+              prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.primaryDark),
               filled: true,
               fillColor: isDark ? AppColors.darkSurface : Colors.white,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -143,8 +161,8 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
           SizedBox(
             height: 200,
             child: _loading && _gifs.isEmpty
-                ? const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                ? Center(
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryDark))
                 : _error.isNotEmpty && _gifs.isEmpty
                     ? Center(
                         child: Text(_error,
@@ -161,6 +179,13 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
                         itemCount: _gifs.length,
                         itemBuilder: (BuildContext _, int i) {
                           final GifItem gif = _gifs[i];
+                          // Pre-fetch the next page as the user nears the end.
+                          if (i >= _gifs.length - 6 && !_loading && _hasMore) {
+                            _searchGifs(
+                              _search.text.trim().isEmpty ? 'trending' : _search.text.trim(),
+                              append: true,
+                            );
+                          }
                           return GestureDetector(
                             onTap: () {
                               Navigator.of(context).pop();
@@ -173,7 +198,7 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => Container(
                                   color: AppColors.lightSurfaceAlt,
-                                  child: const Icon(Icons.gif_rounded, color: AppColors.primary),
+                                  child: const Icon(Icons.gif_rounded, color: AppColors.primaryDark),
                                 ),
                               ),
                             ),

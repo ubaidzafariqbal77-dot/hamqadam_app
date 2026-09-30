@@ -362,7 +362,12 @@ class SearchProfilesController extends GetxController {
     // carries the member's gender is fetched lazily, so the first Discover
     // build can happen before the gender is known.
     _lockFilterToOppositeGender();
-    if (showLoading) {
+    // Refresh-in-place: when a page is already on screen, keep it visible
+    // (no full-screen skeleton) while the fresh page fetches in the
+    // background. Feels instant on pull-to-refresh and re-visits.
+    if (showLoading && profiles.isNotEmpty) {
+      state.value = ApiState<SearchProfilesPage>.loadingKeepData(pageData as SearchProfilesPage);
+    } else if (showLoading) {
       state.value = const ApiState<SearchProfilesPage>.loading();
     }
     try {

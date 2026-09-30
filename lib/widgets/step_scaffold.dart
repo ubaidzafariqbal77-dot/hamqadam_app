@@ -331,7 +331,7 @@ class StepScaffold extends StatelessWidget {
               '$percent%',
               style: AppTextStyles.bodyStrong.copyWith(
                 fontSize: 15,
-                color: AppColors.regAccent.withValues(alpha: 0.75),
+                color: AppColors.primaryDark.withValues(alpha: 0.75),
               ),
             ),
           ],
@@ -499,7 +499,7 @@ class _TopBar extends StatelessWidget {
           Text(
             '$percent%',
             style: AppTextStyles.bodyStrong.copyWith(
-              color: AppColors.regAccent,
+              color: AppColors.primaryDark,
               fontSize: 14,
             ),
           ),
@@ -516,7 +516,7 @@ class _RoundIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color color = AppColors.regAccent;
+    const Color color = AppColors.primaryDark;
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Opacity(
       opacity: onTap == null ? 0.25 : 1,
@@ -705,7 +705,7 @@ class _PillButton extends StatelessWidget {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
+                      color: AppColors.primaryInk,
                       strokeWidth: 2.5,
                     ),
                   )
@@ -718,10 +718,10 @@ class _PillButton extends StatelessWidget {
                       child: BiText.inline(
                         label,
                         style: AppTextStyles.button.copyWith(
-                          color: isBackPill ? AppColors.regAccent : Colors.white,
+                          color: isBackPill ? AppColors.primaryDark : AppColors.primaryInk,
                           fontSize: 14,
                         ),
-                        urduColor: Colors.white.withValues(alpha: 0.95),
+                        urduColor: AppColors.primaryInk.withValues(alpha: 0.95),
                       ),
                     ),
                   ),

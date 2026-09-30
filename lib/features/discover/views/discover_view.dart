@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -104,11 +105,15 @@ class DiscoverView extends StatelessWidget {
 /// gradients the screen reuses. Named in one place so every widget below reads
 /// like the Tailwind config it was ported from.
 abstract class _Soul {
-  static const Color pink100 = Color(0xFFFFE8EE);
-  static const Color pink300 = Color(0xFFFF9EB5);
-  static const Color pink400 = Color(0xFFF77CA4);
-  static const Color pink500 = Color(0xFFF5508A);
-  static const Color pink600 = Color(0xFFF53A77);
+  static const Color pink100 = Color(0xFFFBE3EC);
+  static const Color pink300 = Color(0xFFEDA6C2);
+  static const Color pink400 = Color(0xFFF2B0C9);
+  static const Color pink500 = Color(0xFFF4BFD1);
+  static const Color pink600 = Color(0xFFF4BFD1);
+
+  /// Deep dusty-rose ink for text/icons drawn ON the pastel accent —
+  /// white is unreadable on a fill this light.
+  static const Color pinkInk = Color(0xFF8E3D60);
 
   static const Color ink900 = Color(0xFF151515);
   static const Color ink500 = Color(0xFF777777);
@@ -129,13 +134,13 @@ abstract class _Soul {
 
   /// `shadow-card`: 0 4px 18px rgba(255,15,77,.07), 0 2px 6px rgba(0,0,0,.04).
   static const List<BoxShadow> cardShadow = <BoxShadow>[
-    BoxShadow(color: Color(0x12F53A77), blurRadius: 18, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x12B25C82), blurRadius: 18, offset: Offset(0, 4)),
     BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
-  /// `shadow-pink`: 0 5px 18px rgba(255,15,77,.25).
+  /// `shadow-pink`: 0 5px 18px rgba(178,92,130,.25).
   static const List<BoxShadow> pinkShadow = <BoxShadow>[
-    BoxShadow(color: Color(0x40F53A77), blurRadius: 18, offset: Offset(0, 5)),
+    BoxShadow(color: Color(0x40B25C82), blurRadius: 18, offset: Offset(0, 5)),
   ];
 }
 
@@ -222,8 +227,6 @@ class _SearchBarHeader extends StatelessWidget {
         _buildHoroscopeButton(isDark),
         const SizedBox(width: AppSpacing.sm),
         _buildPartnerPrefButton(isDark),
-        const SizedBox(width: AppSpacing.sm),
-        _buildIgnoredListButton(isDark),
         const SizedBox(width: AppSpacing.sm),
         _buildNotificationButton(context, isDark),
       ],
@@ -335,7 +338,7 @@ class _SearchBarHeader extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.tune_rounded,
-                  color: Colors.white,
+                  color: _Soul.pinkInk,
                   size: 19,
                 ),
               ),
@@ -371,28 +374,6 @@ class _SearchBarHeader extends StatelessWidget {
         ],
       );
     });
-  }
-
-  /// Opens the Ignored Profiles list — where hidden profiles can be restored.
-  Widget _buildIgnoredListButton(bool isDark) {
-    return GestureDetector(
-      onTap: IgnoredProfilesView.open,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFF1F4),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.restore_from_trash_outlined,
-            color: _Soul.pink600,
-            size: 19,
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildNotificationButton(BuildContext context, bool isDark) {
@@ -495,7 +476,7 @@ class _SearchBarHeader extends StatelessWidget {
           ),
           child: Icon(
             Icons.favorite_outline_rounded,
-            color: active ? Colors.white : _Soul.pink600,
+            color: active ? _Soul.pinkInk : _Soul.pink600,
             size: 18,
           ),
         ),
@@ -636,7 +617,7 @@ class _CategoryChip extends StatelessWidget {
                   Icon(
                     icon,
                     size: 12,
-                    color: active ? Colors.white : _Soul.pink600,
+                    color: active ? _Soul.pinkInk : _Soul.pink600,
                   ),
                   const SizedBox(width: 5),
                 ],
@@ -645,7 +626,7 @@ class _CategoryChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                    color: active ? Colors.white : _Soul.gray600,
+                    color: active ? _Soul.pinkInk : _Soul.gray600,
                   ),
                 ),
               ],
@@ -1299,20 +1280,18 @@ class _SingleUserProfileCard extends StatelessWidget {
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: profile.hasPhoto
-                        ? Image.network(
-                            profile.photoUrl!,
+                        // Disk-cached: revisiting Discover (and scrolling
+                        // back) renders instantly instead of re-downloading
+                        // every photo on each rebuild.
+                        ? CachedNetworkImage(
+                            imageUrl: profile.photoUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) =>
+                            fadeInDuration: Duration.zero,
+                            memCacheWidth: 300,
+                            errorWidget: (_, _, _) =>
                                 _PhotoFallback(profile: profile),
-                            loadingBuilder:
-                                (
-                                  BuildContext ctx,
-                                  Widget child,
-                                  ImageChunkEvent? p,
-                                ) {
-                                  if (p == null) return child;
-                                  return _PhotoFallback(profile: profile);
-                                },
+                            placeholder: (_, _) =>
+                                _PhotoFallback(profile: profile),
                           )
                         : _PhotoFallback(profile: profile),
                   ),
@@ -1454,10 +1433,8 @@ class _SingleUserProfileCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             color: _Soul.ink900,
                           ),
-                          // Full name — wrap to a second line instead of
-                          // truncating with an ellipsis.
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          // Complete name — always fully visible, wrapping to
+                          // as many lines as it needs (no ellipsis).
                         ),
                       ),
                       const Spacer(),
@@ -1704,8 +1681,11 @@ class _SingleUserProfileCard extends StatelessWidget {
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
       builder: (BuildContext ctx) {
+        // Scrollable: the menu now has 8 entries and overflowed ~6px on
+        // short screens / small text-scale settings.
         return SafeArea(
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               ListTile(
@@ -1823,6 +1803,21 @@ class _SingleUserProfileCard extends StatelessWidget {
               ),
               ListTile(
                 leading: const Icon(
+                  Icons.restore_from_trash_outlined,
+                  color: AppColors.primary,
+                ),
+                title: const Text('Ignored Profiles'),
+                subtitle: const Text(
+                  'View and restore hidden profiles',
+                  style: TextStyle(fontSize: 12),
+                ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  IgnoredProfilesView.open();
+                },
+              ),
+              ListTile(
+                leading: const Icon(
                   Icons.flag_outlined,
                   color: AppColors.error,
                 ),
@@ -1836,6 +1831,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                 },
               ),
             ],
+            ),
           ),
         );
       },

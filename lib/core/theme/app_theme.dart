@@ -36,11 +36,11 @@ class AppTheme {
     const ColorScheme scheme = ColorScheme(
       brightness: Brightness.light,
       primary: AppColors.regAccent,
-      onPrimary: Colors.white,
+      onPrimary: AppColors.primaryInk,
       primaryContainer: AppColors.goldLight,
-      onPrimaryContainer: AppColors.primaryDark,
+      onPrimaryContainer: AppColors.primaryInk,
       secondary: AppColors.accent,
-      onSecondary: Colors.white,
+      onSecondary: AppColors.primaryInk,
       tertiary: AppColors.gold,
       onTertiary: Colors.white,
       error: AppColors.error,
@@ -67,45 +67,46 @@ class AppTheme {
       splashFactory: InkRipple.splashFactory,
       dividerTheme: const DividerThemeData(color: divider, thickness: 1, space: 1),
 
-      // ---- AppBar: brand background, white content -------------------------
+      // ---- AppBar: pastel brand background, deep rose content ------------
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.regAccent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.primaryInk,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 3,
         shadowColor: Colors.black26,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.white),
-        actionsIconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: AppTextStyles.title.copyWith(color: Colors.white),
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(color: AppColors.primaryInk),
+        actionsIconTheme: const IconThemeData(color: AppColors.primaryInk),
+        titleTextStyle: AppTextStyles.title.copyWith(color: AppColors.primaryInk),
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
       ),
 
-      // ---- Bottom navigation: brand background, white items ----------------
+      // ---- Bottom navigation: pastel brand background, deep rose items ----
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.regAccent,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: Colors.white.withValues(alpha: 0.24),
+        indicatorColor: AppColors.primaryInk.withValues(alpha: 0.14),
         elevation: 8,
         height: 66,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         iconTheme: WidgetStateProperty.resolveWith<IconThemeData>((Set<WidgetState> s) {
           final bool selected = s.contains(WidgetState.selected);
-          return IconThemeData(color: selected ? Colors.white : Colors.white70);
+          return IconThemeData(
+              color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62));
         }),
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle>((Set<WidgetState> s) {
           final bool selected = s.contains(WidgetState.selected);
           return AppTextStyles.caption.copyWith(
-            color: selected ? Colors.white : Colors.white70,
+            color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62),
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
           );
         }),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.regAccent,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
+        selectedItemColor: AppColors.primaryInk,
+        unselectedItemColor: Color(0x9E8E3D60),
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
@@ -114,7 +115,7 @@ class AppTheme {
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.regAccent,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.primaryInk,
           elevation: 0,
           minimumSize: const Size(0, AppDimensions.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -125,7 +126,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.regAccent,
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.primaryInk,
           minimumSize: const Size(0, AppDimensions.buttonHeight),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
           textStyle: AppTextStyles.button,
@@ -133,7 +134,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.regAccent,
+          foregroundColor: AppColors.primaryDark,
           textStyle: AppTextStyles.label,
         ),
       ),
@@ -148,7 +149,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.regAccent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.primaryInk,
       ),
 
       // ---- Inputs: calm neutral fields, brand only on focus ----------------
@@ -182,7 +183,7 @@ class AppTheme {
       // ---- Selection controls: brand active state -------------------------
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) =>
-            Colors.white),
+            s.contains(WidgetState.selected) ? AppColors.primaryInk : Colors.white),
         trackColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> s) => s.contains(WidgetState.selected)
             ? AppColors.regAccent
             : Colors.grey.shade300),
@@ -190,7 +191,7 @@ class AppTheme {
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> s) =>
             s.contains(WidgetState.selected) ? AppColors.regAccent : null),
-        checkColor: const WidgetStatePropertyAll<Color>(Colors.white),
+        checkColor: const WidgetStatePropertyAll<Color>(AppColors.primaryInk),
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(6))),
       ),
       radioTheme: RadioThemeData(
@@ -203,7 +204,7 @@ class AppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: surfaceAlt,
         selectedColor: AppColors.regAccent,
-        checkmarkColor: Colors.white,
+        checkmarkColor: AppColors.primaryInk,
         labelStyle: AppTextStyles.caption.copyWith(color: textPrimary),
         secondaryLabelStyle: AppTextStyles.caption.copyWith(color: Colors.white),
         side: const BorderSide(color: border),
@@ -252,14 +253,14 @@ class AppTheme {
         backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
         headerBackgroundColor: AppColors.regAccent,
-        headerForegroundColor: Colors.white,
+        headerForegroundColor: AppColors.primaryInk,
         shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
         todayBackgroundColor: WidgetStatePropertyAll<Color>(AppColors.primary.withValues(alpha: 0.12)),
       ),
       timePickerTheme: const TimePickerThemeData(
         backgroundColor: surface,
         hourMinuteColor: surfaceAlt,
-        dialHandColor: AppColors.regAccent,
+        dialHandColor: AppColors.primaryDark,
         shape: RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
       ),
       tabBarTheme: const TabBarThemeData(

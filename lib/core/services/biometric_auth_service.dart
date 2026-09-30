@@ -107,7 +107,7 @@ class BiometricAuthService {
     if (!await isEnabled()) return null;
     try {
       final bool ok = await _localAuth.authenticate(
-        localizedReason: 'Fingerprint se login karein — ${AppStrings.appName}',
+        localizedReason: 'Log in with your fingerprint — ${AppStrings.appName}',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,

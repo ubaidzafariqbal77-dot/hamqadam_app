@@ -2,31 +2,35 @@ import 'package:flutter/material.dart';
 
 /// Central colour palette for the whole app.
 ///
-/// Premium, elegant matrimonial theme: brand pink #E85A8A reserved for
-/// calls-to-action, focus rings, badges and accents — while text, borders and
-/// hints use a calm neutral ink scale so hierarchy actually reads. Every colour
-/// used anywhere in the UI must come from here so light/dark theming stays
-/// consistent.
+/// Premium, elegant matrimonial theme: brand pastel pink #F4BFD1 (RGB
+/// 244, 191, 209) reserved for fills, chips, badges and accents — while text,
+/// borders and hints use a calm neutral ink scale so hierarchy actually reads.
+/// Because the brand accent is a light pastel, every foreground drawn ON it
+/// uses the deep dusty-rose inks below (white text is unreadable on it).
+/// Every colour used anywhere in the UI must come from here so light/dark
+/// theming stays consistent.
 class AppColors {
   const AppColors._();
 
   // ---- Brand ----------------------------------------------------------------
-  // Retuned to the Discover redesign's soul-pink ramp (the HTML reference's
-  // Tailwind config): the hot pink #F53A77 family now carries every CTA, link
-  // and accent across the whole app — one brand voice, one palette.
-  static const Color primary = Color(0xFFF53A77); // primary button pink
-  static const Color primaryDark = Color(0xFFDE2260); // pressed / deep pink
-  static const Color primaryLight = Color(0xFFF77CA4); // soft pink tint
-  static const Color accent = Color(0xFFF5508A); // matches primary
+  // Retuned to the requested pastel accent #F4BFD1 (RGB 244, 191, 209). The
+  // pastel carries fills, chips, edges and gradients; `primaryInk` (deep dusty
+  // rose) carries text/icons drawn ON the pastel, and `primaryDark` is the
+  // readable brand ink on white/light surfaces.
+  static const Color primary = Color(0xFFF4BFD1); // brand pastel pink accent
+  static const Color primaryDark = Color(0xFFB25C82); // deep dusty rose ink on white
+  static const Color primaryInk = Color(0xFF8E3D60); // readable foreground on the pastel
+  static const Color primaryLight = Color(0xFFFBE3EC); // soft pink tint
+  static const Color accent = Color(0xFFF4BFD1); // matches primary
   static const Color gold = Color(0xFFC9A24B); // subtle premium accent
-  static const Color goldLight = Color(0xFFFFD9E4); // soft pink highlight
+  static const Color goldLight = Color(0xFFFBE3EC); // soft pink highlight
 
   // Brand gradient used on premium surfaces (auth headers, hero cards) —
-  // the reference's 135° pink-gradient: #ff0f4d → #ff315f 55% → #ff6688.
+  // a gentle pastel ramp around the brand accent.
   static const List<Color> brandGradient = <Color>[
-    Color(0xFFF53A77),
-    Color(0xFFF5508A),
-    Color(0xFFF77CA4),
+    Color(0xFFF7CFDE),
+    Color(0xFFF4BFD1),
+    Color(0xFFEDA6C2),
   ];
 
   // ---- Semantic -------------------------------------------------------------
@@ -59,10 +63,10 @@ class AppColors {
   // ---- Registration selection state -----------------------------------------
   // Retuned to white + hot-pink: a chosen card takes a soft pink wash (the
   // soul-50 tone) with a hot-pink edge, its label stays dark ink.
-  static const Color roseSelectedFill = Color(0xFFFFF0F4); // chosen card wash
-  static const Color roseSelectedBorder = Color(0xFFF53A77); // chosen card edge
+  static const Color roseSelectedFill = Color(0xFFFDF0F6); // chosen card wash
+  static const Color roseSelectedBorder = Color(0xFFF4BFD1); // chosen card edge
   static const Color roseSelectedInk = Color(0xFF151515); // label on a chosen card
-  static const Color roseSelectedDisc = Color(0xFFFFE8EE); // icon disc on a chosen card
+  static const Color roseSelectedDisc = Color(0xFFFBE3EC); // icon disc on a chosen card
   static const Color roseUnselectedDisc = Color(0xFFF3F4F6); // disc on an unchosen card
 
   // ---- Partner-preferences icon tiles (sampled from the reference mockup) ---
@@ -74,8 +78,8 @@ class AppColors {
     Color(0xFFFDE7F1),
     Color(0xFFF4B6D2),
   ];
-  static const Color partnerSelectedBorder = Color(0xFFDE8CB6); // chosen tile edge
-  static const Color partnerSelectedInk = Color(0xFFD6538C); // label on a chosen tile
+  static const Color partnerSelectedBorder = Color(0xFFEDA6C2); // chosen tile edge
+  static const Color partnerSelectedInk = Color(0xFFB25C82); // label on a chosen tile
   static const Color partnerTileBorder = Color(0xFFF2E3E9); // unchosen tile hairline
   static const Color partnerTileInk = Color(0xFF3E3A46); // unchosen tile label
   static const Color partnerSectionInk = Color(0xFF3E3A46); // "Preferred education" heading
@@ -91,16 +95,16 @@ class AppColors {
   static const Color chatPreviewInk = Color(0xFF4B5563); // last-message line
   static const Color chatDottedLine = Color(0xFFE5E7EB); // dotted separator
 
-  /// Hot-pink bar down the left edge of an unread conversation.
+  /// Pastel accent bar down the left edge of an unread conversation.
   static const List<Color> chatAccentBar = <Color>[
-    Color(0xFFF5508A),
-    Color(0xFFF53A77),
+    Color(0xFFF4BFD1),
+    Color(0xFFEDA6C2),
   ];
 
-  /// The selected Chats/Calls pill — the soul-pink gradient.
+  /// The selected Chats/Calls pill — the pastel accent gradient.
   static const List<Color> chatPillGradient = <Color>[
-    Color(0xFFF53A77),
-    Color(0xFFF77CA4),
+    Color(0xFFF4BFD1),
+    Color(0xFFEDA6C2),
   ];
   static const Color chatPillInk = Color(0xFF151515); // label on a white pill
   static const Color chatPillIdleInk = Color(0xFF9CA3AF); // label on an idle pill
@@ -126,14 +130,14 @@ class AppColors {
   static const Color noticeIconRing = Color(0xFFD9B36A);
 
   // ---- Registration chrome --------------------------------------------------
-  // Retuned to the app-wide white + hot-pink voice: the accent is now the
-  // exact brand pink (F53A77) so registration matches the rest of the app.
-  static const Color regAccent = Color(0xFFF53A77);
-  static const Color regAccentSoft = Color(0xFFFFE8EE);
+  // Retuned to the app-wide pastel voice: the accent is now the exact brand
+  // pastel (F4BFD1) so registration matches the rest of the app.
+  static const Color regAccent = Color(0xFFF4BFD1);
+  static const Color regAccentSoft = Color(0xFFFBE3EC);
   static const List<Color> regPrimaryGradient = <Color>[
-    Color(0xFFF53A77),
-    Color(0xFFF5508A),
-    Color(0xFFF77CA4),
+    Color(0xFFF7CFDE),
+    Color(0xFFF4BFD1),
+    Color(0xFFEDA6C2),
   ];
 
   // ---- Tip / "Did you know?" card (reference-sampled) -----------------------
@@ -186,6 +190,6 @@ class AppColors {
   static const Color fieldDisabledBackgroundDark = Color(0xFF1A191D);
 
   // Legend badge colours.
-  static const Color requiredBadge = primary;
+  static const Color requiredBadge = primaryDark;
   static const Color optionalBadge = primaryLight;
 }

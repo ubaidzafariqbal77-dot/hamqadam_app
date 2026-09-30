@@ -58,7 +58,7 @@ class PremiumBottomNav extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x66F53A77),
+            color: Color(0x66B25C82),
             blurRadius: 22,
             offset: Offset(0, -6),
             spreadRadius: -4,
@@ -98,7 +98,7 @@ class _NavCell extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 2),
         padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.22) : Colors.transparent,
+          color: selected ? Colors.white.withValues(alpha: 0.55) : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.pill),
         ),
         child: Column(
@@ -110,7 +110,7 @@ class _NavCell extends StatelessWidget {
               children: <Widget>[
                 Icon(
                   selected ? item.activeIcon : item.icon,
-                  color: selected ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                  color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62),
                   // Slightly smaller icons leave the text room to breathe —
                   // every label is always visible under its icon.
                   size: selected ? 21 : 20,
@@ -126,7 +126,7 @@ class _NavCell extends StatelessWidget {
               softWrap: false,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62),
                 fontSize: 10,
                 height: 1.1,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,

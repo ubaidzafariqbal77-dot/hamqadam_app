@@ -169,12 +169,14 @@ class _AppButtonState extends State<AppButton> {
     }
     switch (widget.variant) {
       case AppButtonVariant.outline:
-        return AppColors.primary;
+        return AppColors.primaryDark;
       case AppButtonVariant.secondary:
         return Colors.white;
+      // The brand fill/gradient is a light pastel — white text would be
+      // unreadable, so labels use the deep dusty-rose brand ink instead.
       case AppButtonVariant.primary:
       case AppButtonVariant.destructive:
-        return Colors.white;
+        return AppColors.primaryInk;
     }
   }
 }

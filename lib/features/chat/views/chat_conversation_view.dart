@@ -955,13 +955,13 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                                         width: 16,
                                         height: 16,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: Colors.white),
+                                            strokeWidth: 2, color: AppColors.primaryInk),
                                       )
                                     : Icon(
                                         readyToSend
                                             ? Icons.send_rounded
                                             : Icons.mic_rounded,
-                                        color: Colors.white,
+                                        color: AppColors.primaryInk,
                                         size: readyToSend ? 18 : 20,
                                       ),
                                 tooltip: readyToSend ? 'Send' : 'Record voice note',
@@ -1053,17 +1053,30 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
       ),
       child: SizedBox(
-        height: 108,
+        height: 220,
         child: GridView.builder(
           physics: const BouncingScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 10,
-            childAspectRatio: 1,
+            crossAxisCount: 8,
+            childAspectRatio: 1.1,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
           ),
           itemCount: _emojiChoices.length,
-          itemBuilder: (BuildContext _, int i) => IconButton(
-            icon: Text(_emojiChoices[i], style: const TextStyle(fontSize: 20)),
-            onPressed: () => _controller.appendEmoji(_emojiChoices[i]),
+          // FittedBox instead of IconButton: IconButton's 48px min target in
+          // a narrower grid cell squeezed the glyph and clipped emojis.
+          itemBuilder: (BuildContext _, int i) => Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _controller.appendEmoji(_emojiChoices[i]),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(_emojiChoices[i], style: const TextStyle(fontSize: 28)),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -1134,7 +1147,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
+            icon: const Icon(Icons.send_rounded, color: AppColors.primaryInk, size: 19),
             tooltip: 'Send voice note',
             onPressed: _controller.stopRecordingAndSend,
           ),

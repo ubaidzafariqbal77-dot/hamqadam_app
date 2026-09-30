@@ -32,6 +32,10 @@ class ApiState<T> {
   const ApiState.initial() : this._(ApiStatus.initial);
   const ApiState.loading() : this._(ApiStatus.loading);
 
+  /// Loading while keeping the previous page's data visible — a refresh
+  /// in place instead of replacing the screen with a skeleton.
+  const ApiState.loadingKeepData(T value) : this._(ApiStatus.loading, data: value);
+
   const ApiState.success(T value, {String? message})
     : this._(ApiStatus.success, data: value, message: message);
 

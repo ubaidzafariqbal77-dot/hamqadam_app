@@ -15,12 +15,14 @@ import '../../../constants/app_text_styles.dart';
 import '../../payments/views/membership_plans_view.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../core/storage/current_user_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
 import '../../discover/widgets/public_profile_detail_sheet.dart';
 import '../widgets/chat_export_sheet.dart';
+import '../widgets/chat_gif_picker.dart';
 import '../widgets/chat_reaction_bar.dart';
 import '../widgets/chat_report_dialog.dart';
 
@@ -49,9 +51,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   /// observable, so the mic/send swap needs this to rebuild on each keystroke.
   final RxBool _composerHasText = false.obs;
 
-  /// Composer panels (emoji picker / disappearing-timer menu). Only one is
-  /// open at a time; both close when a message is sent.
+  /// Composer panels (emoji picker / GIF picker / disappearing-timer menu).
+  /// Only one is open at a time; all close when a message is sent.
   bool _emojiPanelOpen = false;
+  bool _gifPanelOpen = false;
   bool _timerMenuOpen = false;
 
   @override
@@ -343,7 +346,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     final Widget bubble = _MessageBubble(
                       message: msg,
                       isMine: isMine,
-                      participantName: widget.thread.participant.name,
+                      participantName: widget.thread.participant.displayName,
                       participantPhoto: widget.thread.participant.photo,
                       onReply: () => _controller.setReplyTo(msg),
                       onDelete: () => _controller.deleteMessageForMe(msg.id),
@@ -417,7 +420,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            replyMsg.isMine(_controller.myUserId) ? 'Replying to yourself' : 'Replying to ${widget.thread.participant.name}',
+                            replyMsg.isMine(_controller.myUserId) ? 'Replying to yourself' : 'Replying to ${widget.thread.participant.displayName}',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                           ),
                           Text(
@@ -538,40 +541,53 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _openParticipantProfile(context),
-            child: CircleAvatar(
-              radius: 19,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-              backgroundImage: widget.thread.participant.hasPhoto
-                  ? NetworkImage(widget.thread.participant.photo!)
-                  : null,
-              child: !widget.thread.participant.hasPhoto
-                  ? Text(
-                      widget.thread.participant.initial,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                    )
-                  : null,
-            ),
+            child: Obx(() {
+              final ChatParticipant participant =
+                  _controller.activeThread.value?.participant ??
+                      widget.thread.participant;
+              return CircleAvatar(
+                radius: 19,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                backgroundImage: participant.hasPhoto
+                    ? NetworkImage(participant.photo!)
+                    : null,
+                child: !participant.hasPhoto
+                    ? Text(
+                        participant.initial,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                      )
+                    : null,
+              );
+            }),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  widget.thread.participant.name,
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Obx(() {
-                  final bool typing = _controller.isOtherTyping.value;
-                  // Live presence: the inbox refresh carries the other
-                  // member's fresh stamp, so read it from the controller's
-                  // active thread rather than the stale widget.thread copy.
-                  final ChatParticipant participant =
-                      _controller.activeThread.value?.participant ??
-                          widget.thread.participant;
-                  return Text(
+            child: Obx(() {
+              // Name AND presence both come from the controller's active
+              // thread — the widget.thread copy can be a stale deep-link
+              // object whose participant name is empty (the blank header
+              // bug). Falling back keeps the title filled in every path.
+              final ChatParticipant participant =
+                  _controller.activeThread.value?.participant ??
+                      widget.thread.participant;
+              final bool typing = _controller.isOtherTyping.value;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    participant.displayName,
+                    // Explicit black: the global AppBarTheme's titleTextStyle
+                    // paints titles WHITE for the pink brand bar, but this
+                    // screen's bar is white — without this override the name
+                    // was white-on-white and invisible.
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
                     typing
                         ? 'Typing…'
                         : _presenceLabel(participant),
@@ -579,13 +595,15 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       fontSize: 11,
                       color: typing
                           ? AppColors.primary
-                          : (participant.isOnline ? AppColors.success : Theme.of(context).hintColor),
+                          : (participant.isOnline
+                              ? AppColors.success
+                              : (isDark ? AppColors.darkTextSecondary : Colors.black54)),
                       fontWeight: typing || participant.isOnline ? FontWeight.bold : FontWeight.normal,
                     ),
-                  );
-                }),
-              ],
-            ),
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),
@@ -732,7 +750,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     PublicProfileDetailSheet.show(
       context,
       profileId: id,
-      name: thread.participant.name,
+      name: thread.participant.displayName,
       photo: thread.participant.photo,
     );
   }
@@ -776,6 +794,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           children: <Widget>[
             // Emoji / timer panels live above the input row when open.
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
+            if (_gifPanelOpen)
+              ChatGifPicker(
+                onPick: (String gifUrl) => _controller.sendGif(gifUrl),
+              ),
             if (_timerMenuOpen) _buildTimerMenu(isDark),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -798,6 +820,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       setState(() {
                         _timerMenuOpen = !_timerMenuOpen;
                         _emojiPanelOpen = false;
+                        _gifPanelOpen = false;
                       });
                     },
                   ),
@@ -832,6 +855,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                           onTap: () {
                             setState(() {
                               _emojiPanelOpen = !_emojiPanelOpen;
+                              _gifPanelOpen = false;
                               _timerMenuOpen = false;
                             });
                           },
@@ -841,6 +865,23 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                                 ? AppColors.primary
                                 : AppColors.primary.withValues(alpha: 0.7),
                             size: 20,
+                          ),
+                        ),
+                        _ComposerIcon(
+                          tooltip: 'GIF',
+                          onTap: () {
+                            setState(() {
+                              _gifPanelOpen = !_gifPanelOpen;
+                              _emojiPanelOpen = false;
+                              _timerMenuOpen = false;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.gif_rounded,
+                            color: _gifPanelOpen
+                                ? AppColors.primary
+                                : AppColors.primary.withValues(alpha: 0.7),
+                            size: 22,
                           ),
                         ),
                         Expanded(
@@ -1280,13 +1321,51 @@ class _MessageBubble extends StatelessWidget {
     // For image-only messages, use zero padding + rounded clipping
     final bool hasOnlyImages = images.isNotEmpty && docs.isEmpty && message.message.isEmpty;
 
+    // ── Avatar rail (WhatsApp style) ────────────────────────────────────────
+    // Every bubble gets a small circular photo: mine on the right, theirs on
+    // the left. Sender photo comes from the message payload (server-sent) with
+    // the thread participant as fallback; my own photo comes from session.
+    final String? avatarUrl = isMine ? _myAvatarUrl : (message.senderPhoto ?? participantPhoto);
+    final String avatarInitial = isMine
+        ? (_myInitial ?? 'M')
+        : (participantName?.isNotEmpty ?? false ? participantName![0].toUpperCase() : 'H');
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: <Widget>[
+      child: _bubbleRow(context, theme, isDark, timeStr, images, docs, localFiles, bubbleBg, hasOnlyImages, avatarUrl, avatarInitial),
+    );
+  }
+
+  /// The avatar + bubble + reaction stack. The avatar sits on the side of the
+  /// sender: right for mine, left for theirs.
+  Widget _bubbleRow(
+    BuildContext context,
+    ThemeData theme,
+    bool isDark,
+    String timeStr,
+    List<ChatAttachment> images,
+    List<ChatAttachment> docs,
+    List<String> localFiles,
+    Color bubbleBg,
+    bool hasOnlyImages,
+    String? avatarUrl,
+    String avatarInitial,
+  ) {
+    final List<Widget> railChildren = <Widget>[
+          // Avatar — 28px disc hugging the bubble's tail corner.
+          Padding(
+            // 4px up so the disc aligns with the bubble body, not the
+            // reaction row that sits below it.
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _BubbleAvatar(url: avatarUrl, initial: avatarInitial, isDark: isDark),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: <Widget>[
           GestureDetector(
             onLongPress: () => _showContextMenu(context),
             onTap: message.isFailed ? onRetry : null,
@@ -1411,8 +1490,11 @@ class _MessageBubble extends StatelessWidget {
                             failed: message.isFailed,
                           ),
 
+                        // Animated GIF bubble — the URL rides in metadata.
+                        if (message.messageType == 'gif')
+                          _GifBubble(message: message, timeStr: timeStr, isMine: isMine)
                         // Message text / Voice player / Call event tile
-                        if (message.isVoice)
+                        else if (message.isVoice)
                           _VoiceBubble(
                             message: message,
                             isMine: isMine,
@@ -1589,8 +1671,138 @@ class _MessageBubble extends StatelessWidget {
               onTap: (ChatReaction reaction) =>
                   onReact(reaction.mine ? null : reaction.emoji),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ];
+    // Mine: [bubble, gap, avatar] — theirs: [avatar, gap, bubble].
+    final List<Widget> ordered = isMine
+        ? <Widget>[railChildren[2], railChildren[1], railChildren[0]]
+        : railChildren;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: ordered,
+    );
+  }
+}
+
+/// My own photo for the bubble rail — session cache, null when signed out or
+/// photo-less (the initial-based disc takes over).
+String? get _myAvatarUrl {
+  try {
+    return Get.find<CurrentUserService>().user?.photoUrl;
+  } catch (_) {
+    return null;
+  }
+}
+
+String? get _myInitial {
+  final String name = Get.find<CurrentUserService>().user?.fullName ?? '';
+  return name.isNotEmpty ? name[0].toUpperCase() : null;
+}
+
+/// Animated GIF bubble. The Tenor URL rides in `metadata.gif_url`; the frame
+/// animates itself because Flutter's network image decoder handles GIFs.
+class _GifBubble extends StatelessWidget {
+  const _GifBubble({required this.message, required this.timeStr, required this.isMine});
+
+  final ChatMessage message;
+  final String timeStr;
+  final bool isMine;
+
+  String? get _gifUrl {
+    final dynamic url = message.metadata?['gif_url'];
+    return url is String && url.isNotEmpty ? url : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: <Widget>[
+          _gifUrl == null
+              ? Container(
+                  width: 180,
+                  height: 120,
+                  color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                  child: const Icon(Icons.gif_rounded, size: 40, color: AppColors.primary),
+                )
+              : Image.network(
+                  _gifUrl!,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (BuildContext ctx, Widget child, ImageChunkEvent? p) {
+                    if (p == null) return child;
+                    return Container(
+                      width: 200,
+                      height: 140,
+                      color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 180,
+                    height: 120,
+                    color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                    child: const Icon(Icons.gif_rounded, size: 40, color: AppColors.primary),
+                  ),
+                ),
+          // Timestamp pill over the GIF's bottom edge.
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                timeStr,
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The 28px circular photo beside every chat bubble. Real photo when there is
+/// one, soft pink initial-disc otherwise — never a broken image.
+class _BubbleAvatar extends StatelessWidget {
+  const _BubbleAvatar({required this.initial, required this.isDark, this.url});
+
+  final String? url;
+  final String initial;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+      backgroundImage: (url != null && url!.isNotEmpty) ? NetworkImage(url!) : null,
+      child: (url == null || url!.isEmpty)
+          ? Text(
+              initial,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            )
+          : null,
     );
   }
 }

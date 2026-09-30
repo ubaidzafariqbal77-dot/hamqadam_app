@@ -10,6 +10,7 @@ import '../../../controllers/chat_controller.dart';
 import '../../../controllers/interest_controller.dart';
 import '../../../controllers/notification_controller.dart';
 import '../../../controllers/proposal_controller.dart';
+import '../../../controllers/proposal_extra_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
 
 import '../../../core/api/api_response.dart';
@@ -28,6 +29,7 @@ import '../widgets/trust_verification_sheet.dart';
 import '../widgets/horoscope_form_sheet.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
+import 'ignored_profiles_view.dart';
 import '../../proposals/widgets/send_proposal_dialog.dart';
 
 class DiscoverView extends StatelessWidget {
@@ -104,9 +106,9 @@ class DiscoverView extends StatelessWidget {
 abstract class _Soul {
   static const Color pink100 = Color(0xFFFFE8EE);
   static const Color pink300 = Color(0xFFFF9EB5);
-  static const Color pink400 = Color(0xFFFF6688);
-  static const Color pink500 = Color(0xFFFF315F);
-  static const Color pink600 = Color(0xFFFF0F4D);
+  static const Color pink400 = Color(0xFFF77CA4);
+  static const Color pink500 = Color(0xFFF5508A);
+  static const Color pink600 = Color(0xFFF53A77);
 
   static const Color ink900 = Color(0xFF151515);
   static const Color ink500 = Color(0xFF777777);
@@ -127,13 +129,13 @@ abstract class _Soul {
 
   /// `shadow-card`: 0 4px 18px rgba(255,15,77,.07), 0 2px 6px rgba(0,0,0,.04).
   static const List<BoxShadow> cardShadow = <BoxShadow>[
-    BoxShadow(color: Color(0x12FF0F4D), blurRadius: 18, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x12F53A77), blurRadius: 18, offset: Offset(0, 4)),
     BoxShadow(color: Color(0x0A000000), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
   /// `shadow-pink`: 0 5px 18px rgba(255,15,77,.25).
   static const List<BoxShadow> pinkShadow = <BoxShadow>[
-    BoxShadow(color: Color(0x40FF0F4D), blurRadius: 18, offset: Offset(0, 5)),
+    BoxShadow(color: Color(0x40F53A77), blurRadius: 18, offset: Offset(0, 5)),
   ];
 }
 
@@ -220,6 +222,8 @@ class _SearchBarHeader extends StatelessWidget {
         _buildHoroscopeButton(isDark),
         const SizedBox(width: AppSpacing.sm),
         _buildPartnerPrefButton(isDark),
+        const SizedBox(width: AppSpacing.sm),
+        _buildIgnoredListButton(isDark),
         const SizedBox(width: AppSpacing.sm),
         _buildNotificationButton(context, isDark),
       ],
@@ -367,6 +371,28 @@ class _SearchBarHeader extends StatelessWidget {
         ],
       );
     });
+  }
+
+  /// Opens the Ignored Profiles list — where hidden profiles can be restored.
+  Widget _buildIgnoredListButton(bool isDark) {
+    return GestureDetector(
+      onTap: IgnoredProfilesView.open,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF1F4),
+          shape: BoxShape.circle,
+        ),
+        child: const Center(
+          child: Icon(
+            Icons.restore_from_trash_outlined,
+            color: _Soul.pink600,
+            size: 19,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildNotificationButton(BuildContext context, bool isDark) {
@@ -1167,8 +1193,13 @@ class _FeedSliversState extends State<_FeedSlivers> {
         ? _cardKeys[visible[index + 1].id]
         : null;
 
+    // Persist on the server (shows in the Ignored list, restorable) AND hide
+    // the card from the current feed immediately.
+    if (Get.isRegistered<ProposalExtraController>()) {
+      Get.find<ProposalExtraController>().ignoreUser(profile.id);
+    }
     widget.controller.ignoreProfile(profile.id);
-    AppSnackbar.info('Profile ignored.');
+    AppSnackbar.info('Profile ignored. Restore it from the Ignored list.');
 
     if (nextKey != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1227,15 +1258,6 @@ class _SingleUserProfileCard extends StatelessWidget {
     // told every member the same lie about every profile, and the pill only
     // means something when it is the server's number.
     final int? matchPercentage = profile.compatibilityPercentage;
-    // Presence: the API's last-active stamp drives the Online / Recently
-    // Active chip next to the name.
-    final Duration? sinceActive = profile.lastActiveAt == null
-        ? null
-        : DateTime.now().difference(profile.lastActiveAt!);
-    final bool online = sinceActive != null && sinceActive.inMinutes < 60;
-    final bool recentlyActive = !online &&
-        sinceActive != null &&
-        sinceActive.inHours < 48;
 
     return GestureDetector(
       // Whole-card tap → full profile detail page. Overlaid controls (heart /
@@ -1438,16 +1460,6 @@ class _SingleUserProfileCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (online) ...<Widget>[
-                        const SizedBox(width: 6),
-                        const _PresenceChip(label: 'Online', online: true),
-                      ] else if (recentlyActive) ...<Widget>[
-                        const SizedBox(width: 6),
-                        const _PresenceChip(label: 'Recently Active', online: false),
-                      ] else ...<Widget>[
-                        const SizedBox(width: 6),
-                        const _PresenceChip(label: 'Offline', online: false),
-                      ],
                       const Spacer(),
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -1800,8 +1812,13 @@ class _SingleUserProfileCard extends StatelessWidget {
                 title: const Text('Ignore Profile'),
                 onTap: () {
                   Navigator.of(ctx).pop();
+                  // Persist on the server (shows in the Ignored list, restorable)
+                  // AND hide the card from the current feed immediately.
+                  if (Get.isRegistered<ProposalExtraController>()) {
+                    Get.find<ProposalExtraController>().ignoreUser(profile.id);
+                  }
                   controller.ignoreProfile(profile.id);
-                  AppSnackbar.info('Profile ignored.');
+                  AppSnackbar.info('Profile ignored. Restore it from the Ignored list.');
                 },
               ),
               ListTile(
@@ -1943,34 +1960,6 @@ String _harmonyWord(int pct) {
   return 'Worth a look';
 }
 
-/// The card's 2-column facts grid — plain column/row layout instead of
-/// GridView, so the card is exactly as tall as its content and never grows
-/// the empty block the old aspect-ratio sizing produced.
-class _FactGrid extends StatelessWidget {
-  const _FactGrid({required this.cells});
-
-  final List<Widget> cells;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<List<Widget>> rows = <List<Widget>>[
-      for (int i = 0; i < cells.length; i += 2)
-        cells.sublist(i, (i + 2 > cells.length) ? cells.length : i + 2),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        for (final List<Widget> row in rows) ...<Widget>[
-          Row(
-            children: <Widget>[for (final Widget c in row) Expanded(child: c)],
-          ),
-          if (row != rows.last) const SizedBox(height: 5),
-        ],
-      ],
-    );
-  }
-}
-
 /// One fact in the HTML card's 2×2 grid: tiny pink glyph + one ellipsized
 /// gray line (city, community, status, religion).
 class _FactCell extends StatelessWidget {
@@ -1994,26 +1983,6 @@ class _FactCell extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The photo's bottom-right presence dot — green fill, white ring.
-class _OnlineDot extends StatelessWidget {
-  const _OnlineDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 12,
-      height: 12,
-      decoration: const BoxDecoration(
-        color: Color(0xFF22C55E),
-        shape: BoxShape.circle,
-        border: Border.fromBorderSide(
-          BorderSide(color: Colors.white, width: 2),
-        ),
-      ),
     );
   }
 }
@@ -2071,48 +2040,6 @@ class _PhotoFallback extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// The reference card's presence chip beside the name: green "Online" or
-/// gold "Recently Active".
-class _PresenceChip extends StatelessWidget {
-  const _PresenceChip({required this.label, required this.online});
-
-  final String label;
-  final bool online;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: online ? const Color(0xFFE8F7EE) : const Color(0xFFFFF6E5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: online ? const Color(0xFF22A45D) : const Color(0xFFD9A13B),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
-              color: online ? const Color(0xFF22A45D) : const Color(0xFFB07A1E),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -58,7 +58,7 @@ class PremiumBottomNav extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Color(0x66FF0F4D),
+            color: Color(0x66F53A77),
             blurRadius: 22,
             offset: Offset(0, -6),
             spreadRadius: -4,

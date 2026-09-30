@@ -42,8 +42,8 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       centerTitle: centerTitle,
       leading: leading,
-      iconTheme: const IconThemeData(color: Color(0xFFFF0F4D)),
-      actionsIconTheme: const IconThemeData(color: Color(0xFFFF0F4D)),
+      iconTheme: const IconThemeData(color: Color(0xFFF53A77)),
+      actionsIconTheme: const IconThemeData(color: Color(0xFFF53A77)),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
       ),

@@ -780,14 +780,18 @@ class ChatController extends GetxController {
           : ApiState<List<ChatThread>>.success(list);
 
       // Keep the open conversation's header honest: the refreshed inbox row
-      // carries the other member's presence stamp (Online / Last seen …).
+      // carries the other member's fresh name/photo/presence. Adopt it when
+      // ANY of those differ — a stale deep-link thread object could carry an
+      // empty name, which blanked the chat header title.
       final ChatThread? open = activeThread.value;
       if (open != null) {
         final int index = list.indexWhere((ChatThread t) => t.id == open.id);
         if (index >= 0) {
           final ChatParticipant fresh = list[index].participant;
           if (fresh.isOnline != open.participant.isOnline ||
-              fresh.lastActiveAt != open.participant.lastActiveAt) {
+              fresh.lastActiveAt != open.participant.lastActiveAt ||
+              fresh.name != open.participant.name ||
+              fresh.photo != open.participant.photo) {
             activeThread.value = open.copyWith(participant: fresh);
           }
         }
@@ -1143,6 +1147,68 @@ class ChatController extends GetxController {
       );
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
+    }
+  }
+
+  /// Sends an animated GIF by URL (Tenor). The server stores it as a
+  /// `gif`-type message with the URL in metadata, so neither side needs an
+  /// upload row — the bubble renders the URL directly.
+  Future<void> sendGif(String gifUrl) async {
+    if (gifUrl.trim().isEmpty) return;
+    if (activeThread.value == null || isSending.value) return;
+    if (activeThread.value!.id <= 0) {
+      AppSnackbar.info(
+        'Chat is not available yet. Please send an Express Interest first to connect.',
+      );
+      return;
+    }
+
+    final int targetId = activeThread.value!.id;
+    final int recipientUserId = activeThread.value!.participant.id;
+    final int? replyId = replyingTo.value?.id;
+
+    // Optimistic bubble — messageType 'gif' with the URL in metadata; the
+    // bubble renders the animation straight from the CDN.
+    final String localId = 'local-${DateTime.now().microsecondsSinceEpoch}-${_localIdSeed++}';
+    final ChatMessage optimistic = ChatMessage(
+      id: 0,
+      threadId: targetId,
+      senderId: myUserId,
+      message: 'GIF',
+      messageType: 'gif',
+      createdAt: DateTime.now(),
+      replyToChatId: replyId,
+      delivery: MessageDelivery.sending,
+      localId: localId,
+      metadata: <String, dynamic>{'gif_url': gifUrl},
+    );
+    messages.insert(0, optimistic);
+    replyingTo.value = null;
+
+    isSending.value = true;
+    try {
+      final ChatMessage sent = await _repo.sendMessage(
+        threadId: targetId,
+        message: 'GIF',
+        messageType: 'gif',
+        replyToChatId: replyId,
+        recipientUserId: recipientUserId,
+        metadata: <String, dynamic>{'gif_url': gifUrl},
+        disappearAfter: activeThread.value?.disappearAfter ?? 0,
+      );
+      _replaceLocal(localId, sent);
+      _patchThreadPreview(sent, incrementUnread: false);
+    } catch (e) {
+      _markLocalFailed(localId);
+      if (e is AppException && e.statusCode == 402) {
+        AppSnackbar.error(e.message);
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error('GIF not sent. Try again.');
+      }
+      AppLogger.w('GIF send failed for $localId: $e');
+    } finally {
+      isSending.value = false;
     }
   }
 

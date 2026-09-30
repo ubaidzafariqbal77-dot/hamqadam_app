@@ -12,21 +12,21 @@ class AppColors {
 
   // ---- Brand ----------------------------------------------------------------
   // Retuned to the Discover redesign's soul-pink ramp (the HTML reference's
-  // Tailwind config): the hot pink #FF0F4D family now carries every CTA, link
+  // Tailwind config): the hot pink #F53A77 family now carries every CTA, link
   // and accent across the whole app — one brand voice, one palette.
-  static const Color primary = Color(0xFFFF0F4D); // primary button pink (soul-600)
-  static const Color primaryDark = Color(0xFFE90043); // pressed / deep pink (soul-700)
-  static const Color primaryLight = Color(0xFFFF6688); // soft pink tint (soul-400)
-  static const Color accent = Color(0xFFFF315F); // matches primary (soul-500)
+  static const Color primary = Color(0xFFF53A77); // primary button pink
+  static const Color primaryDark = Color(0xFFDE2260); // pressed / deep pink
+  static const Color primaryLight = Color(0xFFF77CA4); // soft pink tint
+  static const Color accent = Color(0xFFF5508A); // matches primary
   static const Color gold = Color(0xFFC9A24B); // subtle premium accent
   static const Color goldLight = Color(0xFFFFD9E4); // soft pink highlight
 
   // Brand gradient used on premium surfaces (auth headers, hero cards) —
   // the reference's 135° pink-gradient: #ff0f4d → #ff315f 55% → #ff6688.
   static const List<Color> brandGradient = <Color>[
-    Color(0xFFFF0F4D),
-    Color(0xFFFF315F),
-    Color(0xFFFF6688),
+    Color(0xFFF53A77),
+    Color(0xFFF5508A),
+    Color(0xFFF77CA4),
   ];
 
   // ---- Semantic -------------------------------------------------------------
@@ -60,7 +60,7 @@ class AppColors {
   // Retuned to white + hot-pink: a chosen card takes a soft pink wash (the
   // soul-50 tone) with a hot-pink edge, its label stays dark ink.
   static const Color roseSelectedFill = Color(0xFFFFF0F4); // chosen card wash
-  static const Color roseSelectedBorder = Color(0xFFFF0F4D); // chosen card edge
+  static const Color roseSelectedBorder = Color(0xFFF53A77); // chosen card edge
   static const Color roseSelectedInk = Color(0xFF151515); // label on a chosen card
   static const Color roseSelectedDisc = Color(0xFFFFE8EE); // icon disc on a chosen card
   static const Color roseUnselectedDisc = Color(0xFFF3F4F6); // disc on an unchosen card
@@ -93,14 +93,14 @@ class AppColors {
 
   /// Hot-pink bar down the left edge of an unread conversation.
   static const List<Color> chatAccentBar = <Color>[
-    Color(0xFFFF315F),
-    Color(0xFFFF0F4D),
+    Color(0xFFF5508A),
+    Color(0xFFF53A77),
   ];
 
   /// The selected Chats/Calls pill — the soul-pink gradient.
   static const List<Color> chatPillGradient = <Color>[
-    Color(0xFFFF0F4D),
-    Color(0xFFFF6688),
+    Color(0xFFF53A77),
+    Color(0xFFF77CA4),
   ];
   static const Color chatPillInk = Color(0xFF151515); // label on a white pill
   static const Color chatPillIdleInk = Color(0xFF9CA3AF); // label on an idle pill
@@ -127,13 +127,13 @@ class AppColors {
 
   // ---- Registration chrome --------------------------------------------------
   // Retuned to the app-wide white + hot-pink voice: the accent is now the
-  // exact brand pink (FF0F4D) so registration matches the rest of the app.
-  static const Color regAccent = Color(0xFFFF0F4D);
+  // exact brand pink (F53A77) so registration matches the rest of the app.
+  static const Color regAccent = Color(0xFFF53A77);
   static const Color regAccentSoft = Color(0xFFFFE8EE);
   static const List<Color> regPrimaryGradient = <Color>[
-    Color(0xFFFF0F4D),
-    Color(0xFFFF315F),
-    Color(0xFFFF6688),
+    Color(0xFFF53A77),
+    Color(0xFFF5508A),
+    Color(0xFFF77CA4),
   ];
 
   // ---- Tip / "Did you know?" card (reference-sampled) -----------------------

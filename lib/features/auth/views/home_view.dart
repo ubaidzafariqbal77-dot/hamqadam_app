@@ -158,7 +158,7 @@ class _HomeViewState extends State<HomeView> {
                       IconButton(
                         icon: const Icon(
                           Icons.remove_red_eye_outlined,
-                          color: Color(0xFFFF0F4D),
+                          color: Color(0xFFF53A77),
                         ),
                         tooltip: 'Profile Views',
                         onPressed: () =>

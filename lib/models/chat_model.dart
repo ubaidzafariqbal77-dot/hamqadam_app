@@ -431,7 +431,11 @@ class ChatParticipant {
 
   bool get hasPhoto => photo != null && photo!.isNotEmpty;
 
-  String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
+  /// Never render an empty title: a missing server name falls back to
+  /// "Member" so the chat header never shows a blank line.
+  String get displayName => name.trim().isEmpty ? 'Member' : name.trim();
+
+  String get initial => displayName != 'Member' ? displayName[0].toUpperCase() : '?';
 
   factory ChatParticipant.fromJson(Map<String, dynamic> json) {
     return ChatParticipant(

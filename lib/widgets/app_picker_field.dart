@@ -48,6 +48,8 @@ class AppLookupPicker extends StatelessWidget {
     this.icon,
     this.image,
     this.itemImage,
+    this.allowCustom = false,
+    this.onCustom,
   });
 
   final String label;
@@ -69,6 +71,13 @@ class AppLookupPicker extends StatelessWidget {
   /// Per-option artwork for the picker sheet rows (e.g. faith symbols next to
   /// each religion). Receives the row's item; returning null shows no glyph.
   final String? Function(LookupItem item)? itemImage;
+
+  /// Lets the user type an entry that is not in the lookup list (their caste
+  /// or city is missing, say) instead of getting stuck. The typed value is
+  /// handed to [onCustom]; returning a [LookupItem] selects it, returning
+  /// null keeps the field untouched.
+  final bool allowCustom;
+  final Future<LookupItem?> Function(String customValue)? onCustom;
 
   LookupItem? _resolve(List<LookupItem> items) {
     if (selected == null) return null;
@@ -150,6 +159,8 @@ class AppLookupPicker extends StatelessWidget {
         selectedId: selected?.id,
         loading: state.status == ApiStatus.loading,
         itemImage: itemImage,
+        allowCustom: allowCustom,
+        onCustom: onCustom,
         onRetry: state.status == ApiStatus.loading
             ? null
             : () {
@@ -504,6 +515,8 @@ class _PickerSheet extends StatefulWidget {
     required this.loading,
     this.itemImage,
     this.onRetry,
+    this.allowCustom = false,
+    this.onCustom,
   });
 
   final String title;
@@ -514,6 +527,10 @@ class _PickerSheet extends StatefulWidget {
   /// Optional per-row artwork (e.g. the 3D faith symbols next to religions).
   final String? Function(LookupItem item)? itemImage;
   final VoidCallback? onRetry;
+
+  /// Custom-entry support — same contract as [AppLookupPicker.onCustom].
+  final bool allowCustom;
+  final Future<LookupItem?> Function(String customValue)? onCustom;
 
   @override
   State<_PickerSheet> createState() => _PickerSheetState();
@@ -657,7 +674,8 @@ class _PickerSheetState extends State<_PickerSheet> {
                       )
                     // A search that matches nothing is not a load failure, so it
                     // must not offer "retry" — only a genuinely empty list does.
-                    : noMatches
+                    // With allowCustom the "Use …" row takes its place.
+                    : noMatches && !widget.allowCustom
                     ? Center(
                         child: Text(
                           'No matches for “$_query”',
@@ -666,40 +684,65 @@ class _PickerSheetState extends State<_PickerSheet> {
                           ),
                         ),
                       )
-                    : filtered.isEmpty
+                    : filtered.isEmpty && !widget.allowCustom
                     ? RetryWidget(
                         onRetry: widget.onRetry ?? () {},
                         message: 'No options found.',
                       )
-                    : ListView.builder(
+                    : ListView(
                         controller: scroll,
-                        itemCount: filtered.length,
-                        itemBuilder: (BuildContext c, int i) {
-                          final LookupItem item = filtered[i];
-                          final bool sel = item.id == widget.selectedId;
-                          final String? img = widget.itemImage?.call(item);
-                          return ListTile(
-                            onTap: () => Navigator.of(context).pop(item),
-                            leading: img == null
-                                ? null
-                                : RowGlyph(asset: img, selected: sel),
-                            title: Text(
-                              item.name,
-                              style: AppTextStyles.body.copyWith(
-                                color: sel ? Theme.of(context).colorScheme.primary : null,
-                                fontWeight: sel
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
+                        children: <Widget>[
+                          // Custom entry — the user's wording is not in the
+                          // server list, so hand it to the caller instead of
+                          // leaving them stuck (task 2).
+                          if (widget.allowCustom && _query.trim().isNotEmpty)
+                            ListTile(
+                              leading: Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
+                              title: Text(
+                                'Use "${_query.trim()}"',
+                                style: AppTextStyles.body.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              onTap: () async {
+                                final String v = _query.trim();
+                                final LookupItem? custom =
+                                    await widget.onCustom?.call(v);
+                                if (context.mounted) {
+                                  Navigator.of(context).pop(custom);
+                                }
+                              },
                             ),
-                            trailing: sel
-                                ? Icon(
-                                    Icons.check_circle_rounded,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  )
-                                : null,
-                          );
-                        },
+                          ...filtered.map((LookupItem item) {
+                            final bool sel = item.id == widget.selectedId;
+                            final String? img = widget.itemImage?.call(item);
+                            return ListTile(
+                              onTap: () => Navigator.of(context).pop(item),
+                              leading: img == null
+                                  ? null
+                                  : RowGlyph(asset: img, selected: sel),
+                              title: Text(
+                                item.name,
+                                style: AppTextStyles.body.copyWith(
+                                  color: sel ? Theme.of(context).colorScheme.primary : null,
+                                  fontWeight: sel
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                              trailing: sel
+                                  ? Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    )
+                                  : null,
+                            );
+                          }),
+                        ],
                       ),
               ),
             ],

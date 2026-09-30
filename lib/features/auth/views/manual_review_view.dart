@@ -199,99 +199,102 @@ class _ManualReviewViewState extends State<ManualReviewView> {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    final Color onCard = dark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final Color onCardSecondary =
+    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final Color inkSecondary =
         dark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final Color cardColor = dark ? AppColors.darkSurface : AppColors.lightSurface;
 
+    // Clean, professional redesign: a calm off-white canvas with ONE white
+    // card — no more full-screen pink gradient shouting at a member who is
+    // already stuck. The brand shows up only as the small badge, the accent
+    // ring and the primary button.
     return PopScope(
       // Nothing to pop back to (this is pushed with offAllNamed) and nothing to
       // go back INTO — the app is read-only while the gate is active.
       canPop: false,
       child: Scaffold(
-        body: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(gradient: LinearGradient(
-            colors: AppColors.brandGradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          )),
-          child: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xl,
-                    vertical: AppSpacing.xl,
+        backgroundColor:
+            dark ? AppColors.darkBackground : const Color(0xFFFAF6F7),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: AppDimensions.maxContentWidth),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.xl,
+                  vertical: AppSpacing.xl,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                  decoration: BoxDecoration(
+                    color: dark ? AppColors.darkSurface : Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: dark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFF3E2E8),
+                    ),
+                    boxShadow: <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: dark ? 0.30 : 0.05),
+                        blurRadius: 30,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
                       // ---- Review badge ---------------------------------
                       Center(
                         child: Container(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
+                          width: 84,
+                          height: 84,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
                             shape: BoxShape.circle,
+                            color: AppColors.primary.withValues(alpha: 0.10),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              width: 1.4,
+                            ),
                           ),
                           child: const Icon(
                             Icons.hourglass_top_rounded,
-                            color: Colors.white,
-                            size: 64,
+                            color: AppColors.primary,
+                            size: 38,
                           ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.xl),
+                      const SizedBox(height: AppSpacing.lg),
                       // ---- Title ----------------------------------------
                       Text(
                         'Account under manual review',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.title.copyWith(color: Colors.white),
+                        style: AppTextStyles.title.copyWith(color: ink, fontSize: 20),
                       ),
                       const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        'HamQadam — Rishtu Ki Dunya',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(color: Colors.white70),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      // ---- The message the user asked for ----------------
                       Text(
                         'You are under review. Our team will review your '
                         'account and send you an email for verification.',
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.body.copyWith(color: Colors.white70),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      // The one thing a stuck member must be able to do.
-                      Text(
-                        'If your account is not getting verified even though '
-                        'your information is correct, contact our Help Center '
-                        'and the team will review your case.',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white.withValues(alpha: 0.75),
+                        style: AppTextStyles.body.copyWith(
+                          color: inkSecondary,
+                          fontSize: 14.5,
+                          height: 1.5,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.lg),
-                      // ---- Status card ----------------------------------
+                      // ---- Status strip ---------------------------------
                       Obx(() {
                         final String remaining = _remainingText;
                         return Container(
-                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.md,
+                          ),
                           decoration: BoxDecoration(
-                            color: cardColor.withValues(alpha: 0.97),
-                            borderRadius: AppRadius.xlAll,
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.12),
-                                blurRadius: 24,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
+                            color: AppColors.primary.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Column(
                             children: <Widget>[
@@ -301,45 +304,46 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                                   const Icon(
                                     Icons.verified_user_rounded,
                                     size: AppDimensions.iconSm,
-                                    color: AppColors.warning,
+                                    color: AppColors.primary,
                                   ),
                                   const SizedBox(width: AppSpacing.xs),
                                   Flexible(
                                     child: Text(
                                       _statusText,
                                       style: AppTextStyles.label
-                                          .copyWith(color: onCard),
+                                          .copyWith(color: ink),
                                     ),
                                   ),
                                 ],
                               ),
                               if (remaining.isNotEmpty) ...<Widget>[
-                                const SizedBox(height: AppSpacing.xs),
+                                const SizedBox(height: 4),
                                 Text(
                                   remaining,
                                   style: AppTextStyles.caption
-                                      .copyWith(color: onCardSecondary),
+                                      .copyWith(color: inkSecondary),
                                 ),
                               ],
-                              const SizedBox(height: AppSpacing.md),
-                              // What still works during the window.
-                              _ReviewNote(
-                                icon: Icons.mark_email_unread_outlined,
-                                text: 'The decision will arrive on your '
-                                    'registered email address.',
-                                textColor: onCardSecondary,
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
-                              _ReviewNote(
-                                icon: Icons.support_agent_rounded,
-                                text: 'Stuck on verification? Use Help Center '
-                                    'below — our team can re-check your case.',
-                                textColor: onCardSecondary,
-                              ),
                             ],
                           ),
                         );
                       }),
+                      const SizedBox(height: AppSpacing.lg),
+                      // What still works during the window.
+                      _ReviewNote(
+                        icon: Icons.mark_email_unread_outlined,
+                        text: 'The decision will arrive on your registered '
+                            'email address.',
+                        textColor: inkSecondary,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      _ReviewNote(
+                        icon: Icons.support_agent_rounded,
+                        text: 'Not getting verified even though your '
+                            'information is correct? Contact our Help Center '
+                            'and the team will re-check your case.',
+                        textColor: inkSecondary,
+                      ),
                       const SizedBox(height: AppSpacing.xl),
                       // ---- Primary action: back to login ----------------
                       Obx(() => AppButton(
@@ -356,19 +360,23 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                       TextButton.icon(
                         onPressed: _openSupportSheet,
                         icon: const Icon(Icons.forward_to_inbox_rounded,
-                            size: 18, color: Colors.white),
+                            size: 18, color: AppColors.primary),
                         label: Text(
                           'Message verification desk',
-                          style: AppTextStyles.label.copyWith(color: Colors.white),
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                       TextButton.icon(
                         onPressed: _openHelpCenter,
                         icon: const Icon(Icons.support_agent_rounded,
-                            size: 18, color: Colors.white),
+                            size: 18, color: AppColors.primary),
                         label: Text(
                           'Open Help Center',
-                          style: AppTextStyles.label.copyWith(color: Colors.white),
+                          style: AppTextStyles.label.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSpacing.sm),
@@ -387,7 +395,7 @@ class _ManualReviewViewState extends State<ManualReviewView> {
                           'clears.',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.caption.copyWith(
-                            color: Colors.white.withValues(alpha: 0.8),
+                            color: inkSecondary,
                           ),
                         );
                       }),

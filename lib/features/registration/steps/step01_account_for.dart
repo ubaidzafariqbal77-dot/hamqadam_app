@@ -376,7 +376,7 @@ class _Step01ViewState extends State<Step01View> {
             isSelected: selectedValue == options[i].code,
             onTap: () => onSelect(options[i].code!),
           ),
-          if (i != options.length - 1) const SizedBox(height: 18),
+          if (i != options.length - 1) const SizedBox(height: 12),
         ],
       ],
     );
@@ -515,7 +515,7 @@ class _OptionRow extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               // Frosted white wash — the rose petals behind blur through it.
               color: dark
@@ -542,9 +542,10 @@ class _OptionRow extends StatelessWidget {
               children: <Widget>[
                 // Numbered gradient circle — the reference's painted badge
                 // artwork (badge01–04) when present, gradient text fallback.
+                // Compact: the choice must read smaller than the heading.
                 Container(
-                  width: 62,
-                  height: 62,
+                  width: 42,
+                  height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(shape: BoxShape.circle),
                   clipBehavior: Clip.antiAlias,
@@ -567,7 +568,7 @@ class _OptionRow extends StatelessWidget {
                       child: Text(
                         _num,
                         style: AppTextStyles.display.copyWith(
-                          fontSize: 22,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
                         ),
@@ -575,25 +576,27 @@ class _OptionRow extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 18),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.subtitle.copyWith(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w500,
+                    // Choice-sized, NOT heading-sized: 15px medium so the
+                    // serif heading above clearly dominates the screen.
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                       color: const Color(0xFF2B2230),
                     ),
                   ),
                 ),
                 if (isSelected)
                   const Padding(
-                    padding: EdgeInsets.only(right: 8),
+                    padding: EdgeInsets.only(right: 4),
                     child: Icon(
                       Icons.check_circle_rounded,
-                      size: 24,
+                      size: 20,
                       color: AppColors.regAccent,
                     ),
                   ),
@@ -773,8 +776,9 @@ class _AccountForImageGrid extends StatelessWidget {
         const int columns = 2;
         const double gap = 14;
         final double tileWidth = (c.maxWidth - gap * (columns - 1)) / columns;
-        // Photos are 4:3; the frosted label strip rides the bottom.
-        final double tileHeight = (tileWidth * 0.78).clamp(140.0, 190.0);
+        // Taller cards (photos 3:4 portrait) so more of the picture shows
+        // above the slim label strip.
+        final double tileHeight = (tileWidth * 1.05).clamp(170.0, 230.0);
 
         return Wrap(
           spacing: gap,
@@ -865,19 +869,24 @@ class _AccountForCard extends StatelessWidget {
                     filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      // Slim strip: the photo stays the hero, the label is
+                      // just a caption over its bottom edge.
+                      padding: const EdgeInsets.symmetric(vertical: 7),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.42),
+                        color: Colors.black.withValues(alpha: 0.30),
                       ),
                       child: Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyStrong.copyWith(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF2B2230),
+                        // Playfair serif, white — the reference's elegant
+                        // photo-card label treatment.
+                        style: AppTextStyles.displaySerif.copyWith(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                          color: Colors.white,
                         ),
                       ),
                     ),

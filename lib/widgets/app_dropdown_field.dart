@@ -84,6 +84,8 @@ class AppLookupDropdown extends StatelessWidget {
     this.disabledHint,
     this.icon,
     this.image,
+    this.allowCustom = false,
+    this.onCustom,
   });
 
   final String label;
@@ -97,6 +99,11 @@ class AppLookupDropdown extends StatelessWidget {
   final String? errorText;
   final bool enabled;
   final String? disabledHint;
+
+  /// Lets the user keep a typed entry that is not in the lookup list (their
+  /// caste or city is missing, say). Passed through to [AppLookupPicker].
+  final bool allowCustom;
+  final Future<LookupItem?> Function(String customValue)? onCustom;
 
   /// Optional leading artwork rendered in a soft pink disc (reference style).
   final IconData? icon;
@@ -120,6 +127,8 @@ class AppLookupDropdown extends StatelessWidget {
       disabledHint: disabledHint,
       icon: icon,
       image: image,
+      allowCustom: allowCustom,
+      onCustom: onCustom,
     );
   }
 }

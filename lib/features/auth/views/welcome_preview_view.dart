@@ -62,6 +62,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
   List<_PreviewProfile> _profiles = _fallbackProfiles;
   bool _loading = true;
+  bool _loadFailed = false;
   int _memberCount = 0;
 
   @override
@@ -70,11 +71,22 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
     _loadFeed();
   }
 
-  /// Guest feed — no token needed. Any failure keeps the sample cards.
+  /// Guest feed — no token needed. Any failure keeps the sample cards and
+  /// shows a retry chip so a transient network drop doesn't look like the
+  /// whole directory is 3 demo people.
   Future<void> _loadFeed() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final ApiClient client = Get.find<ApiClient>();
-      final res = await client.get(ApiEndpoints.publicDiscover);
+      // Ask for the whole directory — the backend caps at 200; without this
+      // the preview truncated a 47-member pool to the default 6 cards.
+      final res = await client.get(
+        ApiEndpoints.publicDiscover,
+        query: <String, dynamic>{'per_page': 100},
+      );
       final List<dynamic> raw = (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
       // Lookup names (religion/sect/education) resolve client-side from the
       // dropdown reference cache — the guest payload carries ids only.
@@ -90,7 +102,10 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loadFailed = true;
+        _loading = false;
+      });
     }
   }
 
@@ -318,6 +333,27 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.lg + 4),
+
+                        // ---- Retry banner (only when the live feed
+                        // ---- failed and demo fallback is showing) --------
+                        if (_loadFailed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                            child: OutlinedButton.icon(
+                              onPressed: _loadFeed,
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text('Live profiles load nahi huin — dobara koshish karein'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primaryDark,
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(color: AppColors.primary, width: 1.2),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          ),
 
                         // ---- Match cards (live feed) --------------------
                         if (_loading)

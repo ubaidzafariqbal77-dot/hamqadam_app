@@ -228,8 +228,12 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                   ),
                   Expanded(
                     child: Text(
-                      'Select Date of Birth',
+                      // Short single-line title — the long one wrapped to two
+                      // lines and collided with the Cancel/Confirm buttons.
+                      'Select DOB',
                       textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.subtitle.copyWith(color: ink),
                     ),
                   ),
@@ -399,9 +403,11 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
 
   /// Selected rows are bold ink; the rest muted — exactly the mockup's weight
   /// shift. Days beyond the current month's length grey out via clamping.
+  /// Smaller sizes (15/13): "September" at 19px overflowed its wheel column
+  /// and clipped into the Day column on narrow phones.
   TextStyle _wheelStyle(bool selected, Color ink, Color muted) =>
       AppTextStyles.body.copyWith(
-        fontSize: selected ? 19 : 17,
+        fontSize: selected ? 15 : 13,
         fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
         color: selected ? ink : muted,
       );

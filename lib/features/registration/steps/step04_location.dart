@@ -55,6 +55,10 @@ class Step04Controller extends StepController {
     if (v != null) lookup.ensure(LookupKeys.cities, parentId: v.id);
   }
 
+  /// A town not in the server's list: keep the typed wording (id -1 marks it
+  /// custom) and post `city_name` so the backend find-or-creates the row.
+  void onCustomCity(String v) => city.value = LookupItem(id: -1, name: v);
+
   @override
   bool extraValidate() {
     if (country.value == null || state.value == null || city.value == null) {
@@ -65,12 +69,18 @@ class Step04Controller extends StepController {
   }
 
   @override
-  Map<String, dynamic> collect() => <String, dynamic>{
-    'country_id': country.value?.id,
-    'state_id': state.value?.id,
-    'city_id': city.value?.id,
-    'area': area.text.trim(),
-  };
+  Map<String, dynamic> collect() {
+    final bool customCity = city.value?.id == -1;
+    return <String, dynamic>{
+      'country_id': country.value?.id,
+      'state_id': state.value?.id,
+      // A custom city posts the wording instead of an id (the backend matches
+      // or creates the row); both together would fail the exists rule.
+      'city_id': customCity ? null : city.value?.id,
+      'city_name': customCity ? city.value?.name : null,
+      'area': area.text.trim(),
+    };
+  }
 
   @override
   void disposeFields() => area.dispose();
@@ -155,6 +165,12 @@ class _Step04ViewState extends State<Step04View> {
                     parentId: c.state.value?.id,
                     selected: c.city.value,
                     onChanged: (LookupItem? v) => c.city.value = v,
+                    // Town missing from the list? Type it — the backend saves it.
+                    allowCustom: true,
+                    onCustom: (String v) async {
+                      c.onCustomCity(v);
+                      return c.city.value;
+                    },
                   ),
                 ),
               ],

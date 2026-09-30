@@ -66,7 +66,7 @@ Future<void> showChatThreadActions(
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    thread.participant.name,
+                    thread.participant.displayName,
                     style: AppTextStyles.bodyStrong.copyWith(
                       fontSize: 16,
                       color: AppColors.roseTitleInk,
@@ -795,7 +795,7 @@ class ChatThreadCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          thread.participant.name,
+                          thread.participant.displayName,
                           style: AppTextStyles.bodyStrong.copyWith(
                             fontSize: 16.5,
                             fontWeight:

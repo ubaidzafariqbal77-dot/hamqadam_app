@@ -47,6 +47,17 @@ class Step06Controller extends StepController {
     if (v != null) lookup.ensure(LookupKeys.subCastes, parentId: v.id);
   }
 
+  /// A caste not in the server list: post the typed wording alongside the id
+  /// (`caste_name`) so the backend find-or-creates the row — the member is
+  /// never stuck because their community is missing from the list.
+  void onCustomCaste(String v) {
+    caste.value = LookupItem(id: -1, name: v);
+    subCaste.value = null;
+  }
+
+  /// Same for a sub-caste under the chosen (possibly custom) caste.
+  void onCustomSubCaste(String v) => subCaste.value = LookupItem(id: -1, name: v);
+
   @override
   bool extraValidate() {
     if (caste.value == null) {
@@ -57,10 +68,18 @@ class Step06Controller extends StepController {
   }
 
   @override
-  Map<String, dynamic> collect() => <String, dynamic>{
-    'caste_id': caste.value?.id,
-    'sub_caste_id': subCaste.value?.id,
-  };
+  Map<String, dynamic> collect() {
+    final bool custom = caste.value?.id == -1;
+    final bool customSub = subCaste.value?.id == -1;
+    return <String, dynamic>{
+      // A custom entry posts the wording instead of an id (the backend matches
+      // or creates the row); both would trip the strict `exists` validation.
+      'caste_id': custom ? null : caste.value?.id,
+      'caste_name': custom ? caste.value?.name : null,
+      'sub_caste_id': customSub ? null : subCaste.value?.id,
+      'sub_caste_name': customSub ? subCaste.value?.name : null,
+    };
+  }
 }
 
 class Step06View extends StatefulWidget {
@@ -123,6 +142,12 @@ class _Step06ViewState extends State<Step06View> {
                     selected: c.caste.value,
                     onChanged: c.onCaste,
                     icon: Icons.groups_rounded,
+                    // Missing community? Type it — the backend saves it.
+                    allowCustom: true,
+                    onCustom: (String v) async {
+                      c.onCustomCaste(v);
+                      return c.caste.value;
+                    },
                   ),
                 ),
                 Obx(
@@ -139,6 +164,11 @@ class _Step06ViewState extends State<Step06View> {
                             requirement: FieldRequirement.optional,
                             onChanged: (LookupItem? v) => c.subCaste.value = v,
                             icon: Icons.family_restroom_rounded,
+                            allowCustom: true,
+                            onCustom: (String v) async {
+                              c.onCustomSubCaste(v);
+                              return c.subCaste.value;
+                            },
                           ),
                         ),
                 ),

@@ -14,6 +14,7 @@ import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../widgets/faith_disc_grid.dart';
 import '../../../constants/reg_icons.dart';
 import '../../../constants/app_colors.dart';
 
@@ -330,34 +331,27 @@ class _Step18ViewState extends State<Step18View> {
           ),
         );
       case 'religion':
+        // The "Group 2" reference, exactly: header copy over big soft-pink
+        // 3D-symbol discs labelled "Islam · Crescent" style, with the full
+        // server list one tap below so anything the artwork does not cover is
+        // still reachable.
         return Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // One design across the whole step: the same tall disc cards the
-              // Marital-status reference draws, with the 3D faith symbols in
-              // the disc and the full server list one tap below so anything the
-              // artwork does not cover is still reachable.
-              AppCardSelector(
-                discSize: 88,
-                label: 'Preferred religion / sect',
-                options: c.lookup
+              FaithDiscGrid(
+                items: c.lookup
                     .itemsOf(LookupKeys.religions)
                     .take(6)
-                    .map(
-                      (LookupItem i) => CardOption(
-                        i,
-                        i.name,
-                        image: RegIcons.religionRowArt[i.id],
-                        icon: RegIcons.faithGlyph(i.name),
-                      ),
-                    )
+                    .map((LookupItem i) => FaithOption(i.id, i.name))
                     .toList(),
-                selected: c.religion.value,
-                onSelect: (CardOption o) =>
-                    c.religion.value = o.value as LookupItem,
+                artFor: (int id) => RegIcons.religionRowArt[id],
+                selectedId: c.religion.value?.id,
+                onSelect: (FaithOption o) => c.onReligion(
+                  LookupItem(id: o.id, name: o.name),
+                ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 6),
               AppLookupPicker(
                 label: 'Or pick from the full list',
                 lookupKey: LookupKeys.religions,

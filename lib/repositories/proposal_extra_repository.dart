@@ -1,5 +1,6 @@
 import '../constants/api_endpoints.dart';
 import '../core/api/api_client.dart';
+import '../models/search_filter_profile_model.dart';
 
 /// Additional proposal APIs: favourites, ignored, notes, timeline, meetings.
 class ProposalExtraRepository {
@@ -39,6 +40,20 @@ class ProposalExtraRepository {
   }
 
   // ---- Ignored --------------------------------------------------------------
+
+  /// `GET /proposals/ignored` — the member's ignored-profiles list, rendered
+  /// through the same SearchProfileResource shape as the Discover feed.
+  Future<List<SearchProfileModel>> fetchIgnored({int perPage = 50}) async {
+    final ApiEnvelope res = await _client.get(
+      ApiEndpoints.proposalIgnored,
+      query: <String, dynamic>{'per_page': perPage},
+    );
+    final List<dynamic> raw = res.dataList;
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(SearchProfileModel.fromJson)
+        .toList();
+  }
 
   /// `POST /proposals/ignored` — ignore a user.
   Future<void> ignore({required int userId}) async {

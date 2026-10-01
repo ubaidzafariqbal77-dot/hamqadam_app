@@ -57,6 +57,17 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   bool _gifPanelOpen = false;
   bool _timerMenuOpen = false;
 
+  /// Closes any open composer panel — one place so a new panel (or a send)
+  /// can never leave a stale one behind.
+  void _closePanels() {
+    if (!_emojiPanelOpen && !_gifPanelOpen && !_timerMenuOpen) return;
+    setState(() {
+      _emojiPanelOpen = false;
+      _gifPanelOpen = false;
+      _timerMenuOpen = false;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -796,7 +807,13 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
             if (_gifPanelOpen)
               ChatGifPicker(
-                onPick: (String gifUrl) => _controller.sendGif(gifUrl),
+                // The panel closes itself here — the picker renders inline in
+                // the composer, so IT must not pop the navigator (that used
+                // to close the whole conversation on tap).
+                onPick: (String gifUrl) {
+                  setState(() => _gifPanelOpen = false);
+                  _controller.sendGif(gifUrl);
+                },
               ),
             if (_timerMenuOpen) _buildTimerMenu(isDark),
             Row(
@@ -968,7 +985,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                                 onPressed: sending
                                     ? null
                                     : readyToSend
-                                        ? _controller.sendMessage
+                                        ? () {
+                                            _closePanels();
+                                            _controller.sendMessage();
+                                          }
                                         : _controller.startRecording,
                               ),
                             ),

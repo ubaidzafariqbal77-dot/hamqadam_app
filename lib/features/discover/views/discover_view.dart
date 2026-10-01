@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -69,14 +71,18 @@ class DiscoverView extends StatelessWidget {
                 SliverToBoxAdapter(
                   child: _SearchBarHeader(controller: controller),
                 ),
-                // Category chips: AI Matches (active, pink gradient) · Nearby ·
-                // New Profiles · Verified — the reference's filter strip.
+                // Category chips: Proposals for You (default active) · AI
+                // Matches · My Interests · New Profiles — the reference strip.
                 SliverToBoxAdapter(
                   child: _CategoryChips(controller: controller),
                 ),
-                // The filter module's own screens live in the category strip
-                // above (one scrollable row).
-                // "Recommended for You / Based on your preferences / See All".
+                // Hero banner (auto-looping carousel)...
+                const SliverToBoxAdapter(child: _HeroBanner()),
+                // ...with the search row right under it, per the reference.
+                SliverToBoxAdapter(
+                  child: _SearchRow(controller: controller),
+                ),
+                // "Recommended for You / Based on your preferences".
                 const SliverToBoxAdapter(child: _RecommendedHeader()),
                 // Active Filter Chips (if any filters applied)
                 SliverToBoxAdapter(
@@ -148,6 +154,143 @@ abstract class _Soul {
 // Search & Filter Header
 // ---------------------------------------------------------------------------
 
+/// The search row that sits UNDER the hero banner: rounded field + trailing
+/// filter button. Same live-debounce behaviour as always.
+class _SearchRow extends StatelessWidget {
+  const _SearchRow({required this.controller});
+
+  final SearchProfilesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 8, AppSpacing.md, 4),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : _Soul.ink50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: isDark ? AppColors.darkBorder : _Soul.gray200),
+              ),
+              child: TextField(
+                controller: controller.searchInputController,
+                onChanged: controller.onSearchChanged,
+                textInputAction: TextInputAction.search,
+                onSubmitted: controller.submitSearch,
+                style: const TextStyle(fontSize: 13, color: _Soul.ink900),
+                cursorColor: _Soul.pink600,
+                decoration: InputDecoration(
+                  hintText: 'Search by city, profession, education...',
+                  hintStyle:
+                      const TextStyle(fontSize: 12, color: _Soul.gray400),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: _Soul.gray400,
+                    size: 20,
+                  ),
+                  suffixIcon: Obx(() {
+                    final bool hasText =
+                        controller.filter.value.searchQuery?.isNotEmpty == true;
+                    if (!hasText) return const SizedBox.shrink();
+                    return IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: _Soul.ink500,
+                      ),
+                      onPressed: controller.clearSearchQuery,
+                    );
+                  }),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _FilterCircleButton(controller: controller),
+        ],
+      ),
+    );
+  }
+}
+
+/// The search row's trailing filter button (white circle + count badge).
+class _FilterCircleButton extends StatelessWidget {
+  const _FilterCircleButton({required this.controller});
+
+  final SearchProfilesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final int filterCount = controller.activeFilterCount;
+      final bool hasFilters = filterCount > 0;
+      return GestureDetector(
+        onTap: () => SearchFilterBottomSheet.show(context),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: hasFilters ? _Soul.pink600 : Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: hasFilters ? Colors.transparent : _Soul.gray200,
+            ),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Center(
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: hasFilters ? _Soul.pinkInk : _Soul.ink900,
+                  size: 20,
+                ),
+              ),
+              if (hasFilters)
+                Positioned(
+                  top: -3,
+                  right: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: _Soul.pinkInk,
+                      shape: BoxShape.circle,
+                      border: Border.fromBorderSide(
+                        BorderSide(color: Colors.white, width: 1.5),
+                      ),
+                    ),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Center(
+                      child: Text(
+                        '$filterCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
 class _SearchBarHeader extends StatelessWidget {
   const _SearchBarHeader({required this.controller});
 
@@ -174,118 +317,148 @@ class _SearchBarHeader extends StatelessWidget {
       child: Column(
         children: <Widget>[
           _buildIconRow(context, theme, isDark),
-          const SizedBox(height: 12),
-          _buildSearchField(context, theme, isDark),
         ],
       ),
     );
   }
 
-  /// Drawer (left) · serif "Discover / CHOOSE FOREVER" logo (centre) · the
-  /// remaining live actions (horoscope, partner-preference, notification)
-  /// grouped on the RIGHT — one icon each side of the title only, so the bar
-  /// reads menu → title → tools.
+  /// The reference's header: logo + "CHOOSE FOREVER" wordmark LEFT, and the
+  /// white circular actions (search · bell · sliders) on the right. The old
+  /// search field lives in the top-right search circle; the filter sheet in
+  /// the sliders circle — same behaviour, new layout.
   Widget _buildIconRow(BuildContext context, ThemeData theme, bool isDark) {
     return Row(
       children: <Widget>[
-        _buildMenuButton(context, isDark),
-        const Expanded(
-          child: Column(
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(Icons.favorite_rounded, color: _Soul.pink600, size: 15),
-                  SizedBox(width: 4),
-                  Text(
-                    'Discover',
-                    style: TextStyle(
-                      fontFamily: AppTextStyles.displayFont,
-                      fontSize: 25,
-                      fontWeight: FontWeight.w700,
+        // Brand — heart glyph + serif "HamQadam" + CHOOSE FOREVER, left.
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              final ScaffoldState? shell =
+                  HomeView.shellKey.currentState ?? Scaffold.maybeOf(context);
+              if (shell != null) {
+                shell.openDrawer();
+              }
+            },
+            child: Row(
+              children: <Widget>[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    'assets/icons/logo.png',
+                    width: 38,
+                    height: 38,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.favorite_rounded,
                       color: _Soul.pink600,
-                      height: 1.0,
+                      size: 30,
                     ),
                   ),
-                ],
-              ),
-              SizedBox(height: 3),
-              Text(
-                'CHOOSE FOREVER',
-                style: TextStyle(
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.2,
-                  color: _Soul.gray400,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        const Text(
+                          'HamQadam',
+                          style: TextStyle(
+                            fontFamily: AppTextStyles.displayFont,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: _Soul.ink900,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(Icons.auto_awesome_rounded,
+                            color: _Soul.pink600, size: 13),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'C H O O S E   F O R E V E R',
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.6,
+                        color: _Soul.gray400,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(width: AppSpacing.sm),
-        _buildHoroscopeButton(isDark),
-        const SizedBox(width: AppSpacing.sm),
-        _buildPartnerPrefButton(isDark),
-        const SizedBox(width: AppSpacing.sm),
+        // Horoscope (kept live here) · bell — search & filter have moved
+        // to the card-area search row below, per the reference.
+        _headerCircleButton(
+          context,
+          icon: Icons.auto_awesome_rounded,
+          onTap: () => HoroscopeFormSheet.show(Get.context!),
+        ),
+        const SizedBox(width: 10),
         _buildNotificationButton(context, isDark),
       ],
     );
   }
 
-  /// The 36 px soft-pink circle menu chip from the reference — opens the
-  /// home shell's drawer. The shell's AppBar is suppressed on this tab, so
-  /// the plain Scaffold.of(context) lookup can't find a drawer from inside
-  /// the nested Discover scaffold; the shell's GlobalKey reaches it directly.
-  Widget _buildMenuButton(BuildContext context, bool isDark) {
+  /// The reference's 42px white circle action button (search / bell look).
+  Widget _headerCircleButton(
+    BuildContext context, {
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
-      onTap: () {
-        final ScaffoldState? shell =
-            HomeView.shellKey.currentState ?? Scaffold.maybeOf(context);
-        if (shell != null) {
-          shell.openDrawer();
-        }
-      },
+      onTap: onTap,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 42,
+        height: 42,
         decoration: const BoxDecoration(
-          color: Color(0xFFFFF1F4),
+          color: Colors.white,
           shape: BoxShape.circle,
+          boxShadow: <BoxShadow>[
+            BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+          ],
         ),
-        child: const Icon(Icons.menu_rounded, color: _Soul.pink600, size: 19),
+        child: Icon(icon, color: _Soul.ink900, size: 20),
       ),
     );
   }
 
+  /// The reference's search row: rounded field + trailing filter button.
+  /// Same live-debounce search behaviour as always.
   Widget _buildSearchField(BuildContext context, ThemeData theme, bool isDark) {
     return Row(
       children: <Widget>[
         Expanded(
           child: Container(
-            height: 40,
+            height: 44,
             decoration: BoxDecoration(
               color: _Soul.ink50,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _Soul.gray200),
             ),
             child: TextField(
               controller: controller.searchInputController,
               onChanged: controller.onSearchChanged,
-              // The magnifier key on the keyboard commits the query immediately
-              // and reloads — the field used to rely on the 500 ms debounce
-              // alone, which read as a dead button.
               textInputAction: TextInputAction.search,
               onSubmitted: controller.submitSearch,
-              style: const TextStyle(fontSize: 12, color: _Soul.ink900),
+              style: const TextStyle(fontSize: 13, color: _Soul.ink900),
               cursorColor: _Soul.pink600,
               decoration: InputDecoration(
-                hintText: 'Search name, city, profession...',
-                hintStyle: const TextStyle(fontSize: 11, color: _Soul.gray400),
+                hintText: 'Search by city, profession, education...',
+                hintStyle: const TextStyle(fontSize: 12, color: _Soul.gray400),
                 prefixIcon: const Icon(
                   Icons.search_rounded,
                   color: _Soul.gray400,
-                  size: 17,
+                  size: 20,
                 ),
                 suffixIcon: Obx(() {
                   final bool hasText =
@@ -295,7 +468,7 @@ class _SearchBarHeader extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     icon: const Icon(
                       Icons.close_rounded,
-                      size: 15,
+                      size: 16,
                       color: _Soul.ink500,
                     ),
                     onPressed: controller.clearSearchQuery,
@@ -303,7 +476,7 @@ class _SearchBarHeader extends StatelessWidget {
                 }),
                 border: InputBorder.none,
                 isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
               ),
             ),
           ),
@@ -386,11 +559,14 @@ class _SearchBarHeader extends StatelessWidget {
       return GestureDetector(
         onTap: () => Get.to(() => const NotificationsView()),
         child: Container(
-          width: 36,
-          height: 36,
+          width: 42,
+          height: 42,
           decoration: const BoxDecoration(
-            color: Color(0xFFFFF1F4),
+            color: Colors.white,
             shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+            ],
           ),
           child: Stack(
             clipBehavior: Clip.none,
@@ -398,8 +574,8 @@ class _SearchBarHeader extends StatelessWidget {
               const Center(
                 child: Icon(
                   Icons.notifications_none_rounded,
-                  color: _Soul.pink600,
-                  size: 19,
+                  color: _Soul.ink900,
+                  size: 20,
                 ),
               ),
               if (unread > 0)
@@ -438,50 +614,183 @@ class _SearchBarHeader extends StatelessWidget {
       );
     });
   }
+}
 
-  /// Horoscope — restyled to the reference's 36 px soft-pink circle, same
-  /// behaviour.
-  Widget _buildHoroscopeButton(bool isDark) {
-    return GestureDetector(
-      onTap: () => HoroscopeFormSheet.show(Get.context!),
+// ---------------------------------------------------------------------------
+// Hero banner — auto-looping 3-slide carousel (AI Matches / Curated Profiles /
+// Verified Members) with page dots. The reference's pink promo card.
+// ---------------------------------------------------------------------------
+
+class _HeroBanner extends StatefulWidget {
+  const _HeroBanner();
+
+  @override
+  State<_HeroBanner> createState() => _HeroBannerState();
+}
+
+class _HeroBannerState extends State<_HeroBanner> {
+  static const List<String> _images = <String>[
+    'assets/images/onboard.png',
+    'assets/images/onboard2.png',
+    'assets/images/onboard3.png',
+  ];
+  static const List<String> _badges = <String>['AI Matches', 'Curated Profiles', 'Verified Members'];
+  static const List<String> _titles = <String>['Thoughtful proposals', 'Handpicked for you', 'Trust built in'];
+  static const List<String> _accents = <String>['for your journey.', 'from day one.', 'at every step.'];
+  static const List<String> _bodies = <String>[
+    'Our AI finds compatible, verified profiles\nbased on your preferences.',
+    'Real rishtas aligned with your values\nand partner preferences.',
+    'Every profile passes verification —\nconnect with confidence.',
+  ];
+
+  final PageController _pageController = PageController();
+  Timer? _timer;
+  int _current = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-advance every 3.5s, looping back to 0 after the last slide.
+    _timer = Timer.periodic(const Duration(milliseconds: 3500), (Timer t) {
+      if (!mounted) return;
+      final int next = (_current + 1) % _images.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 10, AppSpacing.md, 4),
       child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFF1F4),
-          shape: BoxShape.circle,
+        height: 190,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color(0xFFFBD9E3),
+              Color(0xFFF7C4D6),
+              Color(0xFFF2AEC9),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(18),
         ),
-        child: const Icon(
-          Icons.auto_awesome_rounded,
-          color: _Soul.pink600,
-          size: 18,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _images.length,
+            onPageChanged: (int i) => setState(() => _current = i),
+            itemBuilder: (BuildContext _, int i) => _buildSlide(i),
+          ),
         ),
       ),
     );
   }
 
-  /// Partner-preference toggle — reference's soft-pink circle; the pink fill
-  /// marks it active.
-  Widget _buildPartnerPrefButton(bool isDark) {
-    return Obx(() {
-      final bool active = controller.filter.value.partnerPreferenceFilter;
-      return GestureDetector(
-        onTap: controller.togglePartnerPreferenceFilter,
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: active ? _Soul.pink600 : const Color(0xFFFFF1F4),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            Icons.favorite_outline_rounded,
-            color: active ? _Soul.pinkInk : _Soul.pink600,
-            size: 18,
+  Widget _buildSlide(int i) {
+    return Stack(
+      children: <Widget>[
+        // Right-side artwork, faded into the gradient.
+        Positioned(
+          right: -30,
+          top: 0,
+          bottom: 0,
+          child: Opacity(
+            opacity: 0.9,
+            child: Image.asset(
+              _images[i],
+              height: 190,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
           ),
         ),
-      );
-    });
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(Icons.auto_awesome_rounded, size: 13, color: _Soul.pinkInk),
+                  const SizedBox(width: 5),
+                  Text(
+                    _badges[i],
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _Soul.pinkInk,
+                    ),
+                  ),
+                ],
+              ),
+              const Spacer(),
+              // Serif headline — dark first line, pink accent second.
+              Text(
+                _titles[i],
+                style: TextStyle(
+                  fontFamily: AppTextStyles.displayFont,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _Soul.ink900,
+                  height: 1.15,
+                ),
+              ),
+              Text(
+                _accents[i],
+                style: TextStyle(
+                  fontFamily: AppTextStyles.displayFont,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _Soul.pinkInk,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _bodies[i],
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.4,
+                  color: _Soul.gray600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Page dots — active one wide.
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List<Widget>.generate(_images.length, (int d) {
+                  final bool active = d == _current;
+                  return Container(
+                    margin: const EdgeInsets.only(right: 4),
+                    width: active ? 16 : 5,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: active ? _Soul.pinkInk : Colors.white.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -506,7 +815,7 @@ class _CategoryChips extends StatelessWidget {
       color: const Color(0xFFFAFAFA),
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 12, AppSpacing.md, 4),
       child: SizedBox(
-        height: 32,
+        height: 38,
         child: Obx(() {
           final SearchFilterModel f = controller.filter.value;
           final bool aiActive = controller.aiFiltered.value;
@@ -514,6 +823,19 @@ class _CategoryChips extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.zero,
             children: <Widget>[
+              // The reference's FIRST and default-active pill — the whole
+              // Discover feed. Tapping reloads the plain feed and deactivates
+              // the AI toggle.
+              _CategoryChip(
+                label: 'Proposals for You',
+                icon: Icons.group_rounded,
+                active: !aiActive,
+                onTap: () {
+                  if (controller.aiFiltered.value) {
+                    controller.toggleAiFiltered();
+                  }
+                },
+              ),
               _CategoryChip(
                 label: 'AI Matches',
                 icon: Icons.auto_awesome_rounded,
@@ -521,15 +843,21 @@ class _CategoryChips extends StatelessWidget {
                 onTap: controller.toggleAiFiltered,
               ),
               _CategoryChip(
+                label: 'My Interests',
+                icon: Icons.favorite_rounded,
+                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.expressInterests),
+              ),
+              _CategoryChip(
+                label: 'New Profiles',
+                icon: Icons.person_add_alt_rounded,
+                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.newProfiles),
+              ),
+              _CategoryChip(
                 label: 'Nearby',
                 active: f.nearby,
                 onTap: () => controller.applyFilter(
                   controller.filter.value.copyWith(nearby: !f.nearby),
                 ),
-              ),
-              _CategoryChip(
-                label: 'New Profiles',
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.newProfiles),
               ),
               _CategoryChip(
                 label: 'Verified',
@@ -1228,8 +1556,6 @@ class _SingleUserProfileCard extends StatelessWidget {
 
     final String? religion = controller.religionLabel(profile.religionId);
     final String? city = controller.cityLabel(profile.cityId);
-    final String? sect = controller.sectLabel(profile.sectMainId);
-    final String? school = controller.schoolOfThoughtLabel(profile.schoolOfThoughtId);
     final String? education = controller.educationLabel(profile);
     final String? profession = controller.professionLabel(profile);
     final String? family = controller.familyLabel(profile);
@@ -1296,8 +1622,8 @@ class _SingleUserProfileCard extends StatelessWidget {
                         : _PhotoFallback(profile: profile),
                   ),
                 ),
-                // Verified chip — white pill with the pink tick, exactly the
-                // reference card's top-left badge.
+                // Verified — icon-only badge, top-left of the photo (tap
+                // opens the trust sheet, same behaviour as before).
                 if (profile.isVerified)
                   Positioned(
                     top: 6,
@@ -1311,27 +1637,15 @@ class _SingleUserProfileCard extends StatelessWidget {
                         photoUrl: profile.photo,
                       ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(999),
+                          shape: BoxShape.circle,
                         ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(Icons.verified_rounded,
-                                size: 10, color: _Soul.pink600),
-                            SizedBox(width: 3),
-                            Text(
-                              'Verified',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w700,
-                                color: _Soul.ink900,
-                              ),
-                            ),
-                          ],
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          size: 16,
+                          color: Color(0xFF1D9BF0),
                         ),
                       ),
                     ),
@@ -1412,72 +1726,61 @@ class _SingleUserProfileCard extends StatelessWidget {
             const SizedBox(width: 12),
 
             // ---------------------------------------------------------
-            // CONTENT — the reference layout: name + presence chip + kebab,
-            // the age/height | faith | sect chips row, location, education +
-            // job on one 2-col row, family line, then match pill + "Why this
-            // match?" + Send Proposal.
+            // CONTENT — the reference layout: serif name on ONE line
+            // (complete, never truncated) + kebab, the age/height · faith
+            // line, location, profession, education. The % Match block sits
+            // on the right with the heart ABOVE it.
             // ---------------------------------------------------------
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // Name row — name, presence chip, kebab menu.
+                  // Name row — complete name on a single line + kebab menu.
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: <Widget>[
-                      Flexible(
-                        child: Text(
-                          profile.displayName,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: _Soul.ink900,
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            profile.displayName,
+                            style: const TextStyle(
+                              fontFamily: AppTextStyles.displayFont,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: _Soul.ink900,
+                            ),
+                            maxLines: 1,
                           ),
-                          // Complete name — always fully visible, wrapping to
-                          // as many lines as it needs (no ellipsis).
-                        ),
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _showOptionsMenu(context),
-                        child: const Padding(
-                          padding: EdgeInsets.only(left: 4),
-                          child: Icon(Icons.more_vert_rounded,
-                              size: 18, color: _Soul.gray300),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+
+                  // "26 Years · 5'4\" · Islam" — dark text with quiet dots.
+                  if (profile.age != null ||
+                      heightLabel.isNotEmpty ||
+                      religion != null)
+                    Text(
+                      <String?>[
+                        if (profile.age != null) '${profile.age} Years',
+                        if (heightLabel.isNotEmpty) heightLabel,
+                        if (religion != null) religion,
+                      ].whereType<String>().join('  ·  '),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _Soul.ink900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   const SizedBox(height: 5),
 
-                  // Chips row — "24 Years ¦ 5'4" ¦ ☾ Muslim ¦ ◫ Sunni" — the
-                  // reference's tiny glyph chips with dotted separators. Every
-                  // value comes from the API/lookups.
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 3,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: <Widget>[
-                      if (profile.age != null)
-                        _IconChip(icon: Icons.cake_outlined, label: '${profile.age} Years'),
-                      if (heightLabel.isNotEmpty) ...<Widget>[
-                        const _DotSeparator(),
-                        _IconChip(icon: Icons.height_rounded, label: heightLabel),
-                      ],
-                      if (religion != null) ...<Widget>[
-                        const _DotSeparator(),
-                        _IconChip(icon: Icons.nightlight_round, label: religion),
-                      ],
-                      if (sect != null) ...<Widget>[
-                        const _DotSeparator(),
-                        _IconChip(icon: Icons.menu_book_rounded, label: school ?? sect),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Location line.
+                  // Location line — "Lahore, Pakistan".
                   if (city != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
@@ -1487,32 +1790,25 @@ class _SingleUserProfileCard extends StatelessWidget {
                       ),
                     ),
 
-                  // Education + job — the reference's two-column row.
-                  if (education != null || profession != null) ...<Widget>[
+                  // Profession line.
+                  if (profession != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
-                      child: Row(
-                        children: <Widget>[
-                          if (education != null)
-                            Expanded(
-                              child: _FactCell(
-                                icon: Icons.school_outlined,
-                                label: education,
-                              ),
-                            ),
-                          if (profession != null)
-                            Expanded(
-                              child: _FactCell(
-                                icon: Icons.work_outline_rounded,
-                                label: profession,
-                              ),
-                            ),
-                        ],
+                      child: _FactCell(
+                        icon: Icons.work_outline_rounded,
+                        label: profession,
                       ),
                     ),
-                  ],
 
-                  // Family line — "Family Oriented".
+                  // Education line.
+                  if (education != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: _FactCell(
+                        icon: Icons.school_outlined,
+                        label: education,
+                      ),
+                    ),                  // Family line — "Family Oriented".
                   if (family != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 3),
@@ -1521,85 +1817,275 @@ class _SingleUserProfileCard extends StatelessWidget {
                         label: family,
                       ),
                     ),
-
-                  const SizedBox(height: 8),
-
-                  // Bottom row — match pill + "Why this match?" + Send
-                  // Proposal, exactly the reference alignment.
-                  Row(
-                    children: <Widget>[
-                      if (matchPercentage != null && matchPercentage > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF0F4),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: <Widget>[
-                              Icon(Icons.favorite_rounded,
-                                  size: 10, color: _Soul.pink600),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$matchPercentage% Match',
-                                style: const TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: _Soul.pink600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      // "Why this match?" — ONLY while the AI Match filter
-                      // (top-5 matchmaking mode) is applied; the reasons come
-                      // from the compatibility engine, so the link means
-                      // nothing on a plain search result.
-                      if (controller.aiFiltered.value &&
-                          matchPercentage != null &&
-                          matchPercentage > 0) ...<Widget>[
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _WhyThisMatchSheet.show(
-                            context,
-                            profile: profile,
-                            matchPercentage: matchPercentage,
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 2, vertical: 5),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  'Why this match?',
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: _Soul.ink500,
-                                  ),
-                                ),
-                                SizedBox(width: 2),
-                                Icon(Icons.chevron_right_rounded,
-                                    size: 13, color: _Soul.ink500),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                      const Spacer(),
-                    ],
-                  ),
                 ],
               ),
             ),
+
+            // % Match + heart — the reference's right rail: heart circle
+            // ABOVE the pink match block, both stacked.
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => controller.toggleShortlist(
+                    profile.id,
+                    displayName: profile.displayName,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: <BoxShadow>[
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Obx(() {
+                      final bool isShortlisted =
+                          controller.isShortlisted(profile.id);
+                      return Icon(
+                        isShortlisted
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        size: 16,
+                        color: isShortlisted ? _Soul.pinkInk : _Soul.ink500,
+                      );
+                    }),
+                  ),
+                ),
+                if (matchPercentage != null && matchPercentage > 0) ...<Widget>[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFBE0EA),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          '$matchPercentage%',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: _Soul.pinkInk,
+                          ),
+                        ),
+                        const Text(
+                          'Match',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: _Soul.pinkInk,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
             ),
+        // -------------------------------------------------------------
+        // Action strip — View Profile | Why this match? | Send Interest |
+        // Send Proposal — ALWAYS all four (AI mode or not), same tap
+        // targets as before. The old icon row below keeps Chat/More/
+        // Ignore/Report. Small 10px labels; each pill clips with ellipsis
+        // instead of overflowing the Row.
+        // -------------------------------------------------------------
+        const SizedBox(height: 12),
+        Row(
+          children: <Widget>[
+            // View Profile — soft pink pill.
+            Expanded(
+              child: GestureDetector(
+                onTap: () => PublicProfileDetailSheet.show(
+                  context,
+                  profileId: profile.id,
+                  searchProfile: profile,
+                ),
+                child: Container(
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBE0EA),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  // FittedBox: the label always shows COMPLETE, scaled to
+                  // the pill's width — never "View Pro…".
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(Icons.visibility_rounded,
+                              size: 12, color: _Soul.pinkInk),
+                          const SizedBox(width: 4),
+                          Text(
+                            'View Profile',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: _Soul.pinkInk,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            // "Why this match?" — reasons come from the compatibility engine.
+            Expanded(
+              child: GestureDetector(
+                onTap: (matchPercentage != null && matchPercentage > 0)
+                    ? () => _WhyThisMatchSheet.show(
+                          context,
+                          profile: profile,
+                          matchPercentage: matchPercentage,
+                        )
+                    : null,
+                child: Container(
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFBE0EA),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(Icons.auto_awesome_rounded,
+                              size: 11, color: _Soul.pinkInk),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Why this match?',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: _Soul.pinkInk,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            // Send Interest — soft pink pill, tick when already sent.
+            Expanded(
+              child: Obx(() {
+                final bool sent =
+                    interestCtrl?.hasSentInterestTo(profile.id) == true;
+                return GestureDetector(
+                  onTap: () => SendInterestDialog.show(context, profile),
+                  child: Container(
+                    height: 32,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFBE0EA),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              sent
+                                  ? Icons.check_rounded
+                                  : Icons.favorite_rounded,
+                              size: 11,
+                              color: sent ? AppColors.success : _Soul.pinkInk,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              sent ? 'Sent' : 'Send Interest',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    sent ? AppColors.success : _Soul.pinkInk,
+                              ),
+                              maxLines: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(width: 5),
+            // Send Proposal — solid pink pill, closing the row.
+            Expanded(
+              child: GestureDetector(
+                onTap: () => SendProposalDialog.show(context, profile),
+                child: Container(
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _Soul.pink600,
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: _Soul.pinkShadow,
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          const Icon(Icons.send_rounded,
+                              size: 12, color: _Soul.pinkInk),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Send Proposal',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: _Soul.pinkInk,
+                            ),
+                            maxLines: 1,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
         // -------------------------------------------------------------
         // Action strip — the six-icon row (Send Interest / Chat / Full
         // Profile / More / Ignore / Report) that sat below every card in
@@ -2203,51 +2689,6 @@ class _WhyThisMatchSheet {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Tiny glyph chip used in the reference card's facts row ("24 Years",
-/// "5'4\"", "Muslim", "Sunni") — pink icon + ink label.
-class _IconChip extends StatelessWidget {
-  const _IconChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Icon(icon, size: 10, color: _Soul.pink600),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9.5,
-            fontWeight: FontWeight.w600,
-            color: _Soul.ink900,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The dotted separator between chips in the facts row.
-class _DotSeparator extends StatelessWidget {
-  const _DotSeparator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 3,
-      height: 3,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: _Soul.gray300,
       ),
     );
   }

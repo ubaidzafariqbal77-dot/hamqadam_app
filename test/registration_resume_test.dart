@@ -88,6 +88,10 @@ Widget _app() {
         name: AppRoutes.routeForStep(1),
         page: () => const Scaffold(body: Text('STEP1')),
       ),
+      GetPage<dynamic>(
+        name: AppRoutes.verifyEmail,
+        page: () => const Scaffold(body: Text('VERIFY')),
+      ),
     ],
   );
 }
@@ -155,6 +159,112 @@ void main() {
       'registration_completed': false,
     });
     _abandonedDraft(env.reg, email: 'stranger@example.com');
+
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await env.reg.resumeAfterLogin();
+    await tester.pumpAndSettle();
+
+    expect(find.text('HOME'), findsOneWidget);
+    expect(env.reg.buffer.isEmpty, isTrue);
+  });
+
+  testWidgets(
+      'a same-email draft CANNOT outrank a registered account on login',
+      (WidgetTester tester) async {
+    // The original complaint, in its hardest form: the member typed their OWN
+    // email into signup, backed out of every step, then logged in with that
+    // finished account. The draft's email matches the signed-in member's, so
+    // the old foreign-draft check kept it — and the member was dropped into
+    // the abandoned steps instead of home. The server's verdict must win.
+    final _Env env = await _env(<String, dynamic>{
+      'id': 13,
+      'email': 'ayesha@example.com',
+      'registration_completed': true,
+    });
+    _abandonedDraft(env.reg, email: 'ayesha@example.com');
+
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await env.reg.resumeAfterLogin();
+    await tester.pumpAndSettle();
+
+    expect(find.text('HOME'), findsOneWidget);
+    expect(env.reg.buffer.isEmpty, isTrue);
+  });
+
+  testWidgets(
+      'a stale draft is dropped even when the API reports registration_completed = false',
+      (WidgetTester tester) async {
+    // The real-world regression, reproduced from live data: the API answers
+    // `registration_completed: false` for members who are demonstrably
+    // established (verified against ubaid.11409@gmail.com — an account with
+    // chats, gifts and proposals). Trusting that flag alone left the abandoned
+    // draft in place and dropped the member back into their old signup step.
+    //
+    // The draft also carries the member's OWN email, which is why the old
+    // email-match check kept it. What kills it is the token: a successful login
+    // proves the account exists server-side, and the ONLY place signup mints an
+    // account is `POST /auth/register/complete` — which sets `accountCreated`.
+    // A token alongside a draft still in progress is therefore impossible for
+    // the session just opened.
+    final _Env env = await _env(<String, dynamic>{
+      'id': 15,
+      'email': 'member@example.com',
+      'registration_completed': false,
+    });
+    _abandonedDraft(env.reg, email: 'member@example.com');
+
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await env.reg.resumeAfterLogin();
+    await tester.pumpAndSettle();
+
+    expect(find.text('HOME'), findsOneWidget);
+    expect(env.reg.buffer.isEmpty, isTrue);
+  });
+
+  testWidgets(
+      'a submitted-but-unverified signup still reopens its verification screen',
+      (WidgetTester tester) async {
+    // The guard on the rule above: this draft WAS created on this device —
+    // `register/complete` returned its token — so only the emailed code is
+    // outstanding. It must survive login and land on the verification screen,
+    // not be swept away as "abandoned".
+    final _Env env = await _env(<String, dynamic>{
+      'id': 16,
+      'email': 'member@example.com',
+      'registration_completed': false,
+    });
+    env.reg.buffer.markCompleted(1);
+    env.reg.buffer.accountCreated = true;
+    env.reg.buffer.awaitingEmailOtp = true;
+
+    await tester.pumpWidget(_app());
+    await tester.pumpAndSettle();
+
+    await env.reg.resumeAfterLogin();
+    await tester.pumpAndSettle();
+
+    expect(find.text('VERIFY'), findsOneWidget);
+    expect(env.reg.buffer.awaitingEmailOtp, isTrue);
+  });
+
+  testWidgets(
+      'a draft with NO email cannot survive login to a registered account',
+      (WidgetTester tester) async {
+    // The other survivor of the old email-match check: nothing typed yet, so
+    // the draft email is empty and matched nothing. The server verdict still
+    // outranks it.
+    final _Env env = await _env(<String, dynamic>{
+      'id': 14,
+      'email': 'ayesha@example.com',
+      'registration_completed': true,
+    });
+    _abandonedDraft(env.reg); // no email in the draft
 
     await tester.pumpWidget(_app());
     await tester.pumpAndSettle();

@@ -574,8 +574,12 @@ class RegistrationController extends GetxController {
   ///  * the cached user is fetched when the login response carried none, so
   ///    there is a `registration_completed` verdict to read — without it an
   ///    abandoned local draft wins again;
-  ///  * a draft whose email is not the signed-in member's is discarded — those
-  ///    answers belong to a signup this session is not continuing.
+  ///  * a draft that must not resume is discarded, whatever email it carries
+  ///    (see [_dropOutrankedDraft]). Matching the draft's email against the
+  ///    signed-in member's was never enough: a member who backs out of signup
+  ///    with their OWN address typed in leaves a same-email draft behind, and
+  ///    logging in with that finished account used to reopen the abandoned
+  ///    steps.
   Future<void> resumeAfterLogin() async {
     if (!authController.hasToken) {
       Get.offAllNamed(AppRoutes.login);
@@ -584,15 +588,46 @@ class RegistrationController extends GetxController {
     if (_serverRegistrationComplete == null) {
       await authController.refreshUser();
     }
-    await _dropForeignDraft();
+    await _dropOutrankedDraft();
     await resume();
   }
 
-  /// Throws away a draft that belongs to a different email than the session
-  /// just opened. Same email (or nothing typed yet) → the draft is this
-  /// member's own and [resume] continues it.
-  Future<void> _dropForeignDraft() async {
+  /// Throws away a local draft that must not resume on the login path.
+  ///
+  /// Three independent reasons a draft is dead the moment a login succeeds:
+  ///
+  ///  * the server calls the signed-in account fully registered — that verdict
+  ///    outranks ANY draft, whatever email it carries;
+  ///  * the draft never reached `register/complete`. A successful login proves
+  ///    the account already exists on the server, and the ONLY place the signup
+  ///    flow creates one is the final `POST /auth/register/complete`, which
+  ///    stamps [RegistrationBuffer.accountCreated] in the same breath as the
+  ///    token. So a session plus a draft still in progress has no way to be the
+  ///    signup we just signed into — it is leftover from an abandoned one;
+  ///  * the draft's email is not the signed-in member's at all.
+  ///
+  /// The second rule is why this cannot lean on `registration_completed` alone:
+  /// the live API answers `false` for members who are demonstrably established
+  /// (chats, gifts, proposals), so trusting that flag dropped them straight back
+  /// into their abandoned steps. Likewise [RegistrationBuffer.hasDraftInProgress]
+  /// is exactly `!accountCreated && !awaitingEmailOtp && !registrationDone` with
+  /// steps on it, so it matches precisely the drafts this rule must kill.
+  ///
+  /// Runs BEFORE [resume]'s own branches, so by the time [resume] falls through
+  /// to `hasDraftInProgress` there is nothing left for it to route into.
+  Future<void> _dropOutrankedDraft() async {
     if (buffer.registrationDone) return; // this device already finished it
+    if (_serverRegistrationComplete == true) {
+      AppLogger.i('Signed-in account is fully registered — local draft discarded.');
+      await buffer.clear();
+      return;
+    }
+    if (buffer.hasDraftInProgress) {
+      AppLogger.i(
+          'Local signup draft never reached the server — discarded on login.');
+      await buffer.clear();
+      return;
+    }
     final String draft =
         (buffer.getString('email') ?? '').trim().toLowerCase();
     final String signedIn =

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../constants/app_colors.dart';
+import '../../../core/utils/app_logger.dart';
 
 /// Result row for the GIF picker grid.
 class GifItem {
@@ -25,7 +26,10 @@ class GifItem {
 class ChatGifPicker extends StatefulWidget {
   const ChatGifPicker({super.key, required this.onPick});
 
-  /// Called with the chosen GIF's full animated URL.
+  /// Called with the chosen GIF's full animated URL. The picker does NOT close
+  /// itself — the host decides how to dismiss the panel — because this widget
+  /// renders INLINE inside the chat composer, where a `Navigator.pop` used to
+  /// close the whole conversation screen instead of the picker.
   final ValueChanged<String> onPick;
 
   @override
@@ -44,6 +48,8 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
   bool _hasMore = true;
   String _error = '';
   int _offset = 0; // Giphy pagination cursor
+  bool _picked = false; // guards against a double-tap sending twice
+  static const Duration _timeout = Duration(seconds: 15);
 
   @override
   void initState() {
@@ -63,7 +69,8 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
     });
     try {
       final bool trending = query == 'trending';
-      final Response<dynamic> res = await Dio().get<Map<String, dynamic>>(
+      final Response<dynamic> res = await Dio()
+          .get<Map<String, dynamic>>(
         trending ? _trendingUrl : _searchUrl,
         queryParameters: <String, dynamic>{
           'api_key': _giphyApiKey,
@@ -73,7 +80,8 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
           if (!trending) 'q': query,
           'offset': _offset,
         },
-      );
+      )
+          .timeout(_timeout);
       final Map<String, dynamic> body =
           (res.data is Map) ? res.data as Map<String, dynamic> : <String, dynamic>{};
       final List<dynamic> results = (body['data'] as List<dynamic>?) ?? <dynamic>[];
@@ -105,6 +113,7 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
         if (_gifs.isEmpty) _error = 'No GIFs found';
       });
     } catch (e) {
+      AppLogger.w('GIF picker load failed: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -123,6 +132,14 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
       if (url.isNotEmpty && url.endsWith('.gif')) return url;
     }
     return null;
+  }
+
+  /// Wraps [onPick] so one widget instance never fires twice from a double
+  /// tap — two sends of the same GIF would charge the member twice.
+  void _pick(GifItem gif) {
+    if (_picked) return;
+    _picked = true;
+    widget.onPick(gif.fullUrl);
   }
 
   @override
@@ -187,10 +204,7 @@ class _ChatGifPickerState extends State<ChatGifPicker> {
                             );
                           }
                           return GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              widget.onPick(gif.fullUrl);
-                            },
+                            onTap: () => _pick(gif),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
                               child: Image.network(

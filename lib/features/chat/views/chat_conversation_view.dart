@@ -925,6 +925,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                                     .hintColor
                                     .withValues(alpha: 0.65),
                                 fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 2, vertical: 15),

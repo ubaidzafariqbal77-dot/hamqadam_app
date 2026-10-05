@@ -123,7 +123,13 @@ class ApiClient {
           handler.next(response);
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
-          AppLogger.w('✖️ ${error.response?.statusCode} ${error.requestOptions.uri}');
+          // A bare "null" here meant "no HTTP response at all" — i.e. the
+          // request died before the server answered (DNS, TLS handshake,
+          // connection refused). Naming the real reason makes these failures
+          // diagnosable from the log instead of guessing.
+          final int? status = error.response?.statusCode;
+          final String reason = status?.toString() ?? error.error?.runtimeType.toString() ?? 'no response';
+          AppLogger.w('✖️ $reason ${error.requestOptions.uri}');
           // Log the server error body (validation messages / field errors) so
           // 4xx/5xx failures are debuggable. Sensitive keys stay redacted.
           if (error.response?.data != null) {

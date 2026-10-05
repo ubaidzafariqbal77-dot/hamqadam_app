@@ -15,6 +15,7 @@ class AppTextFormField extends StatelessWidget {
     required this.label,
     this.requirement = FieldRequirement.required,
     this.controller,
+    this.fieldKey,
     this.hint,
     this.prefixIcon,
     this.suffixIcon,
@@ -46,6 +47,7 @@ class AppTextFormField extends StatelessWidget {
 
   final FieldRequirement requirement;
   final TextEditingController? controller;
+  final GlobalKey<FormFieldState<String>>? fieldKey;
   final String? hint;
   final Widget? prefixIcon;
   final Widget? suffixIcon;
@@ -90,6 +92,7 @@ class AppTextFormField extends StatelessWidget {
     );
 
     final Widget field = TextFormField(
+      key: fieldKey,
       controller: controller,
       focusNode: focusNode,
       keyboardType: keyboardType,

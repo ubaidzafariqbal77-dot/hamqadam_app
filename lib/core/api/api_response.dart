@@ -70,6 +70,11 @@ class ApiState<T> {
         message: e.message,
       ),
       ServerException() => ApiState<T>.serverError(e.message),
+      // The device is online and the failure is on the server's side (its TLS
+      // certificate is expired/invalid), so this is a retryable server error —
+      // NOT `noInternet`, which would wrongly tell the user to check their
+      // Wi-Fi.
+      TlsException() => ApiState<T>.serverError(e.message),
       ApiException() => ApiState<T>.serverError(e.message),
       RequestCancelledException() => ApiState<T>.initial(),
     };

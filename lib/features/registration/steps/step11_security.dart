@@ -165,6 +165,7 @@ class _Step11ViewState extends State<Step11View> {
         AppPasswordField(
           label: 'Confirm password',
           controller: c.confirm,
+          revalidateWhenControllerChanges: c.password,
           textInputAction: TextInputAction.done,
           validator: (String? v) => AppValidators.confirmPassword(v, c.password.text),
         ),

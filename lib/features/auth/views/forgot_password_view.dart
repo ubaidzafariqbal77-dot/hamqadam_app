@@ -114,6 +114,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView>
           AppPasswordField(
             label: 'Confirm new password',
             controller: c.confirmCtrl,
+            revalidateWhenControllerChanges: c.passwordCtrl,
             validator: c.validateConfirm,
           ),
           const SizedBox(height: AppSpacing.lg),

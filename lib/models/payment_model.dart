@@ -43,19 +43,54 @@ class PaymentPlanFeatureFlags {
   const PaymentPlanFeatureFlags({
     this.aiMatching = false,
     this.advancedSearch = false,
+    this.flags = const <String>{},
   });
 
   final bool aiMatching;
   final bool advancedSearch;
 
+  /// Every flag this plan grants.
+  ///
+  /// The server stores `feature_flags` as a JSON object
+  /// (`{"ai_matching": true, "priority_interest": true}`) and only ever grows
+  /// new keys from the admin UI. Keeping the whole set means a newly added
+  /// entitlement — Super Like's `priority_interest`, for one — starts working
+  /// in the app without an app release, instead of needing a hard-coded
+  /// boolean here.
+  final Set<String> flags;
+
+  /// True when the plan grants [name]. Accepts `true` values only, so a flag
+  /// explicitly switched off never counts as granted.
+  bool has(String name) => flags.contains(name);
+
+  /// Super Like / Priority Interest entitlement (`POST /interests` `priority`).
+  bool get priorityInterest => has('priority_interest');
+
+  /// Ad-free plans get no sponsored placements (`GET /completion/sponsored`).
+  bool get adFree => has('ad_free');
+
   factory PaymentPlanFeatureFlags.fromJson(dynamic raw) {
-    if (raw is Map<String, dynamic>) {
-      return PaymentPlanFeatureFlags(
-        aiMatching: _asBool(raw['ai_matching']),
-        advancedSearch: _asBool(raw['advanced_search']),
-      );
+    final Set<String> flags = <String>{};
+
+    if (raw is Map) {
+      for (final MapEntry<Object?, Object?> e in raw.entries) {
+        final String key = '${e.key}';
+        if (e.value == true || e.value == 1 || e.value == '1' || e.value == 'true') {
+          flags.add(key);
+        }
+      }
+    } else if (raw is List) {
+      // Tolerate the plain-list shape some admin rows use.
+      for (final dynamic v in raw) {
+        flags.add('$v');
+      }
     }
-    return const PaymentPlanFeatureFlags();
+
+    return PaymentPlanFeatureFlags(
+      aiMatching: _asBool(raw is Map ? raw['ai_matching'] : null) || flags.contains('ai_matching'),
+      advancedSearch: _asBool(raw is Map ? raw['advanced_search'] : null) || flags.contains('advanced_search'),
+      flags: flags,
+    );
   }
 }
 
@@ -83,7 +118,19 @@ class PaymentPlanModel {
 
   bool get isFree => price == 0 || (tier != null && tier!.toLowerCase() == 'free');
 
-  String get priceFormatted => isFree ? 'Free' : 'PKR ${price.toStringAsFixed(0)}';
+  String get priceFormatted => priceFormattedIn('PKR');
+
+  /// Same as [priceFormatted] but with a caller-supplied currency code, so the
+  /// UI can show whatever `GET /payments/coins/pricing` reports (the admin's
+  /// `system_default_currency`) instead of a hard-coded PKR.
+  String priceFormattedIn(String currency) {
+    if (isFree) return 'Free';
+    // Never render a bare " 500" if the server sent a blank currency code.
+    final String code = _trim(currency);
+    return code.isEmpty
+        ? price.toStringAsFixed(0)
+        : '$code ${price.toStringAsFixed(0)}';
+  }
 
   factory PaymentPlanModel.fromJson(Map<String, dynamic> json) {
     return PaymentPlanModel(
@@ -633,4 +680,12 @@ DateTime? _asDate(dynamic v) {
   if (v is DateTime) return v;
   if (v is String && v.isNotEmpty) return DateTime.tryParse(v);
   return null;
+}
+
+/// Normalises a currency code for display: upper-cased, or an empty string
+/// when the server sent nothing usable (callers fall back to their own default).
+String _trim(dynamic v) {
+  if (v == null) return '';
+  final String s = '$v'.trim().toUpperCase();
+  return s.isEmpty ? '' : s;
 }

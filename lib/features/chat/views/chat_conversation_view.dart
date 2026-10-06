@@ -404,7 +404,14 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      const Text('Typing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+                      const Text(
+                        'Typing',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(width: 6),
                       // QA: no loading spinner next to "Typing" — the animated
                       // dots ARE the indicator, WhatsApp-style.

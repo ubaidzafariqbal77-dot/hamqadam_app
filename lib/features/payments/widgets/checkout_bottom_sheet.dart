@@ -81,6 +81,10 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
   }
 
   Future<void> _loadGateways() async {
+    // Currency comes from the same endpoint that defines per-coin pricing, so
+    // every amount on this sheet is labelled with the admin's currency rather
+    // than a hard-coded PKR.
+    await _controller.loadCoinPricing(silent: true);
     await _controller.loadGateways();
     if (!mounted) return;
     setState(() {
@@ -207,12 +211,14 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                         ),
                       ],
                     ),
-                    Text(
-                      widget.plan.priceFormatted,
-                      style: AppTextStyles.title.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
+                    Obx(
+                      () => Text(
+                        widget.plan.priceFormattedIn(_controller.currency),
+                        style: AppTextStyles.title.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   ],
@@ -326,7 +332,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Coupon Applied! Discount: PKR ${res.discountAmount}',
+                          'Coupon Applied! Discount: ${_controller.money(res.discountAmount)}',
                           style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600, fontSize: 12.5),
                         ),
                       ),
@@ -353,7 +359,10 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
                   const Text('Plan Price', style: TextStyle(fontSize: 14)),
-                  Text(widget.plan.priceFormatted, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  Obx(() => Text(
+                        widget.plan.priceFormattedIn(_controller.currency),
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      )),
                 ],
               ),
               Obx(() {
@@ -365,7 +374,10 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
                       const Text('Discount', style: TextStyle(fontSize: 14, color: AppColors.success)),
-                      Text('- PKR ${res.discountAmount}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.success)),
+                      Text(
+                        '- ${_controller.money(res.discountAmount)}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.success),
+                      ),
                     ],
                   ),
                 );
@@ -377,7 +389,7 @@ class _CheckoutBottomSheetState extends State<CheckoutBottomSheet> {
                   Text('Total Payable', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                   Obx(() {
                     return Text(
-                      'PKR ${_finalAmount.toStringAsFixed(0)}',
+                      _controller.money(_finalAmount),
                       style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900, color: AppColors.regAccent),
                     );
                   }),

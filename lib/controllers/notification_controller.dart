@@ -307,6 +307,13 @@ class NotificationController extends GetxController {
     if (t.contains('profile_view') || t.contains('view')) return 'Someone viewed your profile';
     if (t.contains('coin') || t.contains('payment')) return 'Coin activity on your account';
     if (t.contains('call')) return 'Missed call';
+    if (t.contains('match')) return 'A new match or suggestion';
+    if (t.contains('reward') || t.contains('achievement')) return 'A reward or achievement unlocked';
+    if (t.contains('referral')) return 'A referral update';
+    if (t.contains('verification') || t.contains('identity')) return 'Verification update';
+    if (t.contains('support') || t.contains('ticket')) return 'Support update';
+    if (t.contains('family') || t.contains('guardian')) return 'Family update';
+    if (t.contains('security') || t.contains('login') || t.contains('device')) return 'Security alert';
     return 'You have a new notification';
   }
 
@@ -440,6 +447,19 @@ class NotificationController extends GetxController {
       if (!silent) {
         Get.snackbar('Error', 'Could not mark notification as read. Please try again.');
       }
+    }
+  }
+
+  /// Records that the member tapped this notification (`POST /notifications/{id}/click`).
+  ///
+  /// Telemetry only: it does not mark the row read. The UI still calls [markAsRead]
+  /// when it actually opens the row, so the backend can distinguish a visible read
+  /// from a tray tap that the member never looked at.
+  Future<void> recordClick(int id) async {
+    try {
+      await _repository.recordClick(id);
+    } catch (_) {
+      // Best-effort; a failed click record must not block the app from opening the row.
     }
   }
 }

@@ -50,12 +50,22 @@ class InterestRepository {
   ///   409 `interest_exists`     — one is already pending or accepted either way
   ///   422 `self_interest`
   ///   404 `member_unavailable`
-  Future<InterestSendResult> send({required int userId, String? note}) async {
+  /// `POST /interests` — sends an express interest.
+  ///
+  /// [priority] sends a **Super Like / Priority Interest**. The server decides
+  /// whether the plan entitles the member to it (403 `plan_feature_required`)
+  /// and charges a different coin price, so the app never hard-codes either.
+  Future<InterestSendResult> send({
+    required int userId,
+    String? note,
+    bool priority = false,
+  }) async {
     final ApiEnvelope res = await _client.post(
       ApiEndpoints.interests,
       body: <String, dynamic>{
         'user_id': userId,
         if (note != null && note.trim().isNotEmpty) 'initial_note': note.trim(),
+        if (priority) 'priority': true,
       },
     );
     return InterestSendResult.fromJson(res.dataMap, message: res.message);

@@ -355,6 +355,9 @@ class ApiEndpoints {
   /// Mark single notification as read (`POST /notifications/{id}/read`).
   static String notificationRead(int id) => '/notifications/$id/read';
 
+  /// Record a notification tap for backend telemetry (`POST /notifications/{id}/click`).
+  static String notificationClick(int id) => '/notifications/$id/click';
+
   /// Register FCM push token (`POST /notifications/push-tokens`).
   static const String pushTokens = '/notifications/push-tokens';
 
@@ -476,6 +479,25 @@ class ApiEndpoints {
   static const String giftsReceived = '/gifts/received';
   static const String giftsSent = '/gifts/sent';
   static String giftTransaction(int transactionId) => '/gifts/transactions/$transactionId';
+
+  // ---- Completion Center (rewards ledger, NPS, sponsored, share link) -----
+  /// Records an analytics event (`POST /completion/events`).
+  static const String completionEvent = '/completion/events';
+
+  /// Net-Promoter-Score survey submission (`POST /completion/nps`).
+  static const String completionNps = '/completion/nps';
+
+  /// Member confirms they found a match (`POST /completion/got-match`).
+  static const String completionGotMatch = '/completion/got-match';
+
+  /// Sponsored listings — empty for `ad_free` plans (`GET /completion/sponsored`).
+  static const String completionSponsored = '/completion/sponsored';
+
+  /// Paginated reward ledger for the signed-in member (`GET /completion/rewards`).
+  static const String completionRewards = '/completion/rewards';
+
+  /// Shareable public profile link (`GET /completion/profile-link`).
+  static const String completionProfileLink = '/completion/profile-link';
 }
 
 

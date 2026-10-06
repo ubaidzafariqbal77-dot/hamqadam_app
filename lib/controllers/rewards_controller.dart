@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import 'completion_controller.dart';
 import 'interest_controller.dart';
 import '../repositories/rewards_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -63,6 +64,17 @@ class RewardsController extends GetxController {
       // surface that shows the balance so nothing disagrees.
       if (Get.isRegistered<InterestController>()) {
         Get.find<InterestController>().refreshCoins();
+      }
+      // Completion Center analytics + the reward ledger now has a new row.
+      if (Get.isRegistered<CompletionController>()) {
+        final CompletionController completion = Get.find<CompletionController>();
+        completion.track(
+          'welcome_bonus_claimed',
+          featureKey: 'rewards',
+          source: 'redeem_screen',
+          metadata: <String, dynamic>{'coins': next.coins},
+        );
+        completion.loadRewards();
       }
       return true;
     } catch (e) {

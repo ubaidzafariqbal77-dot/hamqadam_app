@@ -278,6 +278,19 @@ class SearchFilterModel {
     this.newProfiles = false,
     this.mutualMatch = false,
     this.onlineNow = false,
+    this.recentlyActive = false,
+    this.newThisWeek = false,
+    this.international = false,
+    this.heightMin,
+    this.heightMax,
+    this.incomeMin,
+    this.incomeMax,
+    this.subCasteId,
+    this.sectId,
+    this.education,
+    this.profession,
+    this.lifestyle,
+    this.languageId,
   });
 
   final int? ageMin;
@@ -311,6 +324,35 @@ class SearchFilterModel {
   /// Only members active in the last few minutes.
   final bool onlineNow;
 
+  /// Ordered by recent activity rather than just filtering to active members.
+  final bool recentlyActive;
+
+  /// Tighter than [newProfiles]: joined within the last 7 days.
+  final bool newThisWeek;
+
+  /// Include members who live outside the member's own country.
+  final bool international;
+
+  /// Height window in the server's own unit (inches).
+  final num? heightMin;
+  final num? heightMax;
+
+  /// Annual income window, in the server's own unit.
+  final num? incomeMin;
+  final num? incomeMax;
+
+  /// Narrows [casteId] to one sub-caste.
+  final int? subCasteId;
+
+  /// Sect within the member's religion.
+  final int? sectId;
+
+  /// Free-text education / profession / lifestyle matches, plus a language id.
+  final String? education;
+  final String? profession;
+  final String? lifestyle;
+  final int? languageId;
+
   /// Counts the active filter criteria (excluding search text and page).
   int get activeFilterCount {
     int count = 0;
@@ -334,6 +376,17 @@ class SearchFilterModel {
     if (newProfiles) count++;
     if (mutualMatch) count++;
     if (onlineNow) count++;
+    if (recentlyActive) count++;
+    if (newThisWeek) count++;
+    if (international) count++;
+    if (heightMin != null || heightMax != null) count++;
+    if (incomeMin != null || incomeMax != null) count++;
+    if (subCasteId != null) count++;
+    if (sectId != null) count++;
+    if (education != null && education!.trim().isNotEmpty) count++;
+    if (profession != null && profession!.trim().isNotEmpty) count++;
+    if (lifestyle != null && lifestyle!.trim().isNotEmpty) count++;
+    if (languageId != null) count++;
     return count;
   }
 
@@ -364,6 +417,25 @@ class SearchFilterModel {
     if (newProfiles) params['new_profiles'] = 1;
     if (mutualMatch) params['mutual_match'] = 1;
     if (onlineNow) params['online_now'] = 1;
+    if (recentlyActive) params['recently_active'] = 1;
+    if (newThisWeek) params['new_this_week'] = 1;
+    if (international) params['international'] = 1;
+    if (heightMin != null) params['height_min'] = heightMin;
+    if (heightMax != null) params['height_max'] = heightMax;
+    if (incomeMin != null) params['income_min'] = incomeMin;
+    if (incomeMax != null) params['income_max'] = incomeMax;
+    if (subCasteId != null) params['sub_caste_id'] = subCasteId;
+    if (sectId != null) params['sect_id'] = sectId;
+    if (education != null && education!.trim().isNotEmpty) {
+      params['education'] = education!.trim();
+    }
+    if (profession != null && profession!.trim().isNotEmpty) {
+      params['profession'] = profession!.trim();
+    }
+    if (lifestyle != null && lifestyle!.trim().isNotEmpty) {
+      params['lifestyle'] = lifestyle!.trim();
+    }
+    if (languageId != null) params['language_id'] = languageId;
     if (searchQuery != null && searchQuery!.trim().isNotEmpty) {
       params['search'] = searchQuery!.trim();
     }
@@ -398,6 +470,19 @@ class SearchFilterModel {
     bool? newProfiles,
     bool? mutualMatch,
     bool? onlineNow,
+    bool? recentlyActive,
+    bool? newThisWeek,
+    bool? international,
+    num? heightMin,
+    num? heightMax,
+    num? incomeMin,
+    num? incomeMax,
+    int? subCasteId,
+    int? sectId,
+    String? education,
+    String? profession,
+    String? lifestyle,
+    int? languageId,
     bool clearAgeMin = false,
     bool clearAgeMax = false,
     bool clearCompatibilityMin = false,
@@ -410,6 +495,16 @@ class SearchFilterModel {
     bool clearState = false,
     bool clearCity = false,
     bool clearSearch = false,
+    bool clearHeightMin = false,
+    bool clearHeightMax = false,
+    bool clearIncomeMin = false,
+    bool clearIncomeMax = false,
+    bool clearSubCaste = false,
+    bool clearSect = false,
+    bool clearEducation = false,
+    bool clearProfession = false,
+    bool clearLifestyle = false,
+    bool clearLanguage = false,
   }) {
     return SearchFilterModel(
       ageMin: clearAgeMin ? null : (ageMin ?? this.ageMin),
@@ -432,6 +527,19 @@ class SearchFilterModel {
       newProfiles: newProfiles ?? this.newProfiles,
       mutualMatch: mutualMatch ?? this.mutualMatch,
       onlineNow: onlineNow ?? this.onlineNow,
+      recentlyActive: recentlyActive ?? this.recentlyActive,
+      newThisWeek: newThisWeek ?? this.newThisWeek,
+      international: international ?? this.international,
+      heightMin: clearHeightMin ? null : (heightMin ?? this.heightMin),
+      heightMax: clearHeightMax ? null : (heightMax ?? this.heightMax),
+      incomeMin: clearIncomeMin ? null : (incomeMin ?? this.incomeMin),
+      incomeMax: clearIncomeMax ? null : (incomeMax ?? this.incomeMax),
+      subCasteId: clearSubCaste ? null : (subCasteId ?? this.subCasteId),
+      sectId: clearSect ? null : (sectId ?? this.sectId),
+      education: clearEducation ? null : (education ?? this.education),
+      profession: clearProfession ? null : (profession ?? this.profession),
+      lifestyle: clearLifestyle ? null : (lifestyle ?? this.lifestyle),
+      languageId: clearLanguage ? null : (languageId ?? this.languageId),
     );
   }
 

@@ -46,6 +46,8 @@ class NotificationRepository {
 
   /// Marks one notification read. Success alone is enough for the optimistic
   /// path; [unreadCount] only feeds the badge sync when the server echoes it.
+  /// Marks one notification read. Success alone is enough for the optimistic
+  /// path; [unreadCount] only feeds the badge sync when the server echoes it.
   Future<MarkReadResult> markAsRead(int id) async {
     final response = await _apiClient.post(ApiEndpoints.notificationRead(id));
     if (!response.success) {
@@ -55,8 +57,9 @@ class NotificationRepository {
     NotificationModel? row;
     int count = 0;
     if (raw is Map<String, dynamic>) {
-      // V1 shape: data = the notification row itself (+ unread_count beside it).
-      // Defensive: some deployments nest it under `notification` or `data`.
+      // V1 response: `{ success, message, data: { notification row..., unread_count } }`.
+      // Defensive: the row may be nested under `notification` or `data` in some
+      // deployments, and the unread count may sit beside it or under `meta`.
       final Map<String, dynamic>? rowJson = raw['id'] != null
           ? raw
           : raw['notification'] is Map<String, dynamic>
@@ -65,11 +68,33 @@ class NotificationRepository {
                   ? raw['data'] as Map<String, dynamic>
                   : null;
       if (rowJson != null) row = NotificationModel.fromJson(rowJson);
-      final dynamic countRaw = raw['unread_count'] ?? (raw['meta'] is Map<String, dynamic> ? (raw['meta'] as Map<String, dynamic>)['unread_count'] : null);
+      final dynamic countRaw =
+          raw['unread_count'] ?? (raw['meta'] is Map<String, dynamic> ? (raw['meta'] as Map<String, dynamic>)['unread_count'] as dynamic : null);
       if (countRaw is int) count = countRaw;
       if (countRaw is String) count = int.tryParse(countRaw) ?? 0;
     }
     return MarkReadResult(notification: row, unreadCount: count);
+  }
+
+  /// Records that the member tapped a notification (`POST /notifications/{id}/click`).
+  ///
+  /// This is backend telemetry only — it does not change the read state, and the
+  /// app still calls [markAsRead] when it actually displays the row. Kept separate
+  /// so the backend can distinguish a visible read from a cold-tray tap.
+  Future<Map<String, dynamic>?> recordClick(int id) async {
+    final response = await _apiClient.post(ApiEndpoints.notificationClick(id));
+    if (!response.success) return null;
+    final dynamic raw = response.data;
+    if (raw is Map<String, dynamic>) {
+      final Map<String, dynamic>? rowJson =
+          raw['notification'] is Map<String, dynamic>
+              ? raw['notification'] as Map<String, dynamic>
+              : raw['data'] is Map<String, dynamic>
+                  ? raw['data'] as Map<String, dynamic>
+                  : null;
+      if (rowJson != null) return rowJson;
+    }
+    return null;
   }
 
   /// Registers the device's FCM push token (`POST /notifications/push-tokens`).

@@ -1,5 +1,4 @@
 import '../core/api/api_client.dart';
-import '../core/api/api_response.dart';
 import '../constants/api_endpoints.dart';
 
 /// The 25-coin welcome bonus: state + claim, for the profile's Redeem section.

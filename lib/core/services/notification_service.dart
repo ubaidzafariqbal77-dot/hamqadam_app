@@ -15,6 +15,7 @@ import '../../controllers/notification_controller.dart';
 import '../../controllers/payment_controller.dart';
 import '../../controllers/profile_view_controller.dart';
 import '../../controllers/proposal_controller.dart';
+import '../../core/routes/app_routes.dart';
 import '../../features/chat/views/chat_conversation_view.dart';
 import '../../features/chat/views/chat_inbox_view.dart';
 import '../../features/help_center/views/help_chat_view.dart';
@@ -1425,7 +1426,7 @@ class NotificationService {
       }
 
       // 3. Interests
-      if (type.contains('interest')) {
+      if (type.contains('interest') || type.contains('mutual')) {
         Get.to(() => const InterestsView());
         return;
       }
@@ -1448,7 +1449,49 @@ class NotificationService {
         return;
       }
 
-      // Default: Navigate to Notifications View
+      // 7. Support / Help Center tickets
+      if (type.contains('support') || type.contains('help') || type.contains('ticket')) {
+        Get.to(() => const HelpChatView());
+        return;
+      }
+
+      // 8. Verification / identity outcomes
+      if (type.contains('verification') || type.contains('identity')) {
+        Get.toNamed<void>(AppRoutes.aiVerification);
+        return;
+      }
+
+      // 9. Matches / AI matches
+      if (type.contains('match')) {
+        Get.toNamed<void>(AppRoutes.interestMatches);
+        return;
+      }
+
+      // 10. Rewards / achievements / referrals
+      if (type.contains('reward') || type.contains('achievement') || type.contains('referral')) {
+        Get.toNamed<void>(AppRoutes.home);
+        return;
+      }
+
+      // 11. Family / guardian
+      if (type.contains('family') || type.contains('guardian')) {
+        Get.toNamed<void>(AppRoutes.family);
+        return;
+      }
+
+      // 12. Wallet refund / wallet
+      if (type.contains('wallet') || type.contains('refund')) {
+        Get.to(() => const MembershipPlansView());
+        return;
+      }
+
+      // 13. Security / login / device
+      if (type.contains('security') || type.contains('login') || type.contains('device')) {
+        Get.toNamed<void>(AppRoutes.home);
+        return;
+      }
+
+      // Default: open the notification list for anything unknown.
       Get.to(() => const NotificationsView());
     } catch (e) {
       AppLogger.w('Failed to parse notification payload: $e');

@@ -9,6 +9,7 @@ import '../../../core/routes/app_routes.dart';
 import '../../../features/gifts/views/gift_detail_view.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../features/chat/views/chat_inbox_view.dart';
+import '../../../features/help_center/views/help_chat_view.dart';
 import '../../../features/interests/views/interests_view.dart';
 import '../../../features/payments/views/coin_usage_view.dart';
 import '../../../features/payments/views/membership_plans_view.dart';
@@ -59,7 +60,7 @@ class _NotificationsViewState extends State<NotificationsView> {
     if (notif.isChatMessage) {
       iconData = Icons.chat_bubble_rounded;
       color = AppColors.fieldIconGlyph;
-    } else if (lower.contains('interest')) {
+    } else if (lower.contains('interest') || lower.contains('mutual')) {
       iconData = Icons.favorite_rounded;
       color = AppColors.regAccent;
     } else if (lower.contains('proposal')) {
@@ -74,12 +75,36 @@ class _NotificationsViewState extends State<NotificationsView> {
     } else if (lower.contains('coin') || lower.contains('bonus') || lower.contains('credit')) {
       iconData = Icons.monetization_on_rounded;
       color = AppColors.warning;
-    } else if (lower.contains('payment') || lower.contains('package') || lower.contains('plan')) {
+    } else if (lower.contains('payment') || lower.contains('package') || lower.contains('plan') || lower.contains('subscription')) {
       iconData = Icons.workspace_premium_rounded;
       color = AppColors.regAccent;
     } else if (lower.contains('call')) {
       iconData = Icons.phone_missed_rounded;
       color = AppColors.error;
+    } else if (lower.contains('match')) {
+      iconData = Icons.people_alt_rounded;
+      color = AppColors.regAccent;
+    } else if (lower.contains('referral') || lower.contains('achievement')) {
+      iconData = Icons.emoji_events_rounded;
+      color = AppColors.warning;
+    } else if (lower.contains('verification') || lower.contains('identity')) {
+      iconData = Icons.verified_user_rounded;
+      color = AppColors.success;
+    } else if (lower.contains('support') || lower.contains('ticket')) {
+      iconData = Icons.support_agent_rounded;
+      color = AppColors.fieldIconGlyph;
+    } else if (lower.contains('family') || lower.contains('guardian')) {
+      iconData = Icons.family_restroom_rounded;
+      color = AppColors.fieldIconGlyph;
+    } else if (lower.contains('wallet') || lower.contains('refund')) {
+      iconData = Icons.account_balance_wallet_rounded;
+      color = AppColors.warning;
+    } else if (lower.contains('security') || lower.contains('login') || lower.contains('device')) {
+      iconData = Icons.security_rounded;
+      color = AppColors.error;
+    } else if (lower.contains('profile')) {
+      iconData = Icons.person_rounded;
+      color = AppColors.fieldIconGlyph;
     }
 
     return Container(
@@ -99,6 +124,9 @@ class _NotificationsViewState extends State<NotificationsView> {
   void _handleNotificationTap(NotificationModel notif) {
     // One tap = the notification is read on the server, whatever it is.
     _controller.markAsRead(notif.id, silent: true);
+
+    // Telemetry: backend also wants to know the member actually opened it.
+    _controller.recordClick(notif.id);
 
     final String type = notif.type.toLowerCase();
 
@@ -126,7 +154,7 @@ class _NotificationsViewState extends State<NotificationsView> {
     }
 
     // 3. Interests
-    if (type.contains('interest')) {
+    if (type.contains('interest') || type.contains('mutual')) {
       Get.to(() => const InterestsView());
       return;
     }
@@ -148,6 +176,51 @@ class _NotificationsViewState extends State<NotificationsView> {
       Get.to(() => const MembershipPlansView());
       return;
     }
+
+    // 7. Support / Help Center tickets
+    if (type.contains('support') || type.contains('help') || type.contains('ticket')) {
+      Get.to(() => const HelpChatView());
+      return;
+    }
+
+    // 8. Verification / identity outcomes
+    if (type.contains('verification') || type.contains('identity')) {
+      Get.toNamed<void>(AppRoutes.aiVerification);
+      return;
+    }
+
+    // 9. Matches / AI matches
+    if (type.contains('match')) {
+      Get.toNamed<void>(AppRoutes.interestMatches);
+      return;
+    }
+
+    // 10. Rewards / achievements / referrals
+    if (type.contains('reward') || type.contains('achievement') || type.contains('referral')) {
+      Get.toNamed<void>(AppRoutes.home);
+      return;
+    }
+
+    // 11. Family / guardian
+    if (type.contains('family') || type.contains('guardian')) {
+      Get.toNamed<void>(AppRoutes.family);
+      return;
+    }
+
+    // 12. Wallet refund / wallet
+    if (type.contains('wallet') || type.contains('refund')) {
+      Get.to(() => const MembershipPlansView());
+      return;
+    }
+
+    // 13. Security / login / device
+    if (type.contains('security') || type.contains('login') || type.contains('device')) {
+      Get.toNamed<void>(AppRoutes.home);
+      return;
+    }
+
+    // Fallback: land on the notifications list for anything unknown.
+    Get.to(() => const NotificationsView());
   }
 
   /// Chat notifications carry the thread id in [NotificationModel.infoId] and

@@ -32,6 +32,10 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
   final TextEditingController _noteController = TextEditingController();
   bool _isSubmitting = false;
 
+  /// Super Like / Priority Interest toggle. Only offered when the member's plan
+  /// grants `priority_interest`; the price comes back from the server.
+  bool _superLike = false;
+
   static const List<String> _quickNotes = <String>[
     'Assalam-o-Alaikum, I found your profile suitable and would like to connect.',
     'Assalam-o-Alaikum, interested in taking things forward with family involvement.',
@@ -48,10 +52,11 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
     setState(() => _isSubmitting = true);
     final String note = _noteController.text.trim();
 
-    // Call POST /interests with user_id and optional initial_note
+    // Call POST /interests with user_id, optional initial_note and priority
     final SendInterestOutcome outcome = await _interestCtrl.sendInterest(
       widget.profile.id,
       note: note.isNotEmpty ? note : null,
+      priority: _superLike,
     );
 
     setState(() => _isSubmitting = false);
@@ -134,6 +139,86 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
               const SizedBox(height: AppSpacing.md),
               const Divider(height: 1, color: AppColors.lightDivider),
               const SizedBox(height: AppSpacing.md),
+
+              // Super Like — only offered when the plan entitles it.
+              Obx(() {
+                final bool entitled = _interestCtrl.hasPriorityInterest;
+                if (!entitled) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: InkWell(
+                    onTap: _isSubmitting
+                        ? null
+                        : () => setState(() => _superLike = !_superLike),
+                    borderRadius: AppRadius.mdAll,
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        gradient: _superLike
+                            ? const LinearGradient(colors: AppColors.brandGradient)
+                            : null,
+                        color: _superLike
+                            ? null
+                            : (isDark
+                                ? AppColors.darkSurfaceAlt
+                                : AppColors.lightSurface),
+                        borderRadius: AppRadius.mdAll,
+                        border: Border.all(
+                          color: _superLike
+                              ? Colors.transparent
+                              : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
+                        ),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.star_rounded,
+                            size: 22,
+                            color: _superLike
+                                ? Colors.white
+                                : AppColors.optionalBadge,
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  'Super Like',
+                                  style: AppTextStyles.bodyStrong.copyWith(
+                                    color: _superLike
+                                        ? Colors.white
+                                        : (isDark
+                                            ? AppColors.darkTextPrimary
+                                            : AppColors.roseTitleInk),
+                                  ),
+                                ),
+                                Text(
+                                  'Priority interest — stands out to '
+                                  '${widget.profile.displayName}',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.caption.copyWith(
+                                    color: _superLike
+                                        ? Colors.white70
+                                        : theme.hintColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _superLike,
+                            onChanged: _isSubmitting
+                                ? null
+                                : (bool v) => setState(() => _superLike = v),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
 
               // Note label
               Row(
@@ -223,8 +308,10 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
                   Expanded(
                     flex: 2,
                     child: AppButton(
-                      label: 'Send Interest',
-                      icon: Icons.favorite_rounded,
+                      label: _superLike ? 'Send Super Like' : 'Send Interest',
+                      icon: _superLike
+                          ? Icons.star_rounded
+                          : Icons.favorite_rounded,
                       loading: _isSubmitting,
                       onPressed: _send,
                     ),

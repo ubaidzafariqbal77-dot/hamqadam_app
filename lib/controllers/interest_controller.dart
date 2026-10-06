@@ -6,6 +6,7 @@ import '../core/api/api_response.dart';
 import '../exceptions/app_exceptions.dart';
 import '../models/interest_model.dart';
 import '../repositories/interest_repository.dart';
+import 'payment_controller.dart';
 import 'verification_controller.dart';
 
 /// Outcome of sending an interest, so the caller can react without inspecting
@@ -18,6 +19,7 @@ class SendInterestOutcome {
     this.needsCoins = false,
     this.alreadyExists = false,
     this.needsVerification = false,
+    this.needsUpgrade = false,
     this.coinsSpent = 0,
   });
 
@@ -29,6 +31,10 @@ class SendInterestOutcome {
   /// Blocked by the identity-verification gate rather than by coins — the
   /// caller should route to verification, not to the coin top-up.
   final bool needsVerification;
+
+  /// Server refused because the plan does not include Super Like
+  /// (403 `plan_feature_required`) — route to the plans screen, not to coins.
+  final bool needsUpgrade;
 
   final int coinsSpent;
 }
@@ -62,6 +68,24 @@ class InterestController extends GetxController {
   final RxSet<int> sentUserIds = <int>{}.obs;
 
   final RxBool sending = false.obs;
+
+  /// True when the member's active plan grants Super Like / Priority Interest.
+  ///
+  /// Read from `GET /payments/current` → `current_package.feature_flags`, which
+  /// the admin edits; nothing about the entitlement is hard-coded here. False
+  /// while that request is in flight or unreachable, in which case the server
+  /// has the final say anyway.
+  bool get hasPriorityInterest {
+    if (!Get.isRegistered<PaymentController>()) return false;
+    return Get.find<PaymentController>()
+            .currentPackageState
+            .value
+            .data
+            ?.currentPackage
+            ?.featureFlags
+            .priorityInterest ??
+        false;
+  }
 
   /// Badge count for the bottom navigation.
   int get pendingReceived => received.value.data?.pendingCount ?? 0;
@@ -174,7 +198,16 @@ class InterestController extends GetxController {
   }
 
   /// Sends an interest to [userId]. Spends coins on success.
-  Future<SendInterestOutcome> sendInterest(int userId, {String? note}) async {
+  ///
+  /// [priority] sends a Super Like / Priority Interest. The member's plan is
+  /// checked against the server's `feature_flags` before the request, so the
+  /// dialog can show the locked state; the server still has the final say and
+  /// a 403 is reported as [SendInterestOutcome.needsUpgrade].
+  Future<SendInterestOutcome> sendInterest(
+    int userId, {
+    String? note,
+    bool priority = false,
+  }) async {
     if (sending.value) {
       return const SendInterestOutcome(sent: false, message: 'Already sending…');
     }
@@ -185,27 +218,41 @@ class InterestController extends GetxController {
     if (blocked != null) {
       return SendInterestOutcome(sent: false, message: blocked, needsVerification: true);
     }
+
+    if (priority && !hasPriorityInterest) {
+      return const SendInterestOutcome(
+        sent: false,
+        message: 'Super Like is not included in your current plan.',
+        needsUpgrade: true,
+      );
+    }
+
     sending.value = true;
     try {
-      final InterestSendResult result = await _repo.send(userId: userId, note: note);
+      final InterestSendResult result =
+          await _repo.send(userId: userId, note: note, priority: priority);
       sentUserIds.add(userId);
       if (result.coinBalance != null) coinBalance.value = result.coinBalance!;
       // The new row belongs in the sent tab.
       await loadSent(keepFilter: true);
       return SendInterestOutcome(
         sent: true,
-        message: result.message.isEmpty ? 'Interest sent.' : result.message,
+        message: result.message.isEmpty
+            ? (priority ? 'Super Like sent!' : 'Interest sent.')
+            : result.message,
         coinsSpent: result.coinsSpent,
       );
     } on AppException catch (e) {
-      // 402 insufficient_coins and 409 interest_exists are expected outcomes,
-      // not crashes — the caller routes on them.
+      // 402 insufficient_coins, 403 plan_feature_required and 409
+      // interest_exists are expected outcomes, not crashes — the caller routes
+      // on them.
       //
       // Only ApiException carries the machine-readable `code`; fall back to the
       // status so this still works if the backend stops sending one.
       final String? code = e is ApiException ? e.code : null;
       final bool noCoins = code == 'insufficient_coins' || e.statusCode == 402;
       final bool exists = code == 'interest_exists' || e.statusCode == 409;
+      final bool upgrade = code == 'plan_feature_required' || e.statusCode == 403;
       if (exists) sentUserIds.add(userId);
       if (noCoins) await refreshCoins();
       return SendInterestOutcome(
@@ -213,6 +260,7 @@ class InterestController extends GetxController {
         message: e.message,
         needsCoins: noCoins,
         alreadyExists: exists,
+        needsUpgrade: upgrade,
       );
     } catch (e) {
       return SendInterestOutcome(sent: false, message: e.toString());

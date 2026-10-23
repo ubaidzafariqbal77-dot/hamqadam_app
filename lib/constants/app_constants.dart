@@ -37,6 +37,27 @@ class ApiConfig {
     return '$assetBaseUrl/${p.replaceFirst(RegExp(r'^/+'), '')}';
   }
 
+  /// Root of the Hamqadam Bio AI service (`POST /v1/bio/ai-generate`).
+  ///
+  /// Locally the service runs on port 8100:
+  ///
+  /// ```
+  /// flutter run --dart-define=BIO_AI_BASE_URL=http://<your-Mac-LAN-IP>:8100
+  /// ```
+  ///
+  /// Without it the Android emulator reaches the Mac at `10.0.2.2` and the iOS
+  /// simulator at `localhost`. A physical phone always needs the LAN IP.
+  static String get bioAiBaseUrl {
+    const String fromEnv = String.fromEnvironment('BIO_AI_BASE_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    // Release builds talk to the live service on the ai-bio subdomain.
+    if (const bool.fromEnvironment('dart.vm.product')) return 'https://ai-bio.hamqadam.com';
+    return Platform.isAndroid ? 'http://10.0.2.2:8100' : 'http://localhost:8100';
+  }
+
+  /// Sent as `X-App-Key`. Not needed against a local development service.
+  static const String bioAiAppKey = String.fromEnvironment('BIO_AI_APP_KEY');
+
   static const Duration connectTimeout = Duration(seconds: 20);
   static const Duration receiveTimeout = Duration(seconds: 30);
   static const Duration sendTimeout = Duration(seconds: 60); // uploads

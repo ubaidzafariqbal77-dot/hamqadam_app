@@ -49,7 +49,8 @@ class Step14Controller extends StepController {
 
   // ---- Live CNIC availability check (green Available / red already
   // registered, same recipe as step 5's phone/email) ----
-  AccountCheckRepository get _checkRepo => Get.isRegistered<AccountCheckRepository>()
+  AccountCheckRepository get _checkRepo =>
+      Get.isRegistered<AccountCheckRepository>()
       ? Get.find<AccountCheckRepository>()
       : Get.put(AccountCheckRepository(Get.find<ApiClient>()), permanent: true);
 
@@ -78,13 +79,19 @@ class Step14Controller extends StepController {
       return;
     }
     if (formatted == _lastCnicChecked && cnicAvailable.value != null) return;
-    _cnicDebounce = Timer(const Duration(milliseconds: 700), () => _checkCnic(formatted));
+    _cnicDebounce = Timer(
+      const Duration(milliseconds: 700),
+      () => _checkCnic(formatted),
+    );
   }
 
   Future<void> _checkCnic(String value) async {
     _lastCnicChecked = value;
     try {
-      final AccountCheckResult r = await _checkRepo.check(type: 'cnic', value: value);
+      final AccountCheckResult r = await _checkRepo.check(
+        type: 'cnic',
+        value: value,
+      );
       if (value != cnicNumber.value) return;
       cnicAvailable.value = r.available;
       cnicCheckMessage.value = r.message ?? '';
@@ -127,8 +134,10 @@ class Step14Controller extends StepController {
   Future<PickedMedia?> _capture({bool highRes = false}) async {
     final bool? fromCamera = await _askSource();
     if (fromCamera == null) return null;
-    final PickedMedia? m =
-        await picker.pickImage(fromCamera: fromCamera, highRes: highRes);
+    final PickedMedia? m = await picker.pickImage(
+      fromCamera: fromCamera,
+      highRes: highRes,
+    );
     if (m == null) return null;
     final MediaValidation v = MediaPickerHelper.validateImage(m);
     if (!v.isValid) {
@@ -263,7 +272,8 @@ class _Step14ViewState extends State<Step14View> {
                   : 'Enter the 13-digit number as XXXXX-XXXXXXX-X',
             ),
             Obx(() {
-              if (c.cnicAvailable.value == null || c.cnicCheckMessage.value.isEmpty) {
+              if (c.cnicAvailable.value == null ||
+                  c.cnicCheckMessage.value.isEmpty) {
                 return const SizedBox.shrink();
               }
               final bool ok = c.cnicAvailable.value!;

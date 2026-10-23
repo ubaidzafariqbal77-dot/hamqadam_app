@@ -58,7 +58,9 @@ class Step15Controller extends StepController {
       selected.remove(chip);
     } else {
       if (selected.length >= RegOptions.maxInterests) {
-        AppSnackbar.info('You can select up to ${RegOptions.maxInterests} interests.');
+        AppSnackbar.info(
+          'You can select up to ${RegOptions.maxInterests} interests.',
+        );
         return;
       }
       selected.add(chip);
@@ -103,7 +105,8 @@ class _Step15ViewState extends State<Step15View> {
       title: 'What are your interests?',
       art: RegIcons.step15Interests,
       artIcon: Icons.interests_rounded,
-      subtitle: 'Select up to ${RegOptions.maxInterests} interests to make your '
+      subtitle:
+          'Select up to ${RegOptions.maxInterests} interests to make your '
           'profile stand out!',
       busy: c.busy,
       error: c.error,
@@ -118,7 +121,10 @@ class _Step15ViewState extends State<Step15View> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              _InterestsField(count: sel.length, onTap: () => _openSheet(context)),
+              _InterestsField(
+                count: sel.length,
+                onTap: () => _openSheet(context),
+              ),
               if (sel.isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
                 Wrap(
@@ -126,7 +132,12 @@ class _Step15ViewState extends State<Step15View> {
                   runSpacing: AppSpacing.xs,
                   alignment: WrapAlignment.center,
                   children: sel
-                      .map((String s) => _SelectedChip(label: s, onRemove: () => c.toggle(s)))
+                      .map(
+                        (String s) => _SelectedChip(
+                          label: s,
+                          onRemove: () => c.toggle(s),
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -154,10 +165,8 @@ class _Step15ViewState extends State<Step15View> {
                   runSpacing: AppSpacing.xs,
                   children: c.suggestions
                       .map(
-                        (String s) => _SuggestionChip(
-                          label: s,
-                          onTap: () => c.toggle(s),
-                        ),
+                        (String s) =>
+                            _SuggestionChip(label: s, onTap: () => c.toggle(s)),
                       )
                       .toList(),
                 ),
@@ -197,20 +206,36 @@ class _Step15ViewState extends State<Step15View> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                  ),
                   child: Row(
                     children: <Widget>[
-                      Expanded(child: BiText('What are your interests?', style: AppTextStyles.subtitle)),
-                      Obx(() => Text(
-                            '${c.selected.length}/${RegOptions.maxInterests}',
-                            style: AppTextStyles.bodyStrong.copyWith(color: AppColors.regAccent),
-                          )),
+                      Expanded(
+                        child: BiText(
+                          'What are your interests?',
+                          style: AppTextStyles.subtitle,
+                        ),
+                      ),
+                      Obx(
+                        () => Text(
+                          '${c.selected.length}/${RegOptions.maxInterests}',
+                          style: AppTextStyles.bodyStrong.copyWith(
+                            color: AppColors.regAccent,
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: AppSpacing.md),
                       GestureDetector(
                         onTap: () => Navigator.of(ctx).pop(),
                         child: BiText.inline(
                           'Done',
-                          style: AppTextStyles.button.copyWith(color: AppColors.regAccent),
+                          style: AppTextStyles.button.copyWith(
+                            color: AppColors.regAccent,
+                          ),
                         ),
                       ),
                     ],
@@ -221,7 +246,11 @@ class _Step15ViewState extends State<Step15View> {
                 // categories is not the only way anyone should have to find one.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                  ),
                   child: TextField(
                     autofocus: false,
                     onChanged: (String v) => query.value = v,
@@ -235,7 +264,9 @@ class _Step15ViewState extends State<Step15View> {
                       hintText: 'Search interests…',
                       prefixIcon: const Icon(Icons.search_rounded),
                       filled: true,
-                      fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                      fillColor: Theme.of(
+                        ctx,
+                      ).colorScheme.surfaceContainerHighest,
                       border: OutlineInputBorder(
                         borderRadius: AppRadius.mdAll,
                         borderSide: BorderSide.none,
@@ -254,7 +285,8 @@ class _Step15ViewState extends State<Step15View> {
                         ? c.categories
                         : <String, List<String>>{
                             'Matches': <String>[
-                              for (final List<String> options in c.categories.values)
+                              for (final List<String> options
+                                  in c.categories.values)
                                 for (final String option in options)
                                   if (option.toLowerCase().contains(q)) option,
                             ],
@@ -263,19 +295,27 @@ class _Step15ViewState extends State<Step15View> {
                       return Center(
                         child: Text(
                           'No matches for “${query.value.trim()}”',
-                          style: AppTextStyles.body
-                              .copyWith(color: Theme.of(ctx).hintColor),
+                          style: AppTextStyles.body.copyWith(
+                            color: Theme.of(ctx).hintColor,
+                          ),
                         ),
                       );
                     }
                     return ListView(
                       controller: scroll,
                       padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xl),
+                        AppSpacing.lg,
+                        AppSpacing.md,
+                        AppSpacing.lg,
+                        AppSpacing.xl,
+                      ),
                       children: <Widget>[
-                        for (final MapEntry<String, List<String>> e in groups.entries)
+                        for (final MapEntry<String, List<String>> e
+                            in groups.entries)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.lg,
+                            ),
                             child: AppChipSelector(
                               label: e.key,
                               options: e.value,
@@ -325,7 +365,9 @@ class _InterestsField extends StatelessWidget {
                       )
                     : Text(
                         '$count selected',
-                        style: AppTextStyles.body.copyWith(color: AppColors.regAccent),
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.regAccent,
+                        ),
                       ),
               ),
               Icon(Icons.expand_more_rounded, color: hintColor),
@@ -393,12 +435,19 @@ class _SelectedChip extends StatelessWidget {
         children: <Widget>[
           Text(
             RegOptions.plain(label),
-            style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+            style: AppTextStyles.caption.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close_rounded, size: 16, color: Colors.white),
+            child: const Icon(
+              Icons.close_rounded,
+              size: 16,
+              color: Colors.white,
+            ),
           ),
         ],
       ),

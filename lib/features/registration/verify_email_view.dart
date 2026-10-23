@@ -32,9 +32,11 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
   @override
   void initState() {
     super.initState();
-    final bool sent = widget.codeAlreadySent || (Get.arguments is Map<String, dynamic>
-        ? (Get.arguments as Map<String, dynamic>)['codeAlreadySent'] == true
-        : false);
+    final bool sent =
+        widget.codeAlreadySent ||
+        (Get.arguments is Map<String, dynamic>
+            ? (Get.arguments as Map<String, dynamic>)['codeAlreadySent'] == true
+            : false);
     c = Get.put(VerifyEmailController(codeAlreadySent: sent));
   }
 
@@ -78,10 +80,16 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                       children: <InlineSpan>[
                         const TextSpan(text: 'We sent a 6-digit code to '),
                         TextSpan(
-                          text: c.email.value.isEmpty ? 'your email address' : c.email.value,
-                          style: AppTextStyles.bodyStrong.copyWith(color: AppColors.primary),
+                          text: c.email.value.isEmpty
+                              ? 'your email address'
+                              : c.email.value,
+                          style: AppTextStyles.bodyStrong.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
-                        const TextSpan(text: '. Enter it below to activate your account.'),
+                        const TextSpan(
+                          text: '. Enter it below to activate your account.',
+                        ),
                       ],
                     ),
                     style: AppTextStyles.body.copyWith(
@@ -146,11 +154,16 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
                 ),
                 TextButton.icon(
                   onPressed: () => _promptChangeEmail(context, c),
-                  icon: const Icon(Icons.alternate_email_rounded,
-                      size: 18, color: AppColors.primary),
+                  icon: const Icon(
+                    Icons.alternate_email_rounded,
+                    size: 18,
+                    color: AppColors.primary,
+                  ),
                   label: Text(
                     'Use a different email',
-                    style: AppTextStyles.label.copyWith(color: AppColors.primary),
+                    style: AppTextStyles.label.copyWith(
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
               ],
@@ -165,7 +178,10 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
 /// Lets the user move the account to another address and get a fresh code —
 /// the way out of "Email is already verified" / a typo'd address, without
 /// abandoning the 18 steps already submitted.
-Future<void> _promptChangeEmail(BuildContext context, VerifyEmailController c) async {
+Future<void> _promptChangeEmail(
+  BuildContext context,
+  VerifyEmailController c,
+) async {
   c.newEmailCtrl.text = c.email.value;
   final bool? confirmed = await showDialog<bool>(
     context: context,
@@ -193,7 +209,10 @@ Future<void> _promptChangeEmail(BuildContext context, VerifyEmailController c) a
         ],
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(true),
           child: const Text('Send code'),
@@ -219,10 +238,17 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          const Icon(Icons.error_outline_rounded, color: AppColors.error, size: 20),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.error,
+            size: 20,
+          ),
           const SizedBox(width: AppSpacing.xs),
           Expanded(
-            child: Text(message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+            child: Text(
+              message,
+              style: AppTextStyles.caption.copyWith(color: AppColors.error),
+            ),
           ),
         ],
       ),

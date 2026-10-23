@@ -187,7 +187,8 @@ class _Step04ViewState extends State<Step04View> {
                     controller: c.area,
                     hint: 'e.g. Gulberg, DHA Phase 5',
                     textInputAction: TextInputAction.done,
-                    validator: (String? v) => AppValidators.required(v, field: 'Area'),
+                    validator: (String? v) =>
+                        AppValidators.required(v, field: 'Area'),
                   ),
                 ),
               ],

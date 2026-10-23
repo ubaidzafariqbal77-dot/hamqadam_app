@@ -27,7 +27,9 @@ class Step06Controller extends StepController {
 
   bool get hasSubCastes =>
       caste.value != null &&
-      lookup.itemsOf(LookupKeys.subCastes, parentId: caste.value!.id).isNotEmpty;
+      lookup
+          .itemsOf(LookupKeys.subCastes, parentId: caste.value!.id)
+          .isNotEmpty;
 
   @override
   void restore() {
@@ -56,7 +58,8 @@ class Step06Controller extends StepController {
   }
 
   /// Same for a sub-caste under the chosen (possibly custom) caste.
-  void onCustomSubCaste(String v) => subCaste.value = LookupItem(id: -1, name: v);
+  void onCustomSubCaste(String v) =>
+      subCaste.value = LookupItem(id: -1, name: v);
 
   @override
   bool extraValidate() {
@@ -220,7 +223,11 @@ class _Step06ViewState extends State<Step06View> {
 
 /// One quick-pick chip in the "Popular" row.
 class _PopularChip extends StatelessWidget {
-  const _PopularChip({required this.label, required this.selected, required this.onTap});
+  const _PopularChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -238,9 +245,7 @@ class _PopularChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             gradient: selected
-                ? const LinearGradient(
-                    colors: AppColors.regPrimaryGradient,
-                  )
+                ? const LinearGradient(colors: AppColors.regPrimaryGradient)
                 : null,
             color: selected
                 ? AppColors.regAccent

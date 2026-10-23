@@ -54,7 +54,8 @@ class _FinalizingViewState extends State<FinalizingView> {
                 const SizedBox(height: AppSpacing.md),
                 Expanded(
                   child: Obx(() {
-                    if (c.missing.isNotEmpty) return _MissingSteps(controller: c);
+                    if (c.missing.isNotEmpty)
+                      return _MissingSteps(controller: c);
                     final List<FinalizeStep> items = c.steps.toList();
                     final List<RejectedField> rejected = c.rejectedFields;
                     return ListView(
@@ -103,14 +104,19 @@ class _StepRow extends StatelessWidget {
           borderRadius: AppRadius.mdAll,
           onTap: failed ? () => controller.runOne(step) : null,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
             decoration: BoxDecoration(
               color: failed
                   ? AppColors.error.withValues(alpha: 0.06)
                   : Theme.of(context).colorScheme.surface,
               borderRadius: AppRadius.mdAll,
               border: Border.all(
-                color: failed ? AppColors.error.withValues(alpha: 0.4) : Theme.of(context).dividerColor,
+                color: failed
+                    ? AppColors.error.withValues(alpha: 0.4)
+                    : Theme.of(context).dividerColor,
               ),
             ),
             child: Row(
@@ -125,17 +131,26 @@ class _StepRow extends StatelessWidget {
                       if (failed && step.message.value.isNotEmpty)
                         Text(
                           step.message.value,
-                          style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.error,
+                          ),
                         ),
                       if (failed)
                         Text(
                           'Tap to retry',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primary),
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primary,
+                          ),
                         ),
                     ],
                   ),
                 ),
-                if (failed) const Icon(Icons.refresh_rounded, color: AppColors.primary, size: 20),
+                if (failed)
+                  const Icon(
+                    Icons.refresh_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
               ],
             ),
           ),
@@ -156,14 +171,29 @@ class _StatusIcon extends StatelessWidget {
         return const SizedBox(
           width: 22,
           height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.primary,
+          ),
         );
       case 2:
-        return const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 24);
+        return const Icon(
+          Icons.check_circle_rounded,
+          color: AppColors.success,
+          size: 24,
+        );
       case 3:
-        return const Icon(Icons.error_rounded, color: AppColors.error, size: 24);
+        return const Icon(
+          Icons.error_rounded,
+          color: AppColors.error,
+          size: 24,
+        );
       default:
-        return Icon(Icons.circle_outlined, color: Theme.of(context).dividerColor, size: 22);
+        return Icon(
+          Icons.circle_outlined,
+          color: Theme.of(context).dividerColor,
+          size: 22,
+        );
     }
   }
 }
@@ -208,7 +238,12 @@ class _RejectedRow extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 1),
-                      Text(field.message, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                      Text(
+                        field.message,
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.error,
+                        ),
+                      ),
                       Text(
                         // A field the app cannot trace back to a screen used to
                         // render as a bare message with no tap target and no
@@ -218,7 +253,7 @@ class _RejectedRow extends StatelessWidget {
                         canJump
                             ? 'Tap to edit “${field.stepTitle}”'
                             : 'This answer is not on any signup screen — '
-                                'please report it to support.',
+                                  'please report it to support.',
                         style: AppTextStyles.caption.copyWith(
                           color: canJump ? AppColors.primary : AppColors.error,
                         ),
@@ -227,7 +262,11 @@ class _RejectedRow extends StatelessWidget {
                   ),
                 ),
                 if (canJump)
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.primary, size: 20),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
               ],
             ),
           ),
@@ -256,10 +295,14 @@ class _UploadProgress extends StatelessWidget {
             child: LinearProgressIndicator(
               // An indeterminate bar while the server processes the finished
               // upload, a real one while bytes are still going out.
-              value: active && value > 0 && value < 1 ? value : (active ? null : value),
+              value: active && value > 0 && value < 1
+                  ? value
+                  : (active ? null : value),
               minHeight: 6,
               backgroundColor: Theme.of(context).dividerColor,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.primary,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -319,7 +362,11 @@ class _MissingSteps extends StatelessWidget {
                   ),
                   child: Row(
                     children: <Widget>[
-                      const Icon(Icons.edit_outlined, size: 18, color: AppColors.error),
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.error,
+                      ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Column(

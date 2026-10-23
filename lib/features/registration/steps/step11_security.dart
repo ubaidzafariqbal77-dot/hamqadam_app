@@ -80,7 +80,7 @@ class _Step11ViewState extends State<Step11View> {
       stepNumber: 11,
       totalSteps: 18,
       title: 'Account security',
-      art: RegIcons.step11Security, 
+      art: RegIcons.step11Security,
       artIcon: Icons.lock_outline_rounded,
       subtitle: 'Create a strong password to protect your account.',
       busy: c.busy,
@@ -89,7 +89,8 @@ class _Step11ViewState extends State<Step11View> {
       primaryLabel: 'Save password',
       onPrimary: c.submit,
       onBack: c.back,
-      helpText: 'This password will secure your account once the last step is '
+      helpText:
+          'This password will secure your account once the last step is '
           'submitted. You will sign in with the email you entered earlier.',
       titleColor: const Color(0xFFB23A5E),
       children: <Widget>[
@@ -141,19 +142,28 @@ class _Step11ViewState extends State<Step11View> {
                       curve: Curves.easeOutCubic,
                       builder: (BuildContext ctx, double val, _) =>
                           LinearProgressIndicator(
-                        value: val,
-                        minHeight: 8,
-                        backgroundColor: const Color(0xFFF3E3E9),
-                        valueColor: AlwaysStoppedAnimation<Color>(s.color),
-                      ),
+                            value: val,
+                            minHeight: 8,
+                            backgroundColor: const Color(0xFFF3E3E9),
+                            valueColor: AlwaysStoppedAnimation<Color>(s.color),
+                          ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: <Widget>[
-                      Expanded(child: _req('At least 8 characters', s.hasLength)),
-                      Expanded(child: _req('Includes number or symbol', s.hasSymbolOrDigit)),
-                      Expanded(child: _req('Mixed case letters', s.hasMixedCase)),
+                      Expanded(
+                        child: _req('At least 8 characters', s.hasLength),
+                      ),
+                      Expanded(
+                        child: _req(
+                          'Includes number or symbol',
+                          s.hasSymbolOrDigit,
+                        ),
+                      ),
+                      Expanded(
+                        child: _req('Mixed case letters', s.hasMixedCase),
+                      ),
                     ],
                   ),
                 ],
@@ -167,7 +177,8 @@ class _Step11ViewState extends State<Step11View> {
           controller: c.confirm,
           revalidateWhenControllerChanges: c.password,
           textInputAction: TextInputAction.done,
-          validator: (String? v) => AppValidators.confirmPassword(v, c.password.text),
+          validator: (String? v) =>
+              AppValidators.confirmPassword(v, c.password.text),
         ),
       ],
     );
@@ -203,7 +214,9 @@ class _Step11ViewState extends State<Step11View> {
             style: AppTextStyles.caption.copyWith(
               fontSize: 12,
               height: 1.3,
-              color: met ? AppColors.lightTextPrimary : AppColors.lightTextSecondary,
+              color: met
+                  ? AppColors.lightTextPrimary
+                  : AppColors.lightTextSecondary,
             ),
           ),
         ),
@@ -215,8 +228,14 @@ class _Step11ViewState extends State<Step11View> {
 /// Live password scoring for the strength meter. Purely visual — the submit
 /// validator is still the server-matching [AppValidators.password].
 class _PwStrength {
-  const _PwStrength(this.percent, this.label, this.color, this.hasLength,
-      this.hasSymbolOrDigit, this.hasMixedCase);
+  const _PwStrength(
+    this.percent,
+    this.label,
+    this.color,
+    this.hasLength,
+    this.hasSymbolOrDigit,
+    this.hasMixedCase,
+  );
 
   final int percent;
   final String label;
@@ -227,8 +246,10 @@ class _PwStrength {
 
   static _PwStrength of(String pw) {
     final bool hasLen = pw.length >= 8;
-    final bool hasSymOrDigit = pw.contains(RegExp(r'[0-9]')) || pw.contains(RegExp(r'[^A-Za-z0-9]'));
-    final bool hasMixed = pw.contains(RegExp(r'[a-z]')) && pw.contains(RegExp(r'[A-Z]'));
+    final bool hasSymOrDigit =
+        pw.contains(RegExp(r'[0-9]')) || pw.contains(RegExp(r'[^A-Za-z0-9]'));
+    final bool hasMixed =
+        pw.contains(RegExp(r'[a-z]')) && pw.contains(RegExp(r'[A-Z]'));
     int score = 0;
     if (hasLen) score++;
     if (hasSymOrDigit) score++;
@@ -248,6 +269,13 @@ class _PwStrength {
       2 => ('Medium', const Color(0xFFC98A19)),
       _ => ('Strong', AppColors.regAccent),
     };
-    return _PwStrength(percent, verdict.$1, verdict.$2, hasLen, hasSymOrDigit, hasMixed);
+    return _PwStrength(
+      percent,
+      verdict.$1,
+      verdict.$2,
+      hasLen,
+      hasSymOrDigit,
+      hasMixed,
+    );
   }
 }

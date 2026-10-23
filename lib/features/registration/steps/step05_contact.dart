@@ -52,7 +52,8 @@ class Step05Controller extends StepController {
 
   // ---- Live availability checks (Task: green "Available" / red "already
   // registered" under each field as the member types) ----
-  AccountCheckRepository get _checkRepo => Get.isRegistered<AccountCheckRepository>()
+  AccountCheckRepository get _checkRepo =>
+      Get.isRegistered<AccountCheckRepository>()
       ? Get.find<AccountCheckRepository>()
       : Get.put(AccountCheckRepository(Get.find<ApiClient>()), permanent: true);
 
@@ -75,15 +76,23 @@ class Step05Controller extends StepController {
       return;
     }
     if (value == _lastPhoneChecked && phoneAvailable.value != null) return;
-    _phoneDebounce = Timer(const Duration(milliseconds: 700), () => _checkPhone(value));
+    _phoneDebounce = Timer(
+      const Duration(milliseconds: 700),
+      () => _checkPhone(value),
+    );
   }
 
   Future<void> _checkPhone(String value) async {
-    final ({String countryCode, String phone}) split = ApiValues.splitPhone(value);
+    final ({String countryCode, String phone}) split = ApiValues.splitPhone(
+      value,
+    );
     final String full = '${split.countryCode}${split.phone}';
     _lastPhoneChecked = value;
     try {
-      final AccountCheckResult r = await _checkRepo.check(type: 'phone', value: full);
+      final AccountCheckResult r = await _checkRepo.check(
+        type: 'phone',
+        value: full,
+      );
       // Stale-response guard: the field may have changed while in flight.
       if (value != phone.text.trim()) return;
       phoneAvailable.value = r.available;
@@ -106,14 +115,22 @@ class Step05Controller extends StepController {
       emailCheckMessage.value = '';
       return;
     }
-    if (value.toLowerCase() == _lastEmailChecked && emailAvailable.value != null) return;
-    _emailDebounce = Timer(const Duration(milliseconds: 700), () => _checkEmail(value));
+    if (value.toLowerCase() == _lastEmailChecked &&
+        emailAvailable.value != null)
+      return;
+    _emailDebounce = Timer(
+      const Duration(milliseconds: 700),
+      () => _checkEmail(value),
+    );
   }
 
   Future<void> _checkEmail(String value) async {
     _lastEmailChecked = value.toLowerCase();
     try {
-      final AccountCheckResult r = await _checkRepo.check(type: 'email', value: value);
+      final AccountCheckResult r = await _checkRepo.check(
+        type: 'email',
+        value: value,
+      );
       if (value != email.text.trim()) return;
       emailAvailable.value = r.available;
       emailCheckMessage.value = r.message ?? '';
@@ -126,7 +143,8 @@ class Step05Controller extends StepController {
 
   bool get otpEnabled => ApiOptions.emailOtpBeforeSubmit;
   String get _email => email.text.trim().toLowerCase();
-  bool get isVerified => verifiedEmail.value.isNotEmpty && verifiedEmail.value == _email;
+  bool get isVerified =>
+      verifiedEmail.value.isNotEmpty && verifiedEmail.value == _email;
   bool get codeSent => sentTo.value.isNotEmpty && sentTo.value == _email;
   bool get canResend => resendIn.value == 0 && !sending.value;
 
@@ -164,7 +182,9 @@ class Step05Controller extends StepController {
       if (!res.success) throw ApiException(res.message);
       sentTo.value = _email;
       _startCooldown();
-      AppSnackbar.success(res.message.isEmpty ? 'Code sent to $_email' : res.message);
+      AppSnackbar.success(
+        res.message.isEmpty ? 'Code sent to $_email' : res.message,
+      );
     } on AppException catch (e) {
       otpError.value = e.message;
     } finally {
@@ -220,7 +240,9 @@ class Step05Controller extends StepController {
 
   @override
   Map<String, dynamic> collect() {
-    final ({String countryCode, String phone}) split = ApiValues.splitPhone(phone.text);
+    final ({String countryCode, String phone}) split = ApiValues.splitPhone(
+      phone.text,
+    );
     return <String, dynamic>{
       'phone': phone.text.trim(),
       'country_code': split.countryCode,
@@ -309,33 +331,33 @@ class _Step05ViewState extends State<Step05View> {
         ),
         const SizedBox(height: 42),
         Reveal(
-            delayMs: 120,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                AppTextFormField(
-                  insetLabel: true,
-                  label: 'Email address',
-                  controller: c.email,
-                  hint: 'you@example.com',
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.done,
-                  autofillHints: const <String>[AutofillHints.email],
-                  validator: (String? v) => AppValidators.email(v),
-                  // Matching rose envelope glyph — same disc treatment as the
-                  // phone field above.
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(left: 14, right: 8),
-                    child: AssetOrIconDisc(child: MailGlyph(size: 22)),
-                  ),
+          delayMs: 120,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              AppTextFormField(
+                insetLabel: true,
+                label: 'Email address',
+                controller: c.email,
+                hint: 'you@example.com',
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                autofillHints: const <String>[AutofillHints.email],
+                validator: (String? v) => AppValidators.email(v),
+                // Matching rose envelope glyph — same disc treatment as the
+                // phone field above.
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 8),
+                  child: AssetOrIconDisc(child: MailGlyph(size: 22)),
                 ),
-                _AvailabilityText(
-                  available: c.emailAvailable.value,
-                  message: c.emailCheckMessage.value,
-                ),
-              ],
-            ),
+              ),
+              _AvailabilityText(
+                available: c.emailAvailable.value,
+                message: c.emailCheckMessage.value,
+              ),
+            ],
           ),
+        ),
         if (c.otpEnabled) _EmailVerification(c: c),
       ],
     );
@@ -431,9 +453,13 @@ class _EmailVerification extends StatelessWidget {
                 TextButton(
                   onPressed: c.canResend ? c.sendCode : null,
                   child: Text(
-                    c.resendIn.value > 0 ? 'Resend ${c.resendIn.value}s' : 'Resend',
+                    c.resendIn.value > 0
+                        ? 'Resend ${c.resendIn.value}s'
+                        : 'Resend',
                     style: AppTextStyles.label.copyWith(
-                      color: c.canResend ? AppColors.regAccent : Theme.of(context).disabledColor,
+                      color: c.canResend
+                          ? AppColors.regAccent
+                          : Theme.of(context).disabledColor,
                     ),
                   ),
                 ),

@@ -300,15 +300,8 @@ class StepScaffold extends StatelessWidget {
   /// bar does (step fraction, or profile progress while editing a section).
   Widget _compactHeader(BuildContext context, RegistrationController? reg,
       Color ink, bool dark) {
-    final double fraction;
-    final int percent;
-    if (reg == null) {
-      fraction = stepNumber / totalSteps;
-      percent = ((stepNumber / totalSteps) * 100).round();
-    } else {
-      fraction = reg.progressFraction;
-      percent = reg.progressPercent;
-    }
+    final double fraction =
+        reg == null ? stepNumber / totalSteps : reg.progressFraction;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -324,14 +317,6 @@ class StepScaffold extends StatelessWidget {
                   height: 1.1,
                   color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '$percent%',
-              style: AppTextStyles.bodyStrong.copyWith(
-                fontSize: 15,
-                color: AppColors.primaryDark.withValues(alpha: 0.75),
               ),
             ),
           ],
@@ -493,14 +478,6 @@ class _TopBar extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            '$percent%',
-            style: AppTextStyles.bodyStrong.copyWith(
-              color: AppColors.primaryDark,
-              fontSize: 14,
             ),
           ),
         ],

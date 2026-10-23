@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../../constants/api_endpoints.dart';
 import '../../constants/app_constants.dart';
 import '../../exceptions/app_exceptions.dart';
 
@@ -137,7 +138,8 @@ class ApiClient {
           }
           if (error.response?.statusCode == 401) {
             await _fireUnauthorized();
-          } else if (error.response?.statusCode == 423) {
+          } else if (error.response?.statusCode == 423 &&
+              !_isEmailVerificationCall(error.requestOptions.path)) {
             await _fireManualReview(error.response);
           }
           handler.next(error);
@@ -145,6 +147,15 @@ class ApiClient {
       ),
     );
   }
+
+  /// Email verification is part of finishing registration. The review screen
+  /// only comes after the code is verified, so a 423 on these calls must not
+  /// pull the member out of the OTP step — the caller shows the error instead.
+  static bool _isEmailVerificationCall(String path) =>
+      path.endsWith(ApiEndpoints.registerRequestOtp) ||
+      path.endsWith(ApiEndpoints.registerVerifyOtp) ||
+      path.endsWith(ApiEndpoints.authEmailVerificationCode) ||
+      path.endsWith(ApiEndpoints.authEmailVerify);
 
   Future<void> _fireUnauthorized() async {
     // A 401 on a request that carried no token (e.g. the dropdown reference

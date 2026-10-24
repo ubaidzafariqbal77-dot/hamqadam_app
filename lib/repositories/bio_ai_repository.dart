@@ -128,6 +128,15 @@ class BioAiRepository {
     final dynamic error = data is Map ? data['error'] : null;
     final String? code = error is Map ? error['code']?.toString() : null;
     switch (code) {
+      case 'UNAUTHORIZED':
+        // The build was made without bio_ai.env.json (no X-App-Key).
+        AppLogger.e(
+          'Bio AI rejected the app key - build with --dart-define-from-file=bio_ai.env.json',
+        );
+        return const BioAiException(
+          'AI bio is not available in this version of the app. Please update the app.',
+          code: 'UNAUTHORIZED',
+        );
       case 'INSUFFICIENT_PROFILE_DATA':
         return const BioAiException(
           'Please complete your education or career details first, so the AI has something to write about.',

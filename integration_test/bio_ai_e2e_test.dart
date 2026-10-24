@@ -52,6 +52,9 @@ void main() {
 
     Future<String> tapAi() async {
       final String before = c.aboutMe.text;
+      // The taller field pushes the button below the fold once text is in.
+      await tester.ensureVisible(find.text('Write with AI'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Write with AI'));
       for (int i = 0; i < 600 && (c.generating.value || c.aboutMe.text == before); i++) {
         await tester.pump(const Duration(milliseconds: 100));

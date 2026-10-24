@@ -39,24 +39,27 @@ class ApiConfig {
 
   /// Root of the Hamqadam Bio AI service (`POST /v1/bio/ai-generate`).
   ///
-  /// Locally the service runs on port 8100:
+  /// Every build — debug on a phone included — uses the live service. To try a
+  /// service running on your Mac instead:
   ///
   /// ```
   /// flutter run --dart-define=BIO_AI_BASE_URL=http://<your-Mac-LAN-IP>:8100
   /// ```
-  ///
-  /// Without it the Android emulator reaches the Mac at `10.0.2.2` and the iOS
-  /// simulator at `localhost`. A physical phone always needs the LAN IP.
-  static String get bioAiBaseUrl {
-    const String fromEnv = String.fromEnvironment('BIO_AI_BASE_URL');
-    if (fromEnv.isNotEmpty) return fromEnv;
-    // Release builds talk to the live service on the ai-bio subdomain.
-    if (const bool.fromEnvironment('dart.vm.product')) return 'https://ai-bio.hamqadam.com';
-    return Platform.isAndroid ? 'http://10.0.2.2:8100' : 'http://localhost:8100';
-  }
+  static const String bioAiBaseUrl = String.fromEnvironment(
+    'BIO_AI_BASE_URL',
+    defaultValue: 'https://ai-bio.hamqadam.com',
+  );
 
-  /// Sent as `X-App-Key`. Not needed against a local development service.
-  static const String bioAiAppKey = String.fromEnvironment('BIO_AI_APP_KEY');
+  /// Sent as `X-App-Key`; the live service rejects requests without it.
+  ///
+  /// Built in, so every run and build works without extra flags. It ships in
+  /// the app binary either way, so it only throttles abuse - it is not a
+  /// secret. To rotate: set a new `HQ_APP_API__KEYS` on the server (old,new
+  /// for an overlap), change it here, release, then drop the old one.
+  static const String bioAiAppKey = String.fromEnvironment(
+    'BIO_AI_APP_KEY',
+    defaultValue: '5Xhf3LQJX0_mH__GUGRAIlW_zjBb9RrUCsH7nu_olsQ',
+  );
 
   static const Duration connectTimeout = Duration(seconds: 20);
   static const Duration receiveTimeout = Duration(seconds: 30);
@@ -82,9 +85,19 @@ class AppConstants {
   static const int maxVideoBytes = 25 * 1024 * 1024; // 25 MB
   static const int maxAudioBytes = 10 * 1024 * 1024; // 10 MB
 
-  static const List<String> allowedImageExt = <String>['jpg', 'jpeg', 'png', 'webp'];
+  static const List<String> allowedImageExt = <String>[
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+  ];
   static const List<String> allowedVideoExt = <String>['mp4', 'mov', 'm4v'];
-  static const List<String> allowedAudioExt = <String>['mp3', 'm4a', 'aac', 'wav'];
+  static const List<String> allowedAudioExt = <String>[
+    'mp3',
+    'm4a',
+    'aac',
+    'wav',
+  ];
 
   /// Debounce before persisting a draft while the user types.
   static const Duration draftDebounce = Duration(milliseconds: 600);

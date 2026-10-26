@@ -58,6 +58,20 @@ class ProfileController extends GetxController {
 
   Future<void> reload() => load();
 
+  /// Re-reads the profile WITHOUT flipping the screen to a spinner, so the
+  /// Trust & Verification checklist and badges always show the server's
+  /// current verdict (email OTP, moderator review, AI pre-screen…).
+  Future<void> refreshSilently() async {
+    if (state.value.data == null) return load();
+    try {
+      final ProfileModel data = await _repo.fetchProfile();
+      completion.reconcile(data);
+      state.value = ApiState<ProfileModel>.success(data);
+    } catch (_) {
+      // Keep the last good profile; a background refresh must never blank it.
+    }
+  }
+
   // ---- Privacy / visibility / deactivation ---------------------------------
 
   /// True while one of the mutating profile actions below is in flight, so the

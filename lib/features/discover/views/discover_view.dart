@@ -79,9 +79,7 @@ class DiscoverView extends StatelessWidget {
                 // Hero banner (auto-looping carousel)...
                 const SliverToBoxAdapter(child: _HeroBanner()),
                 // ...with the search row right under it, per the reference.
-                SliverToBoxAdapter(
-                  child: _SearchRow(controller: controller),
-                ),
+                SliverToBoxAdapter(child: _SearchRow(controller: controller)),
                 // "Recommended for You / Based on your preferences".
                 const SliverToBoxAdapter(child: _RecommendedHeader()),
                 // Active Filter Chips (if any filters applied)
@@ -175,7 +173,8 @@ class _SearchRow extends StatelessWidget {
                 color: isDark ? AppColors.darkSurface : _Soul.ink50,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                    color: isDark ? AppColors.darkBorder : _Soul.gray200),
+                  color: isDark ? AppColors.darkBorder : _Soul.gray200,
+                ),
               ),
               child: TextField(
                 controller: controller.searchInputController,
@@ -186,8 +185,10 @@ class _SearchRow extends StatelessWidget {
                 cursorColor: _Soul.pink600,
                 decoration: InputDecoration(
                   hintText: 'Search by city, profession, education...',
-                  hintStyle:
-                      const TextStyle(fontSize: 12, color: _Soul.gray400),
+                  hintStyle: const TextStyle(
+                    fontSize: 12,
+                    color: _Soul.gray400,
+                  ),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
                     color: _Soul.gray400,
@@ -268,8 +269,10 @@ class _FilterCircleButton extends StatelessWidget {
                         BorderSide(color: Colors.white, width: 1.5),
                       ),
                     ),
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
                     child: Center(
                       child: Text(
                         '$filterCount',
@@ -314,11 +317,7 @@ class _SearchBarHeader extends StatelessWidget {
         AppSpacing.md,
         12,
       ),
-      child: Column(
-        children: <Widget>[
-          _buildIconRow(context, theme, isDark),
-        ],
-      ),
+      child: Column(children: <Widget>[_buildIconRow(context, theme, isDark)]),
     );
   }
 
@@ -376,8 +375,11 @@ class _SearchBarHeader extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 2),
-                        Icon(Icons.auto_awesome_rounded,
-                            color: _Soul.pink600, size: 13),
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          color: _Soul.pink600,
+                          size: 13,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -424,7 +426,11 @@ class _SearchBarHeader extends StatelessWidget {
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: <BoxShadow>[
-            BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Icon(icon, color: _Soul.ink900, size: 20),
@@ -565,7 +571,11 @@ class _SearchBarHeader extends StatelessWidget {
             color: Colors.white,
             shape: BoxShape.circle,
             boxShadow: <BoxShadow>[
-              BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+              BoxShadow(
+                color: Color(0x14000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
             ],
           ),
           child: Stack(
@@ -634,9 +644,21 @@ class _HeroBannerState extends State<_HeroBanner> {
     'assets/images/onboard2.png',
     'assets/images/onboard3.png',
   ];
-  static const List<String> _badges = <String>['AI Matches', 'Curated Profiles', 'Verified Members'];
-  static const List<String> _titles = <String>['Thoughtful proposals', 'Handpicked for you', 'Trust built in'];
-  static const List<String> _accents = <String>['for your journey.', 'from day one.', 'at every step.'];
+  static const List<String> _badges = <String>[
+    'AI Matches',
+    'Curated Profiles',
+    'Verified Members',
+  ];
+  static const List<String> _titles = <String>[
+    'Thoughtful proposals',
+    'Handpicked for you',
+    'Trust built in',
+  ];
+  static const List<String> _accents = <String>[
+    'for your journey.',
+    'from day one.',
+    'at every step.',
+  ];
   static const List<String> _bodies = <String>[
     'Our AI finds compatible, verified profiles\nbased on your preferences.',
     'Real rishtas aligned with your values\nand partner preferences.',
@@ -726,7 +748,11 @@ class _HeroBannerState extends State<_HeroBanner> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Icon(Icons.auto_awesome_rounded, size: 13, color: _Soul.pinkInk),
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 13,
+                    color: _Soul.pinkInk,
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     _badges[i],
@@ -780,7 +806,9 @@ class _HeroBannerState extends State<_HeroBanner> {
                     width: active ? 16 : 5,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: active ? _Soul.pinkInk : Colors.white.withValues(alpha: 0.85),
+                      color: active
+                          ? _Soul.pinkInk
+                          : Colors.white.withValues(alpha: 0.85),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   );
@@ -845,7 +873,8 @@ class _CategoryChips extends StatelessWidget {
               _CategoryChip(
                 label: 'My Interests',
                 icon: Icons.favorite_rounded,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.expressInterests),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.expressInterests),
               ),
               _CategoryChip(
                 label: 'New Profiles',
@@ -875,27 +904,32 @@ class _CategoryChips extends StatelessWidget {
               _CategoryChip(
                 label: 'Swipe',
                 icon: Icons.style_rounded,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.swipeMatching),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.swipeMatching),
               ),
               _CategoryChip(
                 label: 'Interest-Based',
                 icon: Icons.interests_rounded,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.interestMatches),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.interestMatches),
               ),
               _CategoryChip(
                 label: 'Recently Viewed',
                 icon: Icons.visibility_outlined,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.recentlyViewed),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.recentlyViewed),
               ),
               _CategoryChip(
                 label: 'Search History',
                 icon: Icons.history_rounded,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.searchHistory),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.searchHistory),
               ),
               _CategoryChip(
                 label: 'Saved Searches',
                 icon: Icons.bookmark_rounded,
-                onTap: () => Get.toNamed<dynamic>(routes.AppRoutes.savedSearches),
+                onTap: () =>
+                    Get.toNamed<dynamic>(routes.AppRoutes.savedSearches),
               ),
             ],
           );
@@ -1564,602 +1598,634 @@ class _SingleUserProfileCard extends StatelessWidget {
     // The API's real compatibility score — or nothing. A fabricated 80/70%
     // told every member the same lie about every profile, and the pill only
     // means something when it is the server's number.
-    final int? matchPercentage = profile.compatibilityPercentage;
+    controller.ensureCompat(profile);
+    return Obx(() {
+      final int? matchPercentage = controller.compatFor(profile);
 
-    return GestureDetector(
-      // Whole-card tap → full profile detail page. Overlaid controls (heart /
-      // kebab) win the gesture arena as descendants, so their own handlers
-      // still fire.
-      onTap: () => PublicProfileDetailSheet.show(
-        context,
-        profileId: profile.id,
-        searchProfile: profile,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _Soul.gray100),
-          boxShadow: _Soul.cardShadow,
+      return GestureDetector(
+        // Whole-card tap → full profile detail page. Overlaid controls (heart /
+        // kebab) win the gesture arena as descendants, so their own handlers
+        // still fire.
+        onTap: () => PublicProfileDetailSheet.show(
+          context,
+          profileId: profile.id,
+          searchProfile: profile,
         ),
-        child: Column(
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-            // ---------------------------------------------------------
-            // PHOTO — the reference card's portrait image: Verified chip
-            // top-left, extra-photos badge bottom-left, favourite heart
-            // bottom-right.
-            // ---------------------------------------------------------
-            Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Container(
-                  width: 96,
-                  height: 116,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: _Soul.pink100,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: profile.hasPhoto
-                        // Disk-cached: revisiting Discover (and scrolling
-                        // back) renders instantly instead of re-downloading
-                        // every photo on each rebuild.
-                        ? CachedNetworkImage(
-                            imageUrl: profile.photoUrl!,
-                            fit: BoxFit.cover,
-                            fadeInDuration: Duration.zero,
-                            memCacheWidth: 300,
-                            errorWidget: (_, _, _) =>
-                                _PhotoFallback(profile: profile),
-                            placeholder: (_, _) =>
-                                _PhotoFallback(profile: profile),
-                          )
-                        : _PhotoFallback(profile: profile),
-                  ),
-                ),
-                // Verified — icon-only badge, top-left of the photo (tap
-                // opens the trust sheet, same behaviour as before).
-                if (profile.isVerified)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => TrustVerificationSheet.show(
-                        context,
-                        profileId: profile.id,
-                        name: profile.displayName,
-                        photoUrl: profile.photo,
-                      ),
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.verified_rounded,
-                          size: 16,
-                          color: Color(0xFF1D9BF0),
-                        ),
-                      ),
-                    ),
-                  ),
-                // Extra-photos badge — bottom-left dark pill with the count
-                // of ADDITIONAL gallery photos (0 hides it).
-                if (profile.additionalPhotoCount > 0)
-                  Positioned(
-                    bottom: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.photo_library_rounded,
-                              size: 9, color: Colors.white),
-                          const SizedBox(width: 3),
-                          Text(
-                            '${profile.additionalPhotoCount}',
-                            style: const TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                // Favourite heart — the reference's white circular button
-                // bottom-right, INSIDE the photo bounds (negative offsets
-                // made it hang outside the card on real devices).
-                Positioned(
-                  bottom: 6,
-                  right: 6,
-                  child: GestureDetector(
-                    onTap: () => controller.toggleShortlist(
-                      profile.id,
-                      displayName: profile.displayName,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Obx(() {
-                        final bool isShortlisted =
-                            controller.isShortlisted(profile.id);
-                        return Icon(
-                          isShortlisted
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          size: 16,
-                          color: isShortlisted
-                              ? _Soul.pink600
-                              : _Soul.ink500,
-                        );
-                      }),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(width: 12),
-
-            // ---------------------------------------------------------
-            // CONTENT — the reference layout: serif name on ONE line
-            // (complete, never truncated) + kebab, the age/height · faith
-            // line, location, profession, education. The % Match block sits
-            // on the right with the heart ABOVE it.
-            // ---------------------------------------------------------
-            Expanded(
-              child: Column(
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _Soul.gray100),
+            boxShadow: _Soul.cardShadow,
+          ),
+          child: Column(
+            children: <Widget>[
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // Name row — complete name on a single line + kebab menu.
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  // ---------------------------------------------------------
+                  // PHOTO — the reference card's portrait image: Verified chip
+                  // top-left, extra-photos badge bottom-left, favourite heart
+                  // bottom-right.
+                  // ---------------------------------------------------------
+                  Stack(
+                    clipBehavior: Clip.none,
                     children: <Widget>[
-                      Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            profile.displayName,
-                            style: const TextStyle(
-                              fontFamily: AppTextStyles.displayFont,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: _Soul.ink900,
+                      Container(
+                        width: 96,
+                        height: 116,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: _Soul.pink100,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: profile.hasPhoto
+                              // Disk-cached: revisiting Discover (and scrolling
+                              // back) renders instantly instead of re-downloading
+                              // every photo on each rebuild.
+                              ? CachedNetworkImage(
+                                  imageUrl: profile.photoUrl!,
+                                  fit: BoxFit.cover,
+                                  fadeInDuration: Duration.zero,
+                                  memCacheWidth: 300,
+                                  errorWidget: (_, _, _) =>
+                                      _PhotoFallback(profile: profile),
+                                  placeholder: (_, _) =>
+                                      _PhotoFallback(profile: profile),
+                                )
+                              : _PhotoFallback(profile: profile),
+                        ),
+                      ),
+                      // Verified — icon-only badge, top-left of the photo (tap
+                      // opens the trust sheet, same behaviour as before).
+                      if (profile.isVerified)
+                        Positioned(
+                          top: 6,
+                          left: 6,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => TrustVerificationSheet.show(
+                              context,
+                              profileId: profile.id,
+                              name: profile.displayName,
+                              photoUrl: profile.photo,
                             ),
-                            maxLines: 1,
+                            child: Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.verified_rounded,
+                                size: 16,
+                                color: Color(0xFF1D9BF0),
+                              ),
+                            ),
+                          ),
+                        ),
+                      // Extra-photos badge — bottom-left dark pill with the count
+                      // of ADDITIONAL gallery photos (0 hides it).
+                      if (profile.additionalPhotoCount > 0)
+                        Positioned(
+                          bottom: 6,
+                          left: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.photo_library_rounded,
+                                  size: 9,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${profile.additionalPhotoCount}',
+                                  style: const TextStyle(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      // Favourite heart — the reference's white circular button
+                      // bottom-right, INSIDE the photo bounds (negative offsets
+                      // made it hang outside the card on real devices).
+                      Positioned(
+                        bottom: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => controller.toggleShortlist(
+                            profile.id,
+                            displayName: profile.displayName,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Obx(() {
+                              final bool isShortlisted = controller
+                                  .isShortlisted(profile.id);
+                              return Icon(
+                                isShortlisted
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 16,
+                                color: isShortlisted
+                                    ? _Soul.pink600
+                                    : _Soul.ink500,
+                              );
+                            }),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(width: 12),
 
-                  // "26 Years · 5'4\" · Islam" — dark text with quiet dots.
-                  if (profile.age != null ||
-                      heightLabel.isNotEmpty ||
-                      religion != null)
-                    Text(
-                      <String?>[
-                        if (profile.age != null) '${profile.age} Years',
-                        if (heightLabel.isNotEmpty) heightLabel,
-                        if (religion != null) religion,
-                      ].whereType<String>().join('  ·  '),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _Soul.ink900,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  const SizedBox(height: 5),
-
-                  // Location line — "Lahore, Pakistan".
-                  if (city != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _FactCell(
-                        icon: Icons.location_on_outlined,
-                        label: city,
-                      ),
-                    ),
-
-                  // Profession line.
-                  if (profession != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _FactCell(
-                        icon: Icons.work_outline_rounded,
-                        label: profession,
-                      ),
-                    ),
-
-                  // Education line.
-                  if (education != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _FactCell(
-                        icon: Icons.school_outlined,
-                        label: education,
-                      ),
-                    ),                  // Family line — "Family Oriented".
-                  if (family != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: _FactCell(
-                        icon: Icons.home_outlined,
-                        label: family,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // % Match + heart — the reference's right rail: heart circle
-            // ABOVE the pink match block, both stacked.
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => controller.toggleShortlist(
-                    profile.id,
-                    displayName: profile.displayName,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: <BoxShadow>[
-                        BoxShadow(
-                          color: Color(0x1A000000),
-                          blurRadius: 6,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Obx(() {
-                      final bool isShortlisted =
-                          controller.isShortlisted(profile.id);
-                      return Icon(
-                        isShortlisted
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        size: 16,
-                        color: isShortlisted ? _Soul.pinkInk : _Soul.ink500,
-                      );
-                    }),
-                  ),
-                ),
-                if (matchPercentage != null && matchPercentage > 0) ...<Widget>[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFBE0EA),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  // ---------------------------------------------------------
+                  // CONTENT — the reference layout: serif name on ONE line
+                  // (complete, never truncated) + kebab, the age/height · faith
+                  // line, location, profession, education. The % Match block sits
+                  // on the right with the heart ABOVE it.
+                  // ---------------------------------------------------------
+                  Expanded(
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Text(
-                          '$matchPercentage%',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: _Soul.pinkInk,
-                          ),
-                        ),
-                        const Text(
-                          'Match',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                            color: _Soul.pinkInk,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-            ),
-        // -------------------------------------------------------------
-        // Action strip — View Profile | Why this match? | Send Interest |
-        // Send Proposal — ALWAYS all four (AI mode or not), same tap
-        // targets as before. The old icon row below keeps Chat/More/
-        // Ignore/Report. Small 10px labels; each pill clips with ellipsis
-        // instead of overflowing the Row.
-        // -------------------------------------------------------------
-        const SizedBox(height: 12),
-        Row(
-          children: <Widget>[
-            // View Profile — soft pink pill.
-            Expanded(
-              child: GestureDetector(
-                onTap: () => PublicProfileDetailSheet.show(
-                  context,
-                  profileId: profile.id,
-                  searchProfile: profile,
-                ),
-                child: Container(
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFBE0EA),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  // FittedBox: the label always shows COMPLETE, scaled to
-                  // the pill's width — never "View Pro…".
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.visibility_rounded,
-                              size: 12, color: _Soul.pinkInk),
-                          const SizedBox(width: 4),
-                          Text(
-                            'View Profile',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: _Soul.pinkInk,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 5),
-            // "Why this match?" — reasons come from the compatibility engine.
-            Expanded(
-              child: GestureDetector(
-                onTap: (matchPercentage != null && matchPercentage > 0)
-                    ? () => _WhyThisMatchSheet.show(
-                          context,
-                          profile: profile,
-                          matchPercentage: matchPercentage,
-                        )
-                    : null,
-                child: Container(
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFBE0EA),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.auto_awesome_rounded,
-                              size: 11, color: _Soul.pinkInk),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Why this match?',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: _Soul.pinkInk,
-                            ),
-                            maxLines: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 5),
-            // Send Interest — soft pink pill, tick when already sent.
-            Expanded(
-              child: Obx(() {
-                final bool sent =
-                    interestCtrl?.hasSentInterestTo(profile.id) == true;
-                return GestureDetector(
-                  onTap: () => SendInterestDialog.show(context, profile),
-                  child: Container(
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFBE0EA),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
+                        // Name row — complete name on a single line + kebab menu.
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: <Widget>[
-                            Icon(
-                              sent
-                                  ? Icons.check_rounded
-                                  : Icons.favorite_rounded,
-                              size: 11,
-                              color: sent ? AppColors.success : _Soul.pinkInk,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              sent ? 'Sent' : 'Send Interest',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    sent ? AppColors.success : _Soul.pinkInk,
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  profile.displayName,
+                                  style: const TextStyle(
+                                    fontFamily: AppTextStyles.displayFont,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w700,
+                                    color: _Soul.ink900,
+                                  ),
+                                  maxLines: 1,
+                                ),
                               ),
-                              maxLines: 1,
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(width: 5),
-            // Send Proposal — solid pink pill, closing the row.
-            Expanded(
-              child: GestureDetector(
-                onTap: () => SendProposalDialog.show(context, profile),
-                child: Container(
-                  height: 32,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _Soul.pink600,
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: _Soul.pinkShadow,
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          const Icon(Icons.send_rounded,
-                              size: 12, color: _Soul.pinkInk),
-                          const SizedBox(width: 4),
+                        const SizedBox(height: 6),
+
+                        // "26 Years · 5'4\" · Islam" — dark text with quiet dots.
+                        if (profile.age != null ||
+                            heightLabel.isNotEmpty ||
+                            religion != null)
                           Text(
-                            'Send Proposal',
-                            style: TextStyle(
-                              fontSize: 10.5,
+                            <String?>[
+                              if (profile.age != null) '${profile.age} Years',
+                              if (heightLabel.isNotEmpty) heightLabel,
+                              if (religion != null) religion,
+                            ].whereType<String>().join('  ·  '),
+                            style: const TextStyle(
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: _Soul.pinkInk,
+                              color: _Soul.ink900,
                             ),
                             maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ],
+                        const SizedBox(height: 5),
+
+                        // Location line — "Lahore, Pakistan".
+                        if (city != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: _FactCell(
+                              icon: Icons.location_on_outlined,
+                              label: city,
+                            ),
+                          ),
+
+                        // Profession line.
+                        if (profession != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: _FactCell(
+                              icon: Icons.work_outline_rounded,
+                              label: profession,
+                            ),
+                          ),
+
+                        // Education line.
+                        if (education != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: _FactCell(
+                              icon: Icons.school_outlined,
+                              label: education,
+                            ),
+                          ), // Family line — "Family Oriented".
+                        if (family != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3),
+                            child: _FactCell(
+                              icon: Icons.home_outlined,
+                              label: family,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // % Match + heart — the reference's right rail: heart circle
+                  // ABOVE the pink match block, both stacked.
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => controller.toggleShortlist(
+                          profile.id,
+                          displayName: profile.displayName,
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: Color(0x1A000000),
+                                blurRadius: 6,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Obx(() {
+                            final bool isShortlisted = controller.isShortlisted(
+                              profile.id,
+                            );
+                            return Icon(
+                              isShortlisted
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              size: 16,
+                              color: isShortlisted
+                                  ? _Soul.pinkInk
+                                  : _Soul.ink500,
+                            );
+                          }),
+                        ),
+                      ),
+                      if (matchPercentage != null &&
+                          matchPercentage > 0) ...<Widget>[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFBE0EA),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                '$matchPercentage%',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: _Soul.pinkInk,
+                                ),
+                              ),
+                              const Text(
+                                'Match',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w600,
+                                  color: _Soul.pinkInk,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+              // -------------------------------------------------------------
+              // Action strip — View Profile | Why this match? | Send Interest |
+              // Send Proposal — ALWAYS all four (AI mode or not), same tap
+              // targets as before. The old icon row below keeps Chat/More/
+              // Ignore/Report. Small 10px labels; each pill clips with ellipsis
+              // instead of overflowing the Row.
+              // -------------------------------------------------------------
+              const SizedBox(height: 12),
+              Row(
+                children: <Widget>[
+                  // View Profile — soft pink pill.
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => PublicProfileDetailSheet.show(
+                        context,
+                        profileId: profile.id,
+                        searchProfile: profile,
+                      ),
+                      child: Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBE0EA),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        // FittedBox: the label always shows COMPLETE, scaled to
+                        // the pill's width — never "View Pro…".
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.visibility_rounded,
+                                  size: 12,
+                                  color: _Soul.pinkInk,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'View Profile',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _Soul.pinkInk,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 5),
+                  // "Why this match?" — reasons come from the compatibility engine.
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: (matchPercentage != null && matchPercentage > 0)
+                          ? () => _WhyThisMatchSheet.show(
+                              context,
+                              profile: profile,
+                              matchPercentage: matchPercentage,
+                            )
+                          : null,
+                      child: Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBE0EA),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 11,
+                                  color: _Soul.pinkInk,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Why this match?',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _Soul.pinkInk,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  // Send Interest — soft pink pill, tick when already sent.
+                  Expanded(
+                    child: Obx(() {
+                      final bool sent =
+                          interestCtrl?.hasSentInterestTo(profile.id) == true;
+                      return GestureDetector(
+                        onTap: () => SendInterestDialog.show(context, profile),
+                        child: Container(
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFBE0EA),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Icon(
+                                    sent
+                                        ? Icons.check_rounded
+                                        : Icons.favorite_rounded,
+                                    size: 11,
+                                    color: sent
+                                        ? AppColors.success
+                                        : _Soul.pinkInk,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sent ? 'Sent' : 'Send Interest',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: sent
+                                          ? AppColors.success
+                                          : _Soul.pinkInk,
+                                    ),
+                                    maxLines: 1,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(width: 5),
+                  // Send Proposal — solid pink pill, closing the row.
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => SendProposalDialog.show(context, profile),
+                      child: Container(
+                        height: 32,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _Soul.pink600,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: _Soul.pinkShadow,
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Obx(
+                                  () => Icon(
+                                    interestCtrl?.isInterestAccepted(
+                                              profile.id,
+                                            ) ==
+                                            true
+                                        ? Icons.send_rounded
+                                        : Icons.lock_outline_rounded,
+                                    size: 12,
+                                    color: _Soul.pinkInk,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Send Proposal',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _Soul.pinkInk,
+                                  ),
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              // -------------------------------------------------------------
+              // Action strip — the six-icon row (Send Interest / Chat / Full
+              // Profile / More / Ignore / Report) that sat below every card in
+              // the original design. Equal-flex cells so nothing overflows.
+              // -------------------------------------------------------------
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
+                decoration: BoxDecoration(
+                  color: _Soul.ink50,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-            ),
-          ],
-        ),
-        // -------------------------------------------------------------
-        // Action strip — the six-icon row (Send Interest / Chat / Full
-        // Profile / More / Ignore / Report) that sat below every card in
-        // the original design. Equal-flex cells so nothing overflows.
-        // -------------------------------------------------------------
-        const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.fromLTRB(2, 2, 2, 0),
-          decoration: BoxDecoration(
-            color: _Soul.ink50,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: <Widget>[
-              // Send Interest — heart cell; shows a tick when already sent.
-              Obx(() {
-                final bool sent =
-                    interestCtrl?.hasSentInterestTo(profile.id) == true;
-                return _ActionCell(
-                  icon: sent
-                      ? Icons.check_rounded
-                      : Icons.favorite_border_rounded,
-                  iconColor: sent ? AppColors.success : _Soul.pink600,
-                  tooltip: 'Send Interest',
-                  onTap: () =>
-                      SendInterestDialog.show(context, profile),
-                );
-              }),
-              // Chat.
-              _ActionCell(
-                icon: Icons.chat_bubble_outline_rounded,
-                iconColor: _Soul.ink900,
-                tooltip: 'Chat',
-                onTap: () => _handleChatTap(context, profile),
-              ),
-              // Full profile.
-              _ActionCell(
-                icon: Icons.person_outline_rounded,
-                iconColor: _Soul.ink900,
-                tooltip: 'Full Profile',
-                onTap: () => PublicProfileDetailSheet.show(
-                  context,
-                  profileId: profile.id,
-                  searchProfile: profile,
+                child: Row(
+                  children: <Widget>[
+                    // Send Interest — heart cell; shows a tick when already sent.
+                    Obx(() {
+                      final bool sent =
+                          interestCtrl?.hasSentInterestTo(profile.id) == true;
+                      return _ActionCell(
+                        icon: sent
+                            ? Icons.check_rounded
+                            : Icons.favorite_border_rounded,
+                        iconColor: sent ? AppColors.success : _Soul.pink600,
+                        tooltip: 'Send Interest',
+                        onTap: () => SendInterestDialog.show(context, profile),
+                      );
+                    }),
+                    // Chat.
+                    _ActionCell(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      iconColor: _Soul.ink900,
+                      tooltip: 'Chat',
+                      onTap: () => _handleChatTap(context, profile),
+                    ),
+                    // Full profile.
+                    _ActionCell(
+                      icon: Icons.person_outline_rounded,
+                      iconColor: _Soul.ink900,
+                      tooltip: 'Full Profile',
+                      onTap: () => PublicProfileDetailSheet.show(
+                        context,
+                        profileId: profile.id,
+                        searchProfile: profile,
+                      ),
+                    ),
+                    // More options.
+                    _ActionCell(
+                      icon: Icons.more_vert_rounded,
+                      iconColor: _Soul.ink900,
+                      tooltip: 'More options',
+                      onTap: () => _showOptionsMenu(context),
+                    ),
+                    // Ignore.
+                    _ActionCell(
+                      icon: Icons.do_not_disturb_on_rounded,
+                      iconColor: _Soul.ink900,
+                      tooltip: 'Ignore',
+                      onTap: onIgnore,
+                    ),
+                    // Report.
+                    _ActionCell(
+                      icon: Icons.flag_outlined,
+                      iconColor: AppColors.error,
+                      tooltip: 'Report',
+                      onTap: () => ReportProfileDialog.show(context, profile),
+                    ),
+                  ],
                 ),
-              ),
-              // More options.
-              _ActionCell(
-                icon: Icons.more_vert_rounded,
-                iconColor: _Soul.ink900,
-                tooltip: 'More options',
-                onTap: () => _showOptionsMenu(context),
-              ),
-              // Ignore.
-              _ActionCell(
-                icon: Icons.do_not_disturb_on_rounded,
-                iconColor: _Soul.ink900,
-                tooltip: 'Ignore',
-                onTap: onIgnore,
-              ),
-              // Report.
-              _ActionCell(
-                icon: Icons.flag_outlined,
-                iconColor: AppColors.error,
-                tooltip: 'Report',
-                onTap: () => ReportProfileDialog.show(context, profile),
               ),
             ],
           ),
         ),
-          ],
-        ),
-      ),
-    );
+      );
+    });
   }
 
   void _showOptionsMenu(BuildContext context) {
@@ -2172,151 +2238,155 @@ class _SingleUserProfileCard extends StatelessWidget {
         return SafeArea(
           child: SingleChildScrollView(
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(
-                  Icons.chat_bubble_outline_rounded,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Chat'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _handleChatTap(context, profile);
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.person_outline_rounded,
-                  color: AppColors.primary,
-                ),
-                title: const Text('Full Profile'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  PublicProfileDetailSheet.show(
-                    context,
-                    profileId: profile.id,
-                    searchProfile: profile,
-                  );
-                },
-              ),
-              Obx(() {
-                final ProposalController? proposalCtrl =
-                    Get.isRegistered<ProposalController>()
-                    ? Get.find<ProposalController>()
-                    : null;
-                final bool proposed =
-                    proposalCtrl?.hasSentProposalTo(profile.id) == true;
-                if (proposed) {
-                  return ListTile(
-                    leading: const Icon(
-                      Icons.check_circle_rounded,
-                      color: AppColors.success,
-                    ),
-                    title: const Text(
-                      'Already Sent',
-                      style: TextStyle(
-                        color: AppColors.success,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.of(ctx).pop();
-                      PublicProfileDetailSheet.show(
-                        context,
-                        profileId: profile.id,
-                        searchProfile: profile,
-                      );
-                    },
-                  );
-                }
-                return ListTile(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
                   leading: const Icon(
-                    Icons.mail_outline_rounded,
+                    Icons.chat_bubble_outline_rounded,
                     color: AppColors.primary,
                   ),
-                  title: const Text('Send Proposal'),
+                  title: const Text('Chat'),
                   onTap: () {
                     Navigator.of(ctx).pop();
-                    SendProposalDialog.show(context, profile);
+                    _handleChatTap(context, profile);
                   },
-                );
-              }),
-
-              ListTile(
-                leading: const Icon(
-                  Icons.favorite_border_rounded,
-                  color: AppColors.primary,
                 ),
-                title: const Text('Send Interest'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  SendInterestDialog.show(context, profile);
-                },
-              ),
-
-              ListTile(
-                leading: const Icon(
-                  Icons.bookmark_outline_rounded,
-                  color: AppColors.gold,
+                ListTile(
+                  leading: const Icon(
+                    Icons.person_outline_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Full Profile'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    PublicProfileDetailSheet.show(
+                      context,
+                      profileId: profile.id,
+                      searchProfile: profile,
+                    );
+                  },
                 ),
-                title: const Text('Shortlist'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  controller.toggleShortlist(
-                    profile.id,
-                    displayName: profile.displayName,
-                  );
-                },
-              ),
-
-              ListTile(
-                leading: Icon(
-                  Icons.visibility_off_outlined,
-                  color: Theme.of(context).hintColor,
-                ),
-                title: const Text('Ignore Profile'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  // Persist on the server (shows in the Ignored list, restorable)
-                  // AND hide the card from the current feed immediately.
-                  if (Get.isRegistered<ProposalExtraController>()) {
-                    Get.find<ProposalExtraController>().ignoreUser(profile.id);
+                Obx(() {
+                  final ProposalController? proposalCtrl =
+                      Get.isRegistered<ProposalController>()
+                      ? Get.find<ProposalController>()
+                      : null;
+                  final bool proposed =
+                      proposalCtrl?.hasSentProposalTo(profile.id) == true;
+                  if (proposed) {
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.success,
+                      ),
+                      title: const Text(
+                        'Already Sent',
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        PublicProfileDetailSheet.show(
+                          context,
+                          profileId: profile.id,
+                          searchProfile: profile,
+                        );
+                      },
+                    );
                   }
-                  controller.ignoreProfile(profile.id);
-                  AppSnackbar.info('Profile ignored. Restore it from the Ignored list.');
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.restore_from_trash_outlined,
-                  color: AppColors.primary,
+                  return ListTile(
+                    leading: const Icon(
+                      Icons.mail_outline_rounded,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('Send Proposal'),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      SendProposalDialog.show(context, profile);
+                    },
+                  );
+                }),
+
+                ListTile(
+                  leading: const Icon(
+                    Icons.favorite_border_rounded,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Send Interest'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    SendInterestDialog.show(context, profile);
+                  },
                 ),
-                title: const Text('Ignored Profiles'),
-                subtitle: const Text(
-                  'View and restore hidden profiles',
-                  style: TextStyle(fontSize: 12),
+
+                ListTile(
+                  leading: const Icon(
+                    Icons.bookmark_outline_rounded,
+                    color: AppColors.gold,
+                  ),
+                  title: const Text('Shortlist'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    controller.toggleShortlist(
+                      profile.id,
+                      displayName: profile.displayName,
+                    );
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  IgnoredProfilesView.open();
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.flag_outlined,
-                  color: AppColors.error,
+
+                ListTile(
+                  leading: Icon(
+                    Icons.visibility_off_outlined,
+                    color: Theme.of(context).hintColor,
+                  ),
+                  title: const Text('Ignore Profile'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    // Persist on the server (shows in the Ignored list, restorable)
+                    // AND hide the card from the current feed immediately.
+                    if (Get.isRegistered<ProposalExtraController>()) {
+                      Get.find<ProposalExtraController>().ignoreUser(
+                        profile.id,
+                      );
+                    }
+                    controller.ignoreProfile(profile.id);
+                    AppSnackbar.info(
+                      'Profile ignored. Restore it from the Ignored list.',
+                    );
+                  },
                 ),
-                title: const Text(
-                  'Report Profile',
-                  style: TextStyle(color: AppColors.error),
+                ListTile(
+                  leading: const Icon(
+                    Icons.restore_from_trash_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Ignored Profiles'),
+                  subtitle: const Text(
+                    'View and restore hidden profiles',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    IgnoredProfilesView.open();
+                  },
                 ),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  ReportProfileDialog.show(context, profile);
-                },
-              ),
-            ],
+                ListTile(
+                  leading: const Icon(
+                    Icons.flag_outlined,
+                    color: AppColors.error,
+                  ),
+                  title: const Text(
+                    'Report Profile',
+                    style: TextStyle(color: AppColors.error),
+                  ),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    ReportProfileDialog.show(context, profile);
+                  },
+                ),
+              ],
             ),
           ),
         );
@@ -2552,7 +2622,9 @@ class _WhyThisMatchSheet {
           final CompatibilityModel? data = snap.data;
           return Dialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 340),
               child: Padding(
@@ -2564,8 +2636,11 @@ class _WhyThisMatchSheet {
                     // Header — title + match pill + close.
                     Row(
                       children: <Widget>[
-                        const Icon(Icons.auto_awesome_rounded,
-                            size: 16, color: _Soul.pink600),
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 16,
+                          color: _Soul.pink600,
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -2579,7 +2654,9 @@ class _WhyThisMatchSheet {
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFF0F4),
                             borderRadius: BorderRadius.circular(999),
@@ -2597,8 +2674,11 @@ class _WhyThisMatchSheet {
                           onTap: () => Navigator.of(ctx).pop(),
                           child: const Padding(
                             padding: EdgeInsets.only(left: 6),
-                            child: Icon(Icons.close_rounded,
-                                size: 18, color: _Soul.ink500),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: _Soul.ink500,
+                            ),
                           ),
                         ),
                       ],
@@ -2609,7 +2689,9 @@ class _WhyThisMatchSheet {
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Center(
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: _Soul.pink600),
+                            strokeWidth: 2,
+                            color: _Soul.pink600,
+                          ),
                         ),
                       )
                     else ...<Widget>[
@@ -2650,18 +2732,22 @@ class _WhyThisMatchSheet {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                ...data.reasons.take(6).map(
+                                ...data.reasons
+                                    .take(6)
+                                    .map(
                                       (String r) => Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 5),
+                                        padding: const EdgeInsets.only(
+                                          bottom: 5,
+                                        ),
                                         child: Row(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: <Widget>[
                                             const Icon(
-                                                Icons.check_circle_rounded,
-                                                size: 13,
-                                                color: Color(0xFF22A45D)),
+                                              Icons.check_circle_rounded,
+                                              size: 13,
+                                              color: Color(0xFF22A45D),
+                                            ),
                                             const SizedBox(width: 6),
                                             Expanded(
                                               child: Text(
@@ -2676,7 +2762,7 @@ class _WhyThisMatchSheet {
                                           ],
                                         ),
                                       ),
-                                ),
+                                    ),
                               ],
                             ),
                           ),

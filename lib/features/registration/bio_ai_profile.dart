@@ -11,11 +11,38 @@ import '../../models/lookup_item_model.dart';
 /// ("BS Computer Science"), so every id is resolved through the
 /// [LookupController], falling back to the bundled [BundledLookups] tables.
 /// Contact details, surname, CNIC, income and religion are never sent.
+/// The answers [BioAiProfile] reads, keyed like the registration buffer.
+/// Registration reads the buffer; Edit Profile adapts its form to this.
+abstract class BioAiSource {
+  int? getInt(String key);
+  String? getString(String key);
+  List<String> getStringList(String key);
+  String? get fullName;
+}
+
+class _BufferSource implements BioAiSource {
+  const _BufferSource(this._b);
+  final RegistrationBuffer _b;
+  @override
+  int? getInt(String key) => _b.getInt(key);
+  @override
+  String? getString(String key) => _b.getString(key);
+  @override
+  List<String> getStringList(String key) => _b.getStringList(key);
+  @override
+  String? get fullName => RegPayload.fullName(_b);
+}
+
 class BioAiProfile {
   const BioAiProfile._();
 
   static Future<Map<String, dynamic>> build(
     RegistrationBuffer b,
+    LookupController lookup,
+  ) => buildFrom(_BufferSource(b), lookup);
+
+  static Future<Map<String, dynamic>> buildFrom(
+    BioAiSource b,
     LookupController lookup,
   ) async {
     Future<String?> name(String key, int? id, {int? parentId}) async {
@@ -47,7 +74,7 @@ class BioAiProfile {
     }
 
     // Personal. Only the first name: the service writes "I'm <name>." itself.
-    final String? first = RegPayload.fullName(b)?.split(' ').first;
+    final String? first = b.fullName?.split(' ').first;
     if (first != null &&
         RegExp(r"^[^\W\d_]{2,40}$", unicode: true).hasMatch(first)) {
       p['first_name'] = first[0].toUpperCase() + first.substring(1);

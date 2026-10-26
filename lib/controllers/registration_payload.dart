@@ -212,6 +212,7 @@ class RegPayload {
     _put(m, 'email_verify', b.getString('email')?.toLowerCase());
     _put(m, 'password', b.getString('password'));
     _put(m, 'password_confirmation', b.getString('password_confirmation'));
+    _put(m, 'referral_code', b.getString('referral_code'));
 
     // Steps 11 & 13 — photos and identity documents, base64 encoded because the
     // endpoint validates them as strings (see [_dataUri]).
@@ -437,6 +438,7 @@ class RegPayload {
     _put(m, 'email_verify', b.getString('email')?.toLowerCase());
     _put(m, 'password', b.getString('password'));
     _put(m, 'password_confirmation', b.getString('password_confirmation'));
+    _put(m, 'referral_code', b.getString('referral_code'));
     return m;
   }
 

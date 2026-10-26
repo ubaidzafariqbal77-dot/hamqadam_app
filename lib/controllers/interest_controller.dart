@@ -67,6 +67,15 @@ class InterestController extends GetxController {
   /// User IDs to whom an interest has already been sent in this session.
   final RxSet<int> sentUserIds = <int>{}.obs;
 
+  /// Members with an accepted interest either way. Accepted interest is what
+  /// unlocks chat, calls and Send Proposal for the pair (spec §2, §4).
+  final RxSet<int> acceptedUserIds = <int>{}.obs;
+
+  /// Members with a pending interest either way — a second one is refused.
+  final RxSet<int> pendingUserIds = <int>{}.obs;
+
+  bool _pairStatusLoaded = false;
+
   final RxBool sending = false.obs;
 
   /// True when the member's active plan grants Super Like / Priority Interest.
@@ -92,6 +101,7 @@ class InterestController extends GetxController {
 
   bool isBusy(int id) => busyIds.contains(id);
   bool hasSentInterestTo(int userId) => sentUserIds.contains(userId);
+  bool isInterestAccepted(int userId) => acceptedUserIds.contains(userId);
 
   @override
   void onInit() {
@@ -111,6 +121,7 @@ class InterestController extends GetxController {
         status: receivedFilter.value,
         perPage: _perPage,
       );
+      _trackPairs(page.interests);
       received.value = page.isEmpty
           ? ApiState<InterestPage>.empty(message: _emptyReceivedMessage())
           : ApiState<InterestPage>.success(page);
@@ -131,6 +142,7 @@ class InterestController extends GetxController {
       for (final InterestModel item in page.interests) {
         if (item.member != null) sentUserIds.add(item.member!.id);
       }
+      _trackPairs(page.interests);
       sent.value = page.isEmpty
           ? ApiState<InterestPage>.empty(message: _emptySentMessage())
           : ApiState<InterestPage>.success(page);
@@ -165,6 +177,44 @@ class InterestController extends GetxController {
     } on AppException catch (_) {
       // A failed "load more" must not blank the rows already on screen.
     }
+  }
+
+  void _trackPairs(List<InterestModel> rows) {
+    // Lists are newest first; walk oldest first so the latest row wins.
+    for (final InterestModel item in rows.reversed) {
+      final int? id = item.member?.id;
+      if (id == null) continue;
+      if (item.isAccepted) {
+        acceptedUserIds.add(id);
+        pendingUserIds.remove(id);
+      } else if (item.isPending) {
+        pendingUserIds.add(id);
+      } else {
+        // Declined / withdrawn / expired: nothing stays unlocked.
+        acceptedUserIds.remove(id);
+        pendingUserIds.remove(id);
+      }
+    }
+  }
+
+  /// Makes sure [isInterestAccepted] is current for [userId] before a gate
+  /// decision. The tabs may be filtered, so read the accepted rows directly.
+  Future<bool> ensureInterestAccepted(int userId, {bool force = false}) async {
+    if (acceptedUserIds.contains(userId)) return true;
+    if (_pairStatusLoaded && !force) return false;
+    try {
+      final List<InterestPage> pages = await Future.wait<InterestPage>(<Future<InterestPage>>[
+        _repo.fetchSent(status: InterestStatusFilter.accepted, perPage: 100),
+        _repo.fetchReceived(status: InterestStatusFilter.accepted, perPage: 100),
+      ]);
+      for (final InterestPage p in pages) {
+        _trackPairs(p.interests);
+      }
+      _pairStatusLoaded = true;
+    } on AppException catch (_) {
+      // Unknown means locked; the server refuses the proposal anyway.
+    }
+    return acceptedUserIds.contains(userId);
   }
 
   Future<void> refreshAll() async {
@@ -205,7 +255,7 @@ class InterestController extends GetxController {
   /// a 403 is reported as [SendInterestOutcome.needsUpgrade].
   Future<SendInterestOutcome> sendInterest(
     int userId, {
-    String? note,
+    required int templateId,
     bool priority = false,
   }) async {
     if (sending.value) {
@@ -219,6 +269,14 @@ class InterestController extends GetxController {
       return SendInterestOutcome(sent: false, message: blocked, needsVerification: true);
     }
 
+    if (acceptedUserIds.contains(userId) || pendingUserIds.contains(userId)) {
+      return const SendInterestOutcome(
+        sent: false,
+        message: 'An interest is already active between you and this member.',
+        alreadyExists: true,
+      );
+    }
+
     if (priority && !hasPriorityInterest) {
       return const SendInterestOutcome(
         sent: false,
@@ -230,8 +288,9 @@ class InterestController extends GetxController {
     sending.value = true;
     try {
       final InterestSendResult result =
-          await _repo.send(userId: userId, note: note, priority: priority);
+          await _repo.send(userId: userId, templateId: templateId);
       sentUserIds.add(userId);
+      pendingUserIds.add(userId);
       if (result.coinBalance != null) coinBalance.value = result.coinBalance!;
       // The new row belongs in the sent tab.
       await loadSent(keepFilter: true);
@@ -250,14 +309,26 @@ class InterestController extends GetxController {
       // Only ApiException carries the machine-readable `code`; fall back to the
       // status so this still works if the backend stops sending one.
       final String? code = e is ApiException ? e.code : null;
-      final bool noCoins = code == 'insufficient_coins' || e.statusCode == 402;
-      final bool exists = code == 'interest_exists' || e.statusCode == 409;
+      // The workflow API reports its business rules as 422 field errors, so
+      // read the first real sentence instead of "The given data was invalid.".
+      String message = e.message;
+      if (e is ValidationException && e.errors.isNotEmpty) {
+        final List<String> first = e.errors.values.first;
+        if (first.isNotEmpty) message = first.first;
+      }
+      final String lower = message.toLowerCase();
+      final bool noCoins = code == 'insufficient_coins' ||
+          e.statusCode == 402 ||
+          lower.contains('insufficient coins');
+      final bool exists = code == 'interest_exists' ||
+          e.statusCode == 409 ||
+          lower.contains('already exists');
       final bool upgrade = code == 'plan_feature_required' || e.statusCode == 403;
       if (exists) sentUserIds.add(userId);
       if (noCoins) await refreshCoins();
       return SendInterestOutcome(
         sent: false,
-        message: e.message,
+        message: message,
         needsCoins: noCoins,
         alreadyExists: exists,
         needsUpgrade: upgrade,
@@ -288,7 +359,8 @@ class InterestController extends GetxController {
     if (busyIds.contains(id)) return null;
     busyIds.add(id);
     try {
-      await action();
+      final InterestModel? updated = await action();
+      if (updated != null) _trackPairs(<InterestModel>[updated]);
       // Re-read rather than patching in place: accepting or rejecting changes
       // counts and filters, and the server is the authority on both.
       if (refreshSent) {

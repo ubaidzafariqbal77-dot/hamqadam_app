@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../controllers/profile_controller.dart';
+import '../../../controllers/verification_controller.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
@@ -199,7 +201,15 @@ class _HomeViewState extends State<HomeView> {
         }
         return PremiumBottomNav(
           currentIndex: _index,
-          onTap: (int i) => setState(() => _index = i),
+          onTap: (int i) {
+            setState(() => _index = i);
+            if (_tabs[i].label == 'Profile' && Get.isRegistered<ProfileController>()) {
+              Get.find<ProfileController>().refreshSilently();
+              if (Get.isRegistered<VerificationController>()) {
+                Get.find<VerificationController>().refreshSilently();
+              }
+            }
+          },
           items: <PremiumNavItem>[
             const PremiumNavItem(icon: Icons.search_rounded, label: 'Discover'),
             const PremiumNavItem(

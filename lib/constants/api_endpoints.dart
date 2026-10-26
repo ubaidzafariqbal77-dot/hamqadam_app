@@ -165,6 +165,44 @@ class ApiEndpoints {
   /// Cancel proposal (`POST /proposals/{id}/cancel`).
   static String proposalCancel(int id) => '/proposals/$id/cancel';
 
+  // ---- Message templates (Admin Dashboard managed) --------------------------
+  /// `GET /message-templates?type=interest|proposal&language=en` — the active
+  /// Send Interest / Send Proposal library, ordered by `display_order`.
+  static const String messageTemplates = '/message-templates';
+
+  // ---- Connection workflow (managed templates → interest / proposal) --------
+  /// `GET /connection-workflow/templates?kind=interest|proposal&language=en`.
+  static const String connectionTemplates = '/connection-workflow/templates';
+
+  /// `POST /connection-workflow/members/{id}/interest` `{template_id, approved}`.
+  /// The legacy `POST /interests` now answers 409 — an interest must carry an
+  /// approved, managed template.
+  static String connectionInterest(int memberId) =>
+      '/connection-workflow/members/$memberId/interest';
+
+  /// `POST /connection-workflow/members/{id}/proposal`
+  /// `{template_id?, language, source: static|ai, message, approved, send}`.
+  /// Needs an ACCEPTED interest between the pair; the legacy `POST /proposals`
+  /// answers 409.
+  static String connectionProposal(int memberId) =>
+      '/connection-workflow/members/$memberId/proposal';
+
+  /// `GET /connection-workflow/proposals?direction=` — reviewed proposals in the
+  /// legacy list shape. Their ids are offset by [workflowProposalIdOffset].
+  static const String connectionProposals = '/connection-workflow/proposals';
+
+  /// Added to a workflow proposal id so it can never collide with a legacy one.
+  static const int workflowProposalIdOffset = 1000000000;
+
+  /// `POST /connection-workflow/proposals/{id}/respond` `{decision: accept|decline}`.
+  static String connectionProposalRespond(int workflowId) =>
+      '/connection-workflow/proposals/$workflowId/respond';
+
+  /// `POST /connection-workflow/members/{id}/proposal/generate`
+  /// `{language, intention}` → `data.draft`.
+  static String connectionAiDraft(int memberId) =>
+      '/connection-workflow/members/$memberId/proposal/generate';
+
   // ---- Proposal Favourites ---------------------------------------------------
   static const String proposalFavourites = '/proposals/favourites';
   static String proposalFavouriteCheck(int userId) => '/proposals/favourites/$userId/check';
@@ -299,6 +337,16 @@ class ApiEndpoints {
   /// Sending the same emoji again (or null) clears the reaction.
   static String chatMessageReaction(int messageId) => '/chat/messages/$messageId/reaction';
 
+  // ---- Referral (bridge) --------------------------------------------------
+  /// Code, link, coin totals and reward rules (`GET /bridge/referrals/summary`).
+  static const String referralSummary = '/bridge/referrals/summary';
+
+  /// Members this one referred (`GET /bridge/referrals/members`).
+  static const String referralMembers = '/bridge/referrals/members';
+
+  /// Coin reward ledger (`GET /bridge/referrals/rewards`).
+  static const String referralRewards = '/bridge/referrals/rewards';
+
   // ---- Rewards -----------------------------------------------------------------
   /// Welcome-bonus state (`GET /rewards/welcome`): eligibility, claimed flag,
   /// coins and balance — the Redeem section renders from this.
@@ -374,6 +422,10 @@ class ApiEndpoints {
 
   // ---- AI Helpers -----------------------------------------------------------
   static const String aiBio = '/ai/bio';
+
+  /// `POST /ai/proposal` — drafts a marriage proposal for the sender to review.
+  /// Never sends anything itself.
+  static const String aiProposal = '/ai/proposal';
   static const String aiConversationStarters = '/ai/conversation-starters';
   static const String aiProfileQuality = '/ai/profile-quality';
   static const String aiScamCheck = '/ai/scam-check';

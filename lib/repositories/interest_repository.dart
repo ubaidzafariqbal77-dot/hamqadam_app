@@ -43,7 +43,7 @@ class InterestRepository {
     return InterestCoinBalance.fromJson(res.dataMap);
   }
 
-  /// `POST /interests` — spends coins.
+  /// `POST /connection-workflow/members/{id}/interest` — spends coins.
   ///
   /// Throws the parsed API exception on:
   ///   402 `insufficient_coins`  — send the member to packages
@@ -57,18 +57,15 @@ class InterestRepository {
   /// and charges a different coin price, so the app never hard-codes either.
   Future<InterestSendResult> send({
     required int userId,
-    String? note,
-    bool priority = false,
+    required int templateId,
   }) async {
+    // Managed-template workflow: the server builds the note from the template,
+    // charges the coins and notifies the receiver.
     final ApiEnvelope res = await _client.post(
-      ApiEndpoints.interests,
-      body: <String, dynamic>{
-        'user_id': userId,
-        if (note != null && note.trim().isNotEmpty) 'initial_note': note.trim(),
-        if (priority) 'priority': true,
-      },
+      ApiEndpoints.connectionInterest(userId),
+      body: <String, dynamic>{'template_id': templateId, 'approved': true},
     );
-    return InterestSendResult.fromJson(res.dataMap, message: res.message);
+    return InterestSendResult.fromJson(res.dataMap, message: 'Interest sent.');
   }
 
   /// `POST /interests/{id}/accept` — also opens the chat thread for the pair.

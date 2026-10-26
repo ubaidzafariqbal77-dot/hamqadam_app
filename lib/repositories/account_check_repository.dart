@@ -4,10 +4,13 @@ import '../exceptions/app_exceptions.dart';
 
 /// Result of a registration-time availability check.
 class AccountCheckResult {
-  const AccountCheckResult({required this.available, this.message});
+  const AccountCheckResult({required this.available, this.message, this.referrerName});
 
   final bool available;
   final String? message;
+
+  /// Referral checks only: the code owner's first name.
+  final String? referrerName;
 }
 
 /// Registration availability checks + in-app password change.
@@ -20,7 +23,7 @@ class AccountCheckRepository {
 
   final ApiClient _client;
 
-  /// `POST /auth/check` — `{ type: email|phone|cnic, value }`.
+  /// `POST /auth/check` — `{ type: email|phone|cnic|referral, value }`.
   Future<AccountCheckResult> check({
     required String type,
     required String value,
@@ -34,6 +37,7 @@ class AccountCheckRepository {
     return AccountCheckResult(
       available: data['available'] == true,
       message: data['message']?.toString(),
+      referrerName: data['referrer_name']?.toString(),
     );
   }
 

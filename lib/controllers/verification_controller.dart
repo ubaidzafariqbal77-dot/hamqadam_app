@@ -61,6 +61,17 @@ class VerificationController extends GetxController {
 
   Future<void> reload() => load();
 
+  /// Re-reads the request without flipping the card to a spinner, so a
+  /// moderator's approval shows up as soon as the member opens Profile.
+  Future<void> refreshSilently() async {
+    if (state.value.data == null) return load();
+    try {
+      state.value = ApiState<VerificationModel>.success(await _repo.fetchCurrent());
+    } catch (_) {
+      // Keep the last good state.
+    }
+  }
+
   Future<void> loadHistory() async {
     try {
       history.assignAll(await _repo.fetchHistory());

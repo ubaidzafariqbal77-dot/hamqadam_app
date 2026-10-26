@@ -975,29 +975,23 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                               ),
                               child: IconButton(
                                 padding: EdgeInsets.zero,
-                                icon: sending
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2, color: AppColors.primaryInk),
-                                      )
-                                    : Icon(
-                                        readyToSend
-                                            ? Icons.send_rounded
-                                            : Icons.mic_rounded,
-                                        color: AppColors.primaryInk,
-                                        size: readyToSend ? 18 : 20,
-                                      ),
+                                // No spinner: the bubble is drawn instantly and its
+                                // own tick shows delivery, so the button stays a
+                                // plain send icon while the request is in flight.
+                                icon: Icon(
+                                  readyToSend
+                                      ? Icons.send_rounded
+                                      : Icons.mic_rounded,
+                                  color: AppColors.primaryInk,
+                                  size: readyToSend ? 18 : 20,
+                                ),
                                 tooltip: readyToSend ? 'Send' : 'Record voice note',
-                                onPressed: sending
-                                    ? null
-                                    : readyToSend
-                                        ? () {
-                                            _closePanels();
-                                            _controller.sendMessage();
-                                          }
-                                        : _controller.startRecording,
+                                onPressed: readyToSend
+                                    ? () {
+                                        _closePanels();
+                                        _controller.sendMessage();
+                                      }
+                                    : (sending ? null : _controller.startRecording),
                               ),
                             ),
                           );

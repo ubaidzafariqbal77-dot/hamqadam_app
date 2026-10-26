@@ -51,6 +51,24 @@ class SearchProfilesController extends GetxController {
   /// Temporary filter state edited within the filter bottom sheet.
   final Rx<SearchFilterModel> draftFilter = SearchFilterModel.empty().obs;
 
+  /// Scores fetched from `GET /profiles/{id}/compatibility` for profiles the
+  /// search response carried no `compatibility_percentage` for.
+  final RxMap<int, int> fetchedCompat = <int, int>{}.obs;
+  final Set<int> _compatRequested = <int>{};
+
+  /// The server's score for [p]: from the search row, else the lazily fetched one.
+  int? compatFor(SearchProfileModel p) =>
+      p.compatibilityPercentage ?? fetchedCompat[p.id];
+
+  /// Fetches the missing score once per profile; the card rebuilds via Obx.
+  void ensureCompat(SearchProfileModel p) {
+    if (p.compatibilityPercentage != null || !_compatRequested.add(p.id)) return;
+    if (!Get.isRegistered<ProfileController>()) return;
+    Get.find<ProfileController>().fetchCompatibility(p.id).then((c) {
+      if (c != null && c.percentage > 0) fetchedCompat[p.id] = c.percentage;
+    });
+  }
+
   /// Whether the feed is narrowed to the AI matchmaking model's top 5.
   final RxBool aiFiltered = false.obs;
 

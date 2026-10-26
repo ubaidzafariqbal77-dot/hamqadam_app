@@ -18,6 +18,7 @@ import '../../../models/verification_model.dart';
 import '../../../widgets/state_widgets.dart';
 import '../../profile_views/views/profile_views_view.dart';
 import '../../rewards/views/welcome_bonus_claim_view.dart';
+import '../../referral/views/referral_view.dart';
 import 'edit_profile_view.dart';
 
 /// Premium, fully dynamic profile screen backed by [ProfileController]
@@ -150,6 +151,8 @@ class _ProfileBody extends StatelessWidget {
           // Welcome-bonus Redeem section (Task1): 25 free coins, claimable
           // once the profile is FULLY verified. Server decides the state.
           const _RedeemCard(),
+          const SizedBox(height: AppSpacing.sm),
+          const _ReferralTile(),
           const SizedBox(height: AppSpacing.md),
           // Only while unverified: the same prompt the web dashboard shows, so
           // a member who was sent away from the signup gate unverified has an
@@ -2622,6 +2625,52 @@ class _ActionTile extends StatelessWidget {
         ),
         trailing: Icon(Icons.chevron_right_rounded, size: 20, color: _Ink.muted(context)),
         onTap: () => Get.toNamed(route),
+      ),
+    );
+  }
+}
+
+
+/// Entry to the Referral & Rewards screen.
+class _ReferralTile extends StatelessWidget {
+  const _ReferralTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        onTap: () => ReferralView.open(),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: const Color(0xFFF3F4F6)),
+          ),
+          child: Row(
+            children: <Widget>[
+              const Icon(Icons.group_add_rounded, color: AppColors.primary, size: 26),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Refer & Earn',
+                        style: AppTextStyles.bodyStrong
+                            .copyWith(color: AppColors.roseTitleInk, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text('Invite friends and earn coins.',
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.lightTextSecondary)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.primary),
+            ],
+          ),
+        ),
       ),
     );
   }

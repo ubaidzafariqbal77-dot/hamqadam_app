@@ -15,6 +15,8 @@ import '../../controllers/payment_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/profile_view_controller.dart';
 import '../../controllers/rewards_controller.dart';
+import '../../controllers/referral_controller.dart';
+import '../../repositories/referral_repository.dart';
 import '../../controllers/completion_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
@@ -72,6 +74,7 @@ import '../../repositories/horoscope_repository.dart';
 import '../../repositories/rewards_repository.dart';
 import '../../repositories/completion_repository.dart';
 import '../../repositories/bridge_repository.dart';
+import '../../repositories/message_template_repository.dart';
 
 
 
@@ -157,8 +160,10 @@ class AppDependencies {
     Get.put<AuthExtraRepository>(AuthExtraRepository(apiClient), permanent: true);
     Get.put<HoroscopeRepository>(HoroscopeRepository(apiClient), permanent: true);
     Get.put<RewardsRepository>(RewardsRepository(apiClient), permanent: true);
+    Get.put<ReferralRepository>(ReferralRepository(apiClient), permanent: true);
     Get.put<CompletionRepository>(CompletionRepository(apiClient), permanent: true);
     Get.put<BridgeRepository>(BridgeRepository(apiClient), permanent: true);
+    Get.put<MessageTemplateRepository>(MessageTemplateRepository(apiClient), permanent: true);
 
 
 
@@ -329,6 +334,10 @@ class AppDependencies {
     );
     Get.lazyPut<ProfileViewController>(
       () => ProfileViewController(Get.find<ProfileViewRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<ReferralController>(
+      () => ReferralController(Get.find<ReferralRepository>()),
       fenix: true,
     );
     Get.lazyPut<RewardsController>(

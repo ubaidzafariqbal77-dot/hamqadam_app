@@ -12,7 +12,7 @@ import '../../../widgets/step_scaffold.dart';
 import '../bio_ai_profile.dart';
 
 /// Screen 13 — About yourself, the API's step 12
-/// (`POST /auth/register/step/12` → `{about_me}`, max 300 characters).
+/// (`POST /auth/register/step/12` → `{about_me}`, max 2500 characters).
 class Step13Controller extends StepController {
   Step13Controller() : super(13);
 
@@ -61,6 +61,16 @@ class Step13Controller extends StepController {
   @override
   void restore() => aboutMe.text = buffer.getString('about_me') ?? '';
 
+  /// First visit with an empty box: draft a bio straight away, so the member
+  /// only has to accept it or tap Regenerate. Runs once per registration —
+  /// after that an empty box is the member's own choice.
+  void autoDraftOnce() {
+    const String flag = '__about_me_ai_drafted';
+    if (aboutMe.text.trim().isNotEmpty || buffer.getString(flag) == '1') return;
+    buffer.putOne(flag, '1');
+    generateWithAi();
+  }
+
   @override
   Map<String, dynamic> collect() => <String, dynamic>{
     'about_me': aboutMe.text.trim(),
@@ -83,6 +93,9 @@ class _Step13ViewState extends State<Step13View> {
   void initState() {
     super.initState();
     c = Get.put(Step13Controller());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) c.autoDraftOnce();
+    });
   }
 
   @override
@@ -99,7 +112,7 @@ class _Step13ViewState extends State<Step13View> {
       title: 'About yourself',
       art: RegIcons.step13About,
       artIcon: Icons.favorite_outline_rounded,
-      subtitle: 'Write a short introduction, or tap AI to write it for you.',
+      subtitle: 'We drafted an introduction for you. Keep it, edit it, or regenerate it with AI.',
       busy: c.busy,
       error: c.error,
       formKey: c.formKey,
@@ -178,7 +191,11 @@ class _AiButton extends StatelessWidget {
                     ),
                   const SizedBox(width: 6),
                   Text(
-                    busy ? 'Writing…' : 'Write with AI',
+                    busy
+                        ? 'Writing…'
+                        : (controller.aboutMe.text.trim().isEmpty
+                            ? 'Write with AI'
+                            : 'Regenerate with AI'),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,

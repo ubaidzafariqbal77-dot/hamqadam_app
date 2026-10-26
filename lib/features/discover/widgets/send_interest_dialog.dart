@@ -5,12 +5,16 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/interest_controller.dart';
+import '../../../models/message_template_model.dart';
 import '../../../models/search_filter_profile_model.dart';
+import '../../../repositories/message_template_repository.dart';
+import '../../proposals/widgets/message_template_picker.dart';
 import '../../../widgets/app_button.dart';
 import '../../../widgets/app_snackbar.dart';
 
-/// Modal dialog allowing the member to write an optional `initial_note`
-/// and send an express interest proposal (`POST /interests` with `user_id` and `initial_note`).
+/// Send Interest: a simple static action (spec §1). The member picks one of
+/// the admin-managed messages, previews it and confirms; the joined text goes
+/// out as `initial_note` on `POST /interests`.
 class SendInterestDialog extends StatefulWidget {
   const SendInterestDialog({super.key, required this.profile});
 
@@ -29,36 +33,61 @@ class SendInterestDialog extends StatefulWidget {
 
 class _SendInterestDialogState extends State<SendInterestDialog> {
   final InterestController _interestCtrl = Get.find<InterestController>();
-  final TextEditingController _noteController = TextEditingController();
   bool _isSubmitting = false;
+
+  /// Admin-managed library (spec §12); null while loading.
+  List<MessageTemplate>? _templates;
+  MessageTemplate? _selected;
 
   /// Super Like / Priority Interest toggle. Only offered when the member's plan
   /// grants `priority_interest`; the price comes back from the server.
   bool _superLike = false;
 
-  static const List<String> _quickNotes = <String>[
-    'Assalam-o-Alaikum, I found your profile suitable and would like to connect.',
-    'Assalam-o-Alaikum, interested in taking things forward with family involvement.',
-    'Hello, looking forward to getting to know more about you.',
-  ];
-
   @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    Get.find<MessageTemplateRepository>()
+        .fetch(MessageTemplateType.interest)
+        .then((List<MessageTemplate> list) {
+      if (!mounted) return;
+      setState(() {
+        _templates = list;
+        _selected = list.isNotEmpty ? list.first : null;
+      });
+    });
   }
 
   Future<void> _send() async {
+    final MessageTemplate? template = _selected;
+    if (template == null) {
+      AppSnackbar.info('Please choose a message first.');
+      return;
+    }
+    final String note = template.fullText;
+    final int? templateId = int.tryParse(template.id);
+    if (templateId == null) {
+      AppSnackbar.error('Messages are unavailable right now. Please try again in a moment.');
+      return;
+    }
+    final bool confirmed = await confirmMessageSend(
+      context,
+      title: _superLike ? 'Send Super Like?' : 'Send Interest?',
+      recipientName: widget.profile.displayName,
+      message: note,
+      confirmLabel: 'Send',
+    );
+    if (!confirmed || !mounted) return;
+
     setState(() => _isSubmitting = true);
-    final String note = _noteController.text.trim();
 
     // Call POST /interests with user_id, optional initial_note and priority
     final SendInterestOutcome outcome = await _interestCtrl.sendInterest(
       widget.profile.id,
-      note: note.isNotEmpty ? note : null,
+      templateId: templateId,
       priority: _superLike,
     );
 
+    if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     if (mounted) {
@@ -220,75 +249,24 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
                 );
               }),
 
-              // Note label
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Text('Initial Note', style: AppTextStyles.bodyStrong),
-                  Text(
-                    'Optional',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.optionalBadge),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xs),
-
-              // Text field for initial_note
-              Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-                  borderRadius: AppRadius.mdAll,
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightDivider,
-                  ),
-                ),
-                child: TextField(
-                  controller: _noteController,
-                  maxLines: 4,
-                  maxLength: 300,
-                  style: AppTextStyles.body,
-                  decoration: InputDecoration(
-                    hintText: 'Add a personalized message (optional)...',
-                    hintStyle: AppTextStyles.body.copyWith(
-                      color: theme.hintColor.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                    contentPadding: const EdgeInsets.all(AppSpacing.md),
-                    border: InputBorder.none,
-                  ),
-                ),
+              Text('Choose a message', style: AppTextStyles.bodyStrong),
+              const SizedBox(height: 2),
+              Text(
+                'Tap a message to preview it in full.',
+                style: AppTextStyles.caption.copyWith(color: theme.hintColor),
               ),
               const SizedBox(height: AppSpacing.sm),
-
-              // Quick template chips
-              Text(
-                'Quick Suggestions',
-                style: AppTextStyles.caption.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: theme.hintColor,
+              if (_templates == null)
+                const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                MessageTemplatePicker(
+                  templates: _templates!,
+                  selectedId: _selected?.id,
+                  onSelected: (MessageTemplate t) => setState(() => _selected = t),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _quickNotes.map((String note) {
-                  return ActionChip(
-                    label: Text(
-                      note,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    labelStyle: const TextStyle(fontSize: 11, color: AppColors.primary),
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                    side: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    onPressed: () {
-                      _noteController.text = note;
-                    },
-                  );
-                }).toList(),
-              ),
               const SizedBox(height: AppSpacing.lg),
 
               // Action buttons
@@ -313,7 +291,7 @@ class _SendInterestDialogState extends State<SendInterestDialog> {
                           ? Icons.star_rounded
                           : Icons.favorite_rounded,
                       loading: _isSubmitting,
-                      onPressed: _send,
+                      onPressed: _selected == null ? null : _send,
                     ),
                   ),
                 ],

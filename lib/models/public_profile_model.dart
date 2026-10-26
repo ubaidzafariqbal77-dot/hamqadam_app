@@ -40,6 +40,7 @@ class PublicProfileModel {
     this.age,
     this.gender,
     this.aboutMe,
+    this.aiGeneratedBio,
     this.maritalStatusId,
     this.height,
     this.religionId,
@@ -68,6 +69,9 @@ class PublicProfileModel {
   /// payload (the server maps members.introduction). Rendered as the
   /// "About me" card on the profile detail page; null hides the card.
   final String? aboutMe;
+
+  /// The AI-written bio, public to every member.
+  final String? aiGeneratedBio;
 
   final int? maritalStatusId;
   final String? height;
@@ -124,6 +128,10 @@ class PublicProfileModel {
       approved: _asBool(json['approved']),
       age: _asIntOrNull(json['age']),
       gender: json['gender']?.toString(),
+      aiGeneratedBio: () {
+        final String bio = json['ai_generated_bio']?.toString() ?? '';
+        return bio.trim().isEmpty ? null : bio.trim();
+      }(),
       aboutMe: () {
         final dynamic raw = json['about_me'];
         final String bio = raw?.toString() ?? '';

@@ -275,7 +275,7 @@ class StepScaffold extends StatelessWidget {
               // finalizing; steps that drive their own label (e.g. partner
               // preferences) keep it.
               primaryLabel: fixing
-                  ? 'Save & continue setup'
+                  ? 'Update & Save'
                   : editing
                   ? 'Save'
                   : primaryLabel,

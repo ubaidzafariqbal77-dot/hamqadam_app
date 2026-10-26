@@ -140,9 +140,32 @@ class _EditProfileViewState extends State<EditProfileView> {
                   controller: c.aboutMe,
                   requirement: FieldRequirement.optional,
                   hint: 'Tell us a little about yourself',
-                  maxLines: 4,
-                  minLines: 3,
-                  maxLength: 500,
+                  maxLines: 10,
+                  minLines: 4,
+                  maxLength: EditProfileController.aboutMaxChars,
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Obx(() {
+                    final bool busy = c.generatingBio.value;
+                    return TextButton.icon(
+                      onPressed: busy ? null : c.generateBioWithAi,
+                      icon: busy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text(
+                        busy
+                            ? 'Writing…'
+                            : (c.aboutMe.text.trim().isEmpty
+                                ? 'Write with AI'
+                                : 'Regenerate with AI'),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ),

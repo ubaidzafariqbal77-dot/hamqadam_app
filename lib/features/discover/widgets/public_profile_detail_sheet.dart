@@ -244,6 +244,14 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
                           const SizedBox(height: AppSpacing.sm),
                           _AboutMeCard(bio: profile.aboutMe!.trim()),
                         ],
+                        if (profile.aiGeneratedBio != null &&
+                            profile.aiGeneratedBio!.trim() != profile.aboutMe?.trim()) ...<Widget>[
+                          const SizedBox(height: AppSpacing.sm),
+                          _AboutMeCard(
+                            bio: profile.aiGeneratedBio!.trim(),
+                            title: 'Bio',
+                          ),
+                        ],
 
                         const SizedBox(height: AppSpacing.sm),
 
@@ -603,9 +611,10 @@ class _IdentityCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AboutMeCard extends StatelessWidget {
-  const _AboutMeCard({required this.bio});
+  const _AboutMeCard({required this.bio, this.title = 'About me'});
 
   final String bio;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -643,7 +652,7 @@ class _AboutMeCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                'About me',
+                title,
                 style: AppTextStyles.label.copyWith(
                   fontSize: 13,
                   letterSpacing: 0.9,
@@ -856,6 +865,8 @@ class _ActionBar extends StatelessWidget {
                 );
               }
 
+              // Visible but locked until the interest is accepted (spec §3).
+              final bool locked = interestCtrl?.isInterestAccepted(profile.id) != true;
               return GestureDetector(
                 onTap: onProposal,
                 child: Container(
@@ -877,12 +888,16 @@ class _ActionBar extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Icon(Icons.mail_outline_rounded, size: 18, color: Colors.white),
-                      SizedBox(width: 8),
-                      Text(
+                      Icon(
+                        locked ? Icons.lock_outline_rounded : Icons.mail_outline_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
                         'Send Proposal',
                         style: TextStyle(
                           color: Colors.white,

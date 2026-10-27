@@ -56,7 +56,9 @@ class DiscoverView extends StatelessWidget {
           child: NotificationListener<ScrollNotification>(
             onNotification: (ScrollNotification n) {
               // Infinite scroll: start fetching the next page before the end.
-              if (n.metrics.extentAfter < 400) {
+              // `pixels > 120` keeps a freshly built, still-short list from
+              // chaining page 2 straight after page 1 before the member scrolls.
+              if (n.metrics.pixels > 120 && n.metrics.extentAfter < 400) {
                 controller.loadMore();
               }
               return false;
@@ -735,6 +737,10 @@ class _HeroBannerState extends State<_HeroBanner> {
             child: Image.asset(
               _images[i],
               height: 190,
+              // The artwork files are ~2.4 MB full-size PNGs; decoding them
+              // at native size exhausted memory on low-RAM phones and blanked
+              // the whole screen. Decode at the displayed size only.
+              cacheHeight: 380,
               fit: BoxFit.contain,
               errorBuilder: (_, __, ___) => const SizedBox.shrink(),
             ),

@@ -12,6 +12,7 @@ import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/proposal_controller.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../features/gifts/views/gift_selection_sheet.dart';
+import '../../../exceptions/app_exceptions.dart';
 import '../../../models/chat_model.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/public_profile_model.dart';
@@ -163,6 +164,20 @@ class _PublicProfileDetailSheetState extends State<PublicProfileDetailSheet> {
           }
 
           if (snapshot.hasError) {
+            final Object? err = snapshot.error;
+            // 404: the member was removed (or hid their profile) — retrying
+            // can never succeed, so say so instead of offering a retry.
+            if (err is AppException && err.statusCode == 404) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'This profile is no longer available.',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
             return ErrorStateWidget(
               message: 'Failed to load profile details.',
               onRetry: () => setState(_fetch),

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -51,7 +54,43 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 Future<void> main() async {
+  await runZonedGuarded<Future<void>>(_bootstrap, (Object e, StackTrace st) {
+    AppLogger.w('Uncaught error: $e');
+  });
+}
+
+/// A widget that throws while building must never leave Flutter's default grey
+/// release-mode box on screen: show a calm placeholder instead, and keep the
+/// rest of the screen alive.
+Widget _friendlyError(FlutterErrorDetails details) {
+  AppLogger.w('Widget build error: ${details.exceptionAsString()}');
+  return const Material(
+    color: Colors.transparent,
+    child: Center(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Something went wrong here.\nPull down to refresh or try again.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13, color: Color(0xFF777777)),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  ErrorWidget.builder = _friendlyError;
+  FlutterError.onError = (FlutterErrorDetails d) {
+    FlutterError.presentError(d);
+    AppLogger.w('Flutter error: ${d.exceptionAsString()}');
+  };
+  ui.PlatformDispatcher.instance.onError = (Object e, StackTrace st) {
+    AppLogger.w('Platform error: $e');
+    return true;
+  };
 
   // ── Firebase ────────────────────────────────────────────────────────────
   await Firebase.initializeApp(

@@ -35,7 +35,7 @@ class SearchProfilesController extends GetxController {
   final LookupController _lookup;
   final MatchRepository? _matchRepo;
 
-  static const int _perPage = 20;
+  static const int _perPage = 12;
 
   /// How many profiles the AI Filtered mode shows — the matchmaking model's
   /// top five for this member.
@@ -61,12 +61,38 @@ class SearchProfilesController extends GetxController {
       p.compatibilityPercentage ?? fetchedCompat[p.id];
 
   /// Fetches the missing score once per profile; the card rebuilds via Obx.
+  ///
+  /// Requests go through a single-file queue: each one runs the matchmaking
+  /// model on the server, so firing a dozen at once (one per visible card)
+  /// starved the feed's own requests and made Discover feel slow.
   void ensureCompat(SearchProfileModel p) {
     if (p.compatibilityPercentage != null || !_compatRequested.add(p.id)) return;
-    if (!Get.isRegistered<ProfileController>()) return;
-    Get.find<ProfileController>().fetchCompatibility(p.id).then((c) {
-      if (c != null && c.percentage > 0) fetchedCompat[p.id] = c.percentage;
-    });
+    _compatQueue.add(p.id);
+    // Called from a card's build(): start the request after the frame so no
+    // observable is touched mid-build.
+    Future<void>.microtask(_drainCompatQueue);
+  }
+
+  final List<int> _compatQueue = <int>[];
+  bool _compatRunning = false;
+
+  Future<void> _drainCompatQueue() async {
+    if (_compatRunning) return;
+    _compatRunning = true;
+    try {
+      while (_compatQueue.isNotEmpty) {
+        final int id = _compatQueue.removeAt(0);
+        if (!Get.isRegistered<ProfileController>()) continue;
+        try {
+          final c = await Get.find<ProfileController>().fetchCompatibility(id);
+          if (c != null && c.percentage > 0) fetchedCompat[id] = c.percentage;
+        } catch (_) {
+          // The score is decoration; one bad response must not stop the queue.
+        }
+      }
+    } finally {
+      _compatRunning = false;
+    }
   }
 
   /// Whether the feed is narrowed to the AI matchmaking model's top 5.

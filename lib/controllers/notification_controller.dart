@@ -188,11 +188,16 @@ class NotificationController extends GetxController {
   Future<void> deletePushToken() async {
     if (_pushTokenRecordId == null) return;
     try {
-      await _repository.deletePushToken(_pushTokenRecordId);
-      _pushTokenRecordId = null;
+      await _repository
+          .deletePushToken(_pushTokenRecordId)
+          .timeout(const Duration(seconds: 5));
       AppLogger.i('FCM Push Token deleted from backend successfully');
     } catch (e) {
       AppLogger.w('Failed to delete push token from backend: $e');
+    } finally {
+      // Never retried: after sign-out the session is gone, so a second attempt
+      // could only fail slowly.
+      _pushTokenRecordId = null;
     }
   }
 

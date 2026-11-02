@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show PopScope, Center, CircularProgressIndicator;
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -185,22 +186,47 @@ class AuthController extends GetxController {
 
 
   Future<void> logout() async {
-    try {
-      await authRepository.logout();
-    } catch (e) {
-      AppLogger.w('Logout API failed (ignored): $e');
-    }
+    _showBlockingLoader();
+    // Order matters: the push token must be removed while the session is still
+    // valid, and the logout call then revokes it. Each server step is capped so
+    // a slow server can never leave the member staring at a frozen screen.
+    await _bestEffort(() async {
+      if (Get.isRegistered<NotificationController>()) {
+        await Get.find<NotificationController>().deletePushToken();
+      }
+    });
+    await _bestEffort(authRepository.logout);
     await _clearAndGoOnboarding();
   }
 
   /// Logs out from every device/session.
   Future<void> logoutAllDevices() async {
-    try {
-      await authRepository.logoutAll();
-    } catch (e) {
-      AppLogger.w('Logout-all API failed (ignored): $e');
-    }
+    _showBlockingLoader();
+    await _bestEffort(authRepository.logoutAll);
     await _clearAndGoOnboarding();
+  }
+
+  /// Runs a server step that must not block sign-out: errors are logged and a
+  /// slow call is abandoned after a few seconds.
+  Future<void> _bestEffort(Future<void> Function() step) async {
+    try {
+      await step().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      AppLogger.w('Sign-out server step skipped: $e');
+    }
+  }
+
+  /// Non-dismissible spinner shown while signing out. It is removed together
+  /// with every other route when the app navigates to the welcome screen.
+  void _showBlockingLoader() {
+    if (Get.isDialogOpen ?? false) return;
+    Get.dialog<void>(
+      const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      barrierDismissible: false,
+    );
   }
 
   /// Deactivates the account then clears the session.

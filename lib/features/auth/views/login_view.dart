@@ -198,7 +198,7 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          AppButton(label: AppStrings.login, loading: c.submitting.value, onPressed: c.submit),
+          AppButton(label: AppStrings.login, onPressed: c.submit),
         ],
       ),
     );
@@ -226,7 +226,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                 padding: const EdgeInsets.only(top: AppSpacing.md),
                 child: AppButton(
                   label: 'Send Code',
-                  loading: emailOtp.submitting.value,
                   onPressed: emailOtp.requestOtp,
                 ),
               );
@@ -239,7 +238,6 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                 const SizedBox(height: AppSpacing.md),
                 AppButton(
                   label: 'Verify & Login',
-                  loading: emailOtp.submitting.value,
                   onPressed: emailOtp.verifyOtp,
                 ),
                 TextButton(

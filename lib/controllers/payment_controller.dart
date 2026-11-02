@@ -93,6 +93,9 @@ class PaymentController extends GetxController {
   Future<void> loadPlans({bool silent = false}) async {
     if (!_hasToken) return;
 
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (plansState.value.isSuccess) silent = true;
     if (!silent) {
       plansState.value = const ApiState<List<PaymentPlanModel>>.loading();
     }
@@ -114,6 +117,9 @@ class PaymentController extends GetxController {
   Future<void> loadCurrentPackage({bool silent = false}) async {
     if (!_hasToken) return;
 
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (currentPackageState.value.isSuccess) silent = true;
     if (!silent) {
       currentPackageState.value = const ApiState<CurrentPackageData>.loading();
     }
@@ -132,6 +138,9 @@ class PaymentController extends GetxController {
 
   /// Fetches usage breakdown list (`GET /payments/usage`).
   Future<void> loadUsage({bool silent = false, String? feature}) async {
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (usageState.value.isSuccess) silent = true;
     if (!silent) {
       usageState.value = const ApiState<PaymentUsagePage>.loading();
     }
@@ -182,6 +191,9 @@ class PaymentController extends GetxController {
 
   /// Fetches payment history list (`GET /payments/history`).
   Future<void> loadHistory({bool silent = false}) async {
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (historyState.value.isSuccess) silent = true;
     if (!silent) {
       historyState.value = const ApiState<PaymentHistoryPage>.loading();
     }

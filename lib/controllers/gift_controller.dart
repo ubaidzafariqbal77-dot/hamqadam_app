@@ -133,7 +133,7 @@ class GiftController extends GetxController {
   // ---- My Gifts ----------------------------------------------------------------
 
   Future<void> loadReceived({bool refresh = true}) async {
-    if (refresh) receivedState.value = const ApiState<List<GiftTransactionModel>>.loading();
+    if (refresh && !receivedState.value.isSuccess) receivedState.value = const ApiState<List<GiftTransactionModel>>.loading();
     try {
       final List<GiftTransactionModel> items = await _repo.fetchReceived();
       receivedState.value = items.isEmpty
@@ -147,7 +147,7 @@ class GiftController extends GetxController {
   }
 
   Future<void> loadSent({bool refresh = true}) async {
-    if (refresh) sentState.value = const ApiState<List<GiftTransactionModel>>.loading();
+    if (refresh && !sentState.value.isSuccess) sentState.value = const ApiState<List<GiftTransactionModel>>.loading();
     try {
       final List<GiftTransactionModel> items = await _repo.fetchSent();
       sentState.value = items.isEmpty

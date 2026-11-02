@@ -60,7 +60,9 @@ class LoginController extends GetxController {
         return;
       }
       await authController.persistSession(res);
-      passwordCtrl.clear();
+      // The password stays in the field until the screen is replaced: clearing
+      // it here left an empty form with "Password is required" on screen for
+      // the whole post-login routing wait.
       success = true;
     } on ValidationException catch (e) {
       serverErrors.clear();
@@ -69,14 +71,18 @@ class LoginController extends GetxController {
       });
       // Prefer the field message ("These credentials do not match…") over the
       // generic "Validation failed." wrapper.
-      _fail(serverErrors.values.isNotEmpty ? serverErrors.values.first : e.message);
+      _fail(
+        serverErrors.values.isNotEmpty ? serverErrors.values.first : e.message,
+      );
     } on AppException catch (e) {
       // A 401 here is a wrong password, not a dead session: this request carried
       // no token, so nothing cleared the session or routed away, and without a
       // snackbar the only feedback was an inline line the keyboard often covers.
       _fail(e.message);
     } finally {
-      submitting.value = false;
+      // On success the overlay stays up until routing is done (below), so the
+      // form is never shown idle between "logged in" and the home screen.
+      if (!success) submitting.value = false;
     }
 
     if (!success) return;
@@ -86,21 +92,25 @@ class LoginController extends GetxController {
     // screen behind it, and skipped entirely on non-biometric devices or when
     // the member already opted in / said "not now".
     try {
-      if (Get.isRegistered<BiometricAuthService>()) {
-        await BiometricOptInDialog.maybeShow(
-          service: Get.find<BiometricAuthService>(),
-          email: email,
-          password: password,
-        );
+      try {
+        if (Get.isRegistered<BiometricAuthService>()) {
+          await BiometricOptInDialog.maybeShow(
+            service: Get.find<BiometricAuthService>(),
+            email: email,
+            password: password,
+          );
+        }
+      } catch (e) {
+        AppLogger.w('biometric opt-in failed (ignored): $e');
       }
-    } catch (e) {
-      AppLogger.w('biometric opt-in failed (ignored): $e');
-    }
 
-    // Route based on server registration status.
-    final bool gated = await authController.checkManualReview();
-    if (gated) return;
-    await Get.find<RegistrationController>().resumeAfterLogin();
+      // Route based on server registration status.
+      final bool gated = await authController.checkManualReview();
+      if (gated) return;
+      await Get.find<RegistrationController>().resumeAfterLogin();
+    } finally {
+      submitting.value = false;
+    }
   }
 
   /// Fingerprint login: verifies the member with the system BiometricPrompt,
@@ -154,7 +164,8 @@ class LoginController extends GetxController {
     AppSnackbar.error(message);
   }
 
-  ApiStatus get status => submitting.value ? ApiStatus.loading : ApiStatus.initial;
+  ApiStatus get status =>
+      submitting.value ? ApiStatus.loading : ApiStatus.initial;
 
   @override
   void onClose() {

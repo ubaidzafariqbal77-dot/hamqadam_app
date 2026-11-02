@@ -13,6 +13,7 @@ import '../../../widgets/app_snackbar.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
+import '../../auth/views/home_view.dart';
 import '../../chat/views/chat_conversation_view.dart';
 import '../../discover/widgets/public_profile_detail_sheet.dart';
 
@@ -55,19 +56,40 @@ class InterestsView extends StatelessWidget {
         backgroundColor: embedded
             ? Colors.transparent
             : AppColors.lightBackground,
-        body: Column(
-          children: <Widget>[
-            const _CoinWalletCard(),
-            _SegmentedTabs(controller: c),
-            Expanded(
-              child: TabBarView(
-                children: <Widget>[
-                  _InterestList(controller: c, received: true),
-                  _InterestList(controller: c, received: false),
-                ],
+        // The header (app bar when embedded, wallet, tabs) lives in the scroll
+        // view, so it moves up with the list instead of staying pinned.
+        body: NestedScrollView(
+          headerSliverBuilder: (BuildContext context, bool _) => <Widget>[
+            if (embedded)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height:
+                      MediaQuery.paddingOf(context).top + kToolbarHeight + 6,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.paddingOf(context).top,
+                    ),
+                    child: PremiumAppBar(
+                      title: 'Matches',
+                      subtitle: 'Your matches & likes',
+                      leading: IconButton(
+                        icon: const Icon(Icons.menu_rounded),
+                        onPressed: () =>
+                            HomeView.shellKey.currentState?.openDrawer(),
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            const SliverToBoxAdapter(child: _CoinWalletCard()),
+            SliverToBoxAdapter(child: _SegmentedTabs(controller: c)),
           ],
+          body: TabBarView(
+            children: <Widget>[
+              _InterestList(controller: c, received: true),
+              _InterestList(controller: c, received: false),
+            ],
+          ),
         ),
       ),
     );
@@ -1294,6 +1316,9 @@ class _Actions extends StatelessWidget {
   }
 }
 
+/// Both card actions share one height so the pair always lines up.
+const double _kRefButtonHeight = 44;
+
 /// Secondary action: white pill, hairline border — the Profile Views "Full
 /// Profile" button.
 class _RefOutlineButton extends StatelessWidget {
@@ -1309,21 +1334,28 @@ class _RefOutlineButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      icon: Icon(icon, size: 16, color: AppColors.regAccent),
-      label: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12.5, color: AppColors.regAccent),
+    return SizedBox(
+      height: _kRefButtonHeight,
+      child: OutlinedButton.icon(
+        icon: Icon(icon, size: 16, color: AppColors.regAccent),
+        label: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12.5, color: AppColors.regAccent),
+        ),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          minimumSize: const Size(0, _kRefButtonHeight),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
+          backgroundColor: Colors.white,
+        ),
+        onPressed: onPressed,
       ),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
-        backgroundColor: Colors.white,
-      ),
-      onPressed: onPressed,
     );
   }
 }
@@ -1344,60 +1376,63 @@ class _RefGradientButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onPressed == null && !busy ? 0.55 : 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: AppColors.regPrimaryGradient,
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: <BoxShadow>[
-            BoxShadow(
-              color: AppColors.regAccent.withValues(alpha: 0.38),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-              spreadRadius: -3,
+    return SizedBox(
+      height: _kRefButtonHeight,
+      child: Opacity(
+        opacity: onPressed == null && !busy ? 0.55 : 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: AppColors.regPrimaryGradient,
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 9),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  if (busy)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  else ...<Widget>[
-                    Icon(icon, size: 16, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        label,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.button.copyWith(
-                          fontSize: 12.5,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: AppColors.regAccent.withValues(alpha: 0.38),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+                spreadRadius: -3,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    if (busy)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: Colors.white,
                         ),
+                      )
+                    else ...<Widget>[
+                      Icon(icon, size: 16, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          label,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.button.copyWith(
+                            fontSize: 12.5,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

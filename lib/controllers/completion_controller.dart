@@ -42,7 +42,9 @@ class CompletionController extends GetxController {
 
   /// `GET /completion/rewards` — the member's own reward ledger.
   Future<void> loadRewards() async {
-    rewardsState.value = const ApiState<RewardLedgerPage>.loading();
+    if (!rewardsState.value.isSuccess) {
+      rewardsState.value = const ApiState<RewardLedgerPage>.loading();
+    }
     try {
       final RewardLedgerPage page = await _repo.fetchRewards();
       _rewardsPage = page.currentPage;

@@ -14,7 +14,6 @@ import '../../../models/lookup_item_model.dart';
 import '../widgets/entry_dialog.dart';
 import '../../help_center/views/guest_help_view.dart';
 
- 
 class WelcomePreviewView extends StatefulWidget {
   const WelcomePreviewView({super.key});
 
@@ -27,40 +26,7 @@ class WelcomePreviewView extends StatefulWidget {
 }
 
 class _WelcomePreviewViewState extends State<WelcomePreviewView> {
-  /// Shown while the live feed loads and kept as the fallback if it fails —
-  /// a first-time visitor must never land on a blank marketing screen.
-  static const List<_PreviewProfile> _fallbackProfiles = <_PreviewProfile>[
-    _PreviewProfile(
-      name: 'Eleanor Rowe',
-      about:
-          'Creative strategist passionate about design systems and user-centered solutions.',
-      verified: true,
-      age: 27,
-      city: 'San Francisco',
-      profession: 'Product Designer',
-      family: 'Family Oriented',
-    ),
-    _PreviewProfile(
-      name: 'Marcus Chen',
-      about: 'Builder at heart, loves scalable systems and clean code.',
-      verified: true,
-      age: 30,
-      city: 'New York',
-      profession: 'Software Engineer',
-      family: 'Family Oriented',
-    ),
-    _PreviewProfile(
-      name: 'Isabella Martinez',
-      about: 'Empathy-driven, exploring behavioral patterns and user insights.',
-      verified: true,
-      age: 26,
-      city: 'Austin',
-      profession: 'UX Researcher',
-      family: 'Family Oriented',
-    ),
-  ];
-
-  List<_PreviewProfile> _profiles = _fallbackProfiles;
+  List<_PreviewProfile> _profiles = const <_PreviewProfile>[];
   bool _loading = true;
   bool _loadFailed = false;
   int _memberCount = 0;
@@ -87,7 +53,8 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
         ApiEndpoints.publicDiscover,
         query: <String, dynamic>{'per_page': 100},
       );
-      final List<dynamic> raw = (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
+      final List<dynamic> raw =
+          (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
       // Lookup names (religion/sect/education) resolve client-side from the
       // dropdown reference cache — the guest payload carries ids only.
       final List<_PreviewProfile> fetched = raw
@@ -96,7 +63,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
           .toList(growable: false);
       if (!mounted) return;
       setState(() {
-        if (fetched.isNotEmpty) _profiles = fetched;
+        _profiles = fetched;
         _memberCount = (res.dataMap['total_members'] as num?)?.toInt() ?? 0;
         _loading = false;
       });
@@ -129,10 +96,12 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
       map['religion'] =
           map['religion'] ?? nameOf(LookupKeys.religions, map['religion_id']);
-      map['sect'] = map['sect'] ??
+      map['sect'] =
+          map['sect'] ??
           nameOf(LookupKeys.sectMain, map['sect_main_id']) ??
           nameOf(LookupKeys.schoolOfThought, map['school_of_thought_id']);
-      map['education'] = map['education'] ??
+      map['education'] =
+          map['education'] ??
           nameOf(LookupKeys.educationLevels, map['education_level_id']) ??
           nameOf(LookupKeys.degrees, map['degree_id']);
     } catch (_) {
@@ -143,7 +112,8 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
   Future<void> _openWhatsApp() async {
     final Uri url = Uri.parse(
-        'https://wa.me/${WelcomePreviewView._whatsappNumber}');
+      'https://wa.me/${WelcomePreviewView._whatsappNumber}',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -153,306 +123,331 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        // The reference's soft pink canvas; content scrolls and the help /
-        // WhatsApp buttons float above the bottom-right corner.
-        floatingActionButton: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: <Widget>[
-            // Help Centre — neat white circle with the agent glyph, no
-            // banner screaming for attention.
-            Material(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              elevation: 3,
-              shadowColor: Colors.black.withValues(alpha: 0.18),
-              child: InkWell(
-                onTap: GuestHelpView.open,
-                customBorder: const CircleBorder(),
-                child: const SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Icon(
-                    Icons.support_agent_rounded,
-                    color: AppColors.primary,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // WhatsApp — the single floating green button, icon only.
-            Material(
-              color: const Color(0xFF25D366),
-              borderRadius: BorderRadius.circular(999),
-              elevation: 4,
-              shadowColor: Colors.black.withValues(alpha: 0.22),
-              child: InkWell(
-                onTap: _openWhatsApp,
-                customBorder: const CircleBorder(),
-                child:   SizedBox(
-                  width: 40,
-                  height: 40,
-                  child: Image.asset( 
-                    'assets/icons/whatsapp.png',
-                    width: 22,
-                    height: 22,
-                    fit: BoxFit.contain,
-                  ),
-                  // Icon(Icons.chat_rounded, color: Colors.white, size: 28),
-                ),
-              ),
-            ),
-          ],
+    final MediaQueryData mq = MediaQuery.of(context);
+    return MediaQuery(
+      data: mq.copyWith(
+        textScaler: mq.textScaler.clamp(
+          minScaleFactor: 0.9,
+          maxScaleFactor: 1.1,
         ),
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: <Color>[
-                Color(0xFFF9D3E0), // soft rose
-                Color(0xFFF6C3D4), // mid rose
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.xl,
-                      AppSpacing.lg,
-                      AppSpacing.xl,
-                      AppSpacing.sm,
+      ),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          // The reference's soft pink canvas; content scrolls and the help /
+          // WhatsApp buttons float above the bottom-right corner.
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              // Help Centre — neat white circle with the agent glyph, no
+              // banner screaming for attention.
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                elevation: 3,
+                shadowColor: Colors.black.withValues(alpha: 0.18),
+                child: InkWell(
+                  onTap: GuestHelpView.open,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      color: AppColors.primary,
+                      size: 22,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        // ---- Brand row — centred serif wordmark + sparkle
-                        GestureDetector(
-                          onTap: () => _openEntryDialog(context),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: <Widget>[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Image.asset(
-                                  'assets/icons/logo.png',
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.favorite_rounded,
-                                    color: AppColors.primary,
-                                    size: 36,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              // Serif wordmark with the sparkle accent from
-                              // the reference design.
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    'HamQadam',
-                                    style: AppTextStyles.displaySerif.copyWith(
-                                      fontSize: 34,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.lightTextPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // WhatsApp — the single floating green button, icon only.
+              Material(
+                color: const Color(0xFF25D366),
+                borderRadius: BorderRadius.circular(999),
+                elevation: 4,
+                shadowColor: Colors.black.withValues(alpha: 0.22),
+                child: InkWell(
+                  onTap: _openWhatsApp,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Image.asset(
+                      'assets/icons/whatsapp.png',
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.contain,
+                    ),
+                    // Icon(Icons.chat_rounded, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[
+                  Color(0xFFF9D3E0), // soft rose
+                  Color(0xFFF6C3D4), // mid rose
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: <Widget>[
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.lg,
+                        AppSpacing.xl,
+                        AppSpacing.sm,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          // ---- Brand row — centred serif wordmark + sparkle
+                          GestureDetector(
+                            onTap: () => _openEntryDialog(context),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.asset(
+                                    'assets/icons/logo.png',
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.favorite_rounded,
+                                      color: AppColors.primary,
+                                      size: 36,
                                     ),
                                   ),
-                                  const SizedBox(width: 2),
-                                  const Icon(
-                                    Icons.auto_awesome_rounded,
-                                    size: 14,
-                                    color: AppColors.primaryDark,
+                                ),
+                                const SizedBox(width: 10),
+                                // Serif wordmark with the sparkle accent from
+                                // the reference design.
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'HamQadam',
+                                      style: AppTextStyles.displaySerif
+                                          .copyWith(
+                                            fontSize: 34,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.lightTextPrimary,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.auto_awesome_rounded,
+                                      size: 14,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xl + 4),
+
+                          // ---- Headline -----------------------------------
+                          Text(
+                            'HamQadam - Proposals for you',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.displaySerif.copyWith(
+                              fontSize: 25,
+                              color: AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm + 2),
+                          Text(
+                            _memberCount > 0
+                                ? '$_memberCount curated matches, all verified · Updated today'
+                                : 'Curated matches, all verified · Updated today',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyStrong.copyWith(
+                              fontSize: 14,
+                              height: 1.45,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xl - 4),
+
+                          // ---- Search preview (tappable) ------------------
+                          GestureDetector(
+                            onTap: () => _openEntryDialog(context),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.lg + 4,
+                                ),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFB4487B,
+                                    ).withValues(alpha: 0.08),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 5),
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl + 4),
-
-                        // ---- Headline -----------------------------------
-                        Text(
-                          'HamQadam - Proposals for you',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.displaySerif.copyWith(
-                            fontSize: 25,
-                            color: AppColors.lightTextPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm + 2),
-                        Text(
-                          _memberCount > 0
-                              ? '$_memberCount curated matches, all verified · Updated today'
-                              : 'Curated matches, all verified · Updated today',
-                          textAlign: TextAlign.center,
-                          style: AppTextStyles.bodyStrong.copyWith(
-                            fontSize: 14,
-                            height: 1.45,
-                            color: AppColors.lightTextSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl - 4),
-
-                        // ---- Search preview (tappable) ------------------
-                        GestureDetector(
-                          onTap: () => _openEntryDialog(context),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.lg,
-                              vertical: 16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.lg + 4),
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: const Color(0xFFB4487B)
-                                      .withValues(alpha: 0.08),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                const Icon(
-                                  Icons.search_rounded,
-                                  color: AppColors.lightTextSecondary,
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    'Search by location, profession...',
-                                    style: AppTextStyles.bodyStrong.copyWith(
-                                      color: AppColors.lightTextSecondary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: <Widget>[
+                                  const Icon(
+                                    Icons.search_rounded,
+                                    color: AppColors.lightTextSecondary,
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg + 4),
-
-                        // ---- Retry banner (only when the live feed
-                        // ---- failed and demo fallback is showing) --------
-                        if (_loadFailed)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                            child: OutlinedButton.icon(
-                              onPressed: _loadFeed,
-                              icon: const Icon(Icons.refresh_rounded, size: 18),
-                              label: const Text('Could not load live profiles — tap to retry'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primaryDark,
-                                backgroundColor: Colors.white,
-                                side: const BorderSide(color: AppColors.primary, width: 1.2),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      'Search by location, profession...',
+                                      style: AppTextStyles.bodyStrong.copyWith(
+                                        color: AppColors.lightTextSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.lg + 4),
 
-                        // ---- Match cards (live feed) --------------------
-                        if (_loading)
-                          ...List<Widget>.filled(
-                            3,
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: AppSpacing.lg),
-                              child: _SkeletonCard(),
-                            ),
-                          )
-                        else
-                          ..._profiles.map(
-                            (_PreviewProfile p) => Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: AppSpacing.lg),
-                              child: _PreviewCard(
-                                profile: p,
-                                onTap: () => _openEntryDialog(context),
+                          // ---- Retry banner (only when the live feed
+                          // ---- failed and demo fallback is showing) --------
+                          if (_loadFailed)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.lg,
                               ),
-                            ),
-                          ),
-
-                        // ---- Bottom action row --------------------------
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _openEntryDialog(context),
+                              child: OutlinedButton.icon(
+                                onPressed: _loadFeed,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text(
+                                  'Could not load live profiles — tap to retry',
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primaryDark,
                                   backgroundColor: Colors.white,
                                   side: const BorderSide(
                                     color: AppColors.primary,
-                                    width: 1.4,
+                                    width: 1.2,
                                   ),
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
+                                    vertical: 12,
                                   ),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Log in',
-                                  style: AppTextStyles.button.copyWith(
-                                    color: AppColors.primaryDark,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _openEntryDialog(context),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: AppColors.primary,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+
+                          // ---- Match cards (live feed) --------------------
+                          if (_loading)
+                            ...List<Widget>.filled(
+                              3,
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: AppSpacing.lg),
+                                child: _SkeletonCard(),
+                              ),
+                            )
+                          else
+                            ..._profiles.map(
+                              (_PreviewProfile p) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.lg,
                                 ),
-                                child: Text(
-                                  'Create Account',
-                                  style: AppTextStyles.button.copyWith(
-                                    color: Colors.white,
-                                  ),
+                                child: _PreviewCard(
+                                  profile: p,
+                                  onTap: () => _openEntryDialog(context),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        // Clearance so the Log in / Create Account row is
-                        // never covered by the floating buttons.
-                        const SizedBox(height: 72),
-                      ],
+
+                          // ---- Bottom action row --------------------------
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _openEntryDialog(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primaryDark,
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(
+                                      color: AppColors.primary,
+                                      width: 1.4,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Log in',
+                                    style: AppTextStyles.button.copyWith(
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => _openEntryDialog(context),
+                                  style: ElevatedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.primary,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Create Account',
+                                    style: AppTextStyles.button.copyWith(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          // Clearance so the Log in / Create Account row is
+                          // never covered by the floating buttons.
+                          const SizedBox(height: 72),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -534,7 +529,9 @@ class _PreviewCard extends StatelessWidget {
                         left: -6,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(999),
@@ -549,8 +546,11 @@ class _PreviewCard extends StatelessWidget {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
-                              Icon(Icons.check_circle_rounded,
-                                  size: 12, color: AppColors.primary),
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 12,
+                                color: AppColors.primary,
+                              ),
                               SizedBox(width: 4),
                               Text(
                                 'Verified',
@@ -588,20 +588,27 @@ class _PreviewCard extends StatelessWidget {
 
                       // "26 Years · 5'4\" · Islam" — plain dark line with
                       // quiet dots between the parts.
-                      if (profile.age != null || heightLabel.isNotEmpty || profile.religion != null)
-                        _PlainFactsLine(parts: <String?>[
-                          if (profile.age != null) '${profile.age} Years',
-                          if (heightLabel.isNotEmpty) heightLabel,
-                          if (profile.religion != null) profile.religion,
-                        ]),
+                      if (profile.age != null ||
+                          heightLabel.isNotEmpty ||
+                          profile.religion != null)
+                        _PlainFactsLine(
+                          parts: <String?>[
+                            if (profile.age != null) '${profile.age} Years',
+                            if (heightLabel.isNotEmpty) heightLabel,
+                            if (profile.religion != null) profile.religion,
+                          ],
+                        ),
                       const SizedBox(height: 6),
 
                       // "📍 Rawalpindi · Marketing Professional".
                       if (profile.city != null || profile.profession != null)
                         Row(
                           children: <Widget>[
-                            const Icon(Icons.location_on_outlined,
-                                size: 13, color: AppColors.lightTextSecondary),
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 13,
+                              color: AppColors.lightTextSecondary,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -626,8 +633,11 @@ class _PreviewCard extends StatelessWidget {
                       if (profile.education != null)
                         Row(
                           children: <Widget>[
-                            const Icon(Icons.school_outlined,
-                                size: 13, color: AppColors.lightTextSecondary),
+                            const Icon(
+                              Icons.school_outlined,
+                              size: 13,
+                              color: AppColors.lightTextSecondary,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -681,24 +691,32 @@ class _PreviewCard extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 9),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    _badgeText(profile),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryInk,
+                Flexible(
+                  flex: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _badgeText(profile),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryInk,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
+                  flex: 6,
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(
@@ -708,21 +726,28 @@ class _PreviewCard extends StatelessWidget {
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          Icon(Icons.send_rounded,
-                              size: 14, color: AppColors.primaryInk),
-                          SizedBox(width: 6),
-                          Text(
-                            'Send Proposal',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.send_rounded,
+                              size: 14,
                               color: AppColors.primaryInk,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 6),
+                            Text(
+                              'Send Proposal',
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryInk,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -755,8 +780,10 @@ class _PlainFactsLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> clean =
-        parts.whereType<String>().where((String s) => s.trim().isNotEmpty).toList();
+    final List<String> clean = parts
+        .whereType<String>()
+        .where((String s) => s.trim().isNotEmpty)
+        .toList();
     if (clean.isEmpty) return const SizedBox.shrink();
     return Row(
       children: <Widget>[

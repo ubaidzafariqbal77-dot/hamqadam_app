@@ -61,6 +61,7 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final AuthController _auth = Get.find<AuthController>();
   int _index = 0;
+  final Set<int> _built = <int>{0};
 
   static const List<_TabItem> _tabs = <_TabItem>[
     _TabItem(
@@ -111,7 +112,10 @@ class _HomeViewState extends State<HomeView> {
   void _onTabRequest() {
     final int requested = HomeView.tabRequest.value;
     if (requested != _index && requested >= 0 && requested < _tabs.length) {
-      setState(() => _index = requested);
+      setState(() {
+        _index = requested;
+        _built.add(requested);
+      });
     }
   }
 
@@ -149,8 +153,9 @@ class _HomeViewState extends State<HomeView> {
       // draws its own white reference header (serif "Discover / CHOOSE
       // FOREVER" logo, search row, pink filter chip) — so the shell's gradient
       // bar is suppressed on both and each screen supplies the drawer control
-      // itself.
-      appBar: _index == 2 || _index == 0
+      // itself. Matches draws its header inside its own scroll view so the
+      // bar, wallet and tabs scroll away together with the list.
+      appBar: _index == 2 || _index == 0 || _index == 1
           ? null
           : PremiumAppBar(
               title: tab.label,
@@ -170,21 +175,17 @@ class _HomeViewState extends State<HomeView> {
                   : null,
             ),
       drawer: _AppDrawer(auth: _auth, currentTab: _index),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOutCubic,
-        transitionBuilder: (Widget child, Animation<double> a) =>
-            FadeTransition(
-              opacity: a,
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0, 0.04),
-                  end: Offset.zero,
-                ).animate(a),
-                child: child,
-              ),
-            ),
-        child: KeyedSubtree(key: ValueKey<int>(_index), child: _bodyFor(tab)),
+      // Tabs are built the first time they are opened and then KEPT alive
+      // (IndexedStack). Rebuilding a tab on every switch re-ran its initState
+      // — refetching data, flashing spinners and losing scroll position.
+      body: IndexedStack(
+        index: _index,
+        children: List<Widget>.generate(
+          _tabs.length,
+          (int i) => _built.contains(i)
+              ? _bodyFor(_tabs[i])
+              : const SizedBox.shrink(),
+        ),
       ),
       bottomNavigationBar: Obx(() {
         // Live unread badge on the Chat destination: the sum of unread messages
@@ -202,7 +203,10 @@ class _HomeViewState extends State<HomeView> {
         return PremiumBottomNav(
           currentIndex: _index,
           onTap: (int i) {
-            setState(() => _index = i);
+            setState(() {
+              _index = i;
+              _built.add(i);
+            });
             if (_tabs[i].label == 'Profile' && Get.isRegistered<ProfileController>()) {
               Get.find<ProfileController>().refreshSilently();
               if (Get.isRegistered<VerificationController>()) {

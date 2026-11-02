@@ -57,8 +57,13 @@ class SearchProfilesController extends GetxController {
   final Set<int> _compatRequested = <int>{};
 
   /// The server's score for [p]: from the search row, else the lazily fetched one.
-  int? compatFor(SearchProfileModel p) =>
-      p.compatibilityPercentage ?? fetchedCompat[p.id];
+  int? compatFor(SearchProfileModel p) {
+    // Always read the observable first: a card's Obx must touch at least one
+    // Rx on every build, otherwise GetX throws "improper use of a GetX" when the
+    // search row already carries its own score.
+    final int? fetched = fetchedCompat[p.id];
+    return p.compatibilityPercentage ?? fetched;
+  }
 
   /// Fetches the missing score once per profile; the card rebuilds via Obx.
   ///
@@ -164,9 +169,11 @@ class SearchProfilesController extends GetxController {
     final String? chosen = filter.value.sort;
     final bool memberChoseSort = chosen != null && chosen.isNotEmpty && chosen != 'default';
     if (!memberChoseSort) {
+      // Highest match first — including scores fetched lazily after the page
+      // loaded, so a card rises to its place as its score arrives.
       list.sort((SearchProfileModel a, SearchProfileModel b) {
-        final int? sa = a.compatibilityPercentage;
-        final int? sb = b.compatibilityPercentage;
+        final int? sa = compatFor(a);
+        final int? sb = compatFor(b);
         if (sa == null && sb == null) return 0;
         if (sa == null) return 1;
         if (sb == null) return -1;

@@ -1,4 +1,6 @@
 import 'dart:collection';
+import '../../features/profile_activity/views/profile_activity_view.dart';
+import '../../models/appreciation_model.dart';
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -1416,6 +1418,16 @@ class NotificationService {
         // Standalone: the inbox pushed as its own route over whatever is on
         // screen — it carries its own back-capable header in this mode.
         Get.to(() => const ChatInboxView(standalone: true));
+        return;
+      }
+
+      // Like / Super Like → Profile Activity → Received.
+      if (type.contains('super_like')) {
+        Get.to(() => const ProfileActivityView(initialType: AppreciationType.superLike));
+        return;
+      }
+      if (type.contains('profile_like') || type.contains('mutual_like')) {
+        Get.to(() => const ProfileActivityView());
         return;
       }
 

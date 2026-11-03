@@ -139,6 +139,17 @@ class ApiEndpoints {
   static const String profileDeactivate = '/profile/deactivate';
 
   // ---- Shortlists ------------------------------------------------------------
+  // ---- Like / Super Like (Profile Activity) ---------------------------------
+  /// `GET ?direction=received|sent&type=like|super_like&page` — newest first.
+  static const String appreciationActivity = '/appreciations/activity';
+  /// `GET` → `{liked, super_liked, liked_me, super_liked_me, super_like_cost, coin_balance}`.
+  static String appreciationStatus(int userId) => '/appreciations/members/$userId';
+  /// `POST` toggles the free Like → `{liked, mutual}`.
+  static String appreciationLike(int userId) => '/appreciations/members/$userId/like';
+  /// `POST {quoted_cost}` → `{super_liked, created, balance, cost}`; 422 on
+  /// price change / insufficient coins (no charge in either case).
+  static String appreciationSuperLike(int userId) => '/appreciations/members/$userId/super-like';
+
   /// Shortlisted proposals list (`GET /proposals/shortlists`) and create (`POST /proposals/shortlists`).
   static const String shortlists = '/proposals/shortlists';
 

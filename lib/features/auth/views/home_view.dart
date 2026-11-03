@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../profile_activity/views/profile_activity_view.dart';
 import 'package:get/get.dart';
 import '../../../controllers/profile_controller.dart';
 import '../../../controllers/verification_controller.dart';
@@ -390,6 +391,11 @@ class _AppDrawer extends StatelessWidget {
                         Icons.favorite_border_rounded,
                         'Manage Interests',
                         () => Get.to<void>(() => const InterestsView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.star_border_rounded,
+                        'Profile Activity (Likes / Super Likes)',
+                        () => Get.to<void>(() => const ProfileActivityView()),
                       ),
                       _DrawerEntry(
                         Icons.visibility_outlined,

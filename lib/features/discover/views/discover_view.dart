@@ -33,6 +33,8 @@ import '../widgets/horoscope_form_sheet.dart';
 import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/send_interest_dialog.dart';
 import 'ignored_profiles_view.dart';
+import '../../../controllers/appreciation_controller.dart';
+import '../../profile_activity/widgets/profile_engagement_bar.dart';
 import '../../proposals/widgets/send_proposal_dialog.dart';
 
 class DiscoverView extends StatelessWidget {
@@ -1873,6 +1875,12 @@ class _SingleUserProfileCard extends StatelessWidget {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                      // Super Like (coins) — separate from the shortlist heart.
+                      _SuperLikeStar(userId: profile.id, name: profile.displayName),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => controller.toggleShortlist(
@@ -1907,6 +1915,8 @@ class _SingleUserProfileCard extends StatelessWidget {
                             );
                           }),
                         ),
+                      ),
+                        ],
                       ),
                       if (matchPercentage != null &&
                           matchPercentage > 0) ...<Widget>[
@@ -2781,6 +2791,62 @@ class _WhyThisMatchSheet {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Gold star on the match card: opens the Super Like confirmation (cost +
+/// balance) and turns filled once the profile is Super Liked.
+class _SuperLikeStar extends StatefulWidget {
+  const _SuperLikeStar({required this.userId, required this.name});
+
+  final int userId;
+  final String name;
+
+  @override
+  State<_SuperLikeStar> createState() => _SuperLikeStarState();
+}
+
+class _SuperLikeStarState extends State<_SuperLikeStar> {
+  @override
+  void initState() {
+    super.initState();
+    if (Get.isRegistered<AppreciationController>()) {
+      Get.find<AppreciationController>().ensureStatus(widget.userId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Get.isRegistered<AppreciationController>()) return const SizedBox.shrink();
+    final AppreciationController ctrl = Get.find<AppreciationController>();
+    return Tooltip(
+      message: 'Super Like',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          if (ctrl.isSuperLiked(widget.userId) || ctrl.isBusy(widget.userId)) return;
+          SuperLikeConfirmDialog.show(context, userId: widget.userId, name: widget.name);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: <BoxShadow>[
+              BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
+            ],
+          ),
+          child: Obx(() {
+            final bool done = ctrl.isSuperLiked(widget.userId);
+            return Icon(
+              done ? Icons.star_rounded : Icons.star_border_rounded,
+              size: 16,
+              color: const Color(0xFFC9A24B),
+            );
+          }),
+        ),
       ),
     );
   }

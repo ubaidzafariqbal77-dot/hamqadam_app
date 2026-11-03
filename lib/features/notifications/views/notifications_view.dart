@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../features/profile_activity/views/profile_activity_view.dart';
+import '../../../models/appreciation_model.dart';
 import 'package:get/get.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
@@ -144,6 +146,16 @@ class _NotificationsViewState extends State<NotificationsView> {
     // 1. Chat messages — routed into the conversation thread.
     if (notif.isChatMessage) {
       _openChatFromNotif(notif);
+      return;
+    }
+
+    // Like / Super Like → Profile Activity → Received.
+    if (type.contains('super_like')) {
+      Get.to(() => const ProfileActivityView(initialType: AppreciationType.superLike));
+      return;
+    }
+    if (type.contains('profile_like') || type.contains('mutual_like')) {
+      Get.to(() => const ProfileActivityView());
       return;
     }
 

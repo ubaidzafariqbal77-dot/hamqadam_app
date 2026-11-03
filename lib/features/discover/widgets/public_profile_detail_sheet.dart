@@ -22,6 +22,7 @@ import '../../../widgets/state_widgets.dart';
 import '../../proposals/widgets/send_proposal_dialog.dart';
 import 'send_interest_dialog.dart';
 import 'compatibility_section.dart';
+import '../../profile_activity/widgets/profile_engagement_bar.dart';
 
 /// The member's full profile, as its own premium page.
 ///
@@ -848,6 +849,9 @@ class _ActionBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // 0. Shortlist · Like · Super Like (spec 13.9 B)
+            ProfileEngagementBar(userId: profile.id, name: profile.displayName),
+            const SizedBox(height: AppSpacing.sm),
             // 1. Send Marriage Proposal Button
             Obx(() {
               final bool alreadyProposed =

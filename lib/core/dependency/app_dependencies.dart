@@ -46,6 +46,8 @@ import '../../repositories/proposal_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../../repositories/search_repository.dart';
 import '../../repositories/shortlist_repository.dart';
+import '../../repositories/appreciation_repository.dart';
+import '../../controllers/appreciation_controller.dart';
 import '../../repositories/auth_extra_repository.dart';
 import '../../repositories/proposal_extra_repository.dart';
 import '../../repositories/search_extra_repository.dart';
@@ -142,6 +144,7 @@ class AppDependencies {
     Get.put<CallRepository>(CallRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
+    Get.put<AppreciationRepository>(AppreciationRepository(apiClient), permanent: true);
     Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
     Get.put<ProposalRepository>(ProposalRepository(apiClient), permanent: true);
     Get.put<NotificationRepository>(NotificationRepository(apiClient), permanent: true);
@@ -236,6 +239,12 @@ class AppDependencies {
     // Shortlist Controller (Permanent so shortlist state is globally cached & synced)
     Get.put<ShortlistController>(
       ShortlistController(Get.find<ShortlistRepository>()),
+      permanent: true,
+    );
+
+    // Like / Super Like state, shared by every card and the detail sheet.
+    Get.put<AppreciationController>(
+      AppreciationController(Get.find<AppreciationRepository>()),
       permanent: true,
     );
 

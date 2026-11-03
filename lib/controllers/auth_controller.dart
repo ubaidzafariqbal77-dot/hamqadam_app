@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' show PopScope, Center, CircularProgressIndicator;
+import 'appreciation_controller.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -158,6 +159,9 @@ class AuthController extends GetxController {
     }
     if (Get.isRegistered<ShortlistController>()) {
       Get.find<ShortlistController>().reset();
+    }
+    if (Get.isRegistered<AppreciationController>()) {
+      Get.find<AppreciationController>().reset();
     }
     if (Get.isRegistered<ProposalController>()) {
       Get.find<ProposalController>().reset();

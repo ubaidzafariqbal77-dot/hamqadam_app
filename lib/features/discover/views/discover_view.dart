@@ -1607,6 +1607,9 @@ class _SingleUserProfileCard extends StatelessWidget {
     // told every member the same lie about every profile, and the pill only
     // means something when it is the server's number.
     controller.ensureCompat(profile);
+    if (Get.isRegistered<AppreciationController>()) {
+      Get.find<AppreciationController>().ensureStatus(profile.id);
+    }
     return Obx(() {
       final int? matchPercentage = controller.compatFor(profile);
 
@@ -1730,46 +1733,6 @@ class _SingleUserProfileCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      // Favourite heart — the reference's white circular button
-                      // bottom-right, INSIDE the photo bounds (negative offsets
-                      // made it hang outside the card on real devices).
-                      Positioned(
-                        bottom: 6,
-                        right: 6,
-                        child: GestureDetector(
-                          onTap: () => controller.toggleShortlist(
-                            profile.id,
-                            displayName: profile.displayName,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: <BoxShadow>[
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Obx(() {
-                              final bool isShortlisted = controller
-                                  .isShortlisted(profile.id);
-                              return Icon(
-                                isShortlisted
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                size: 16,
-                                color: isShortlisted
-                                    ? _Soul.pink600
-                                    : _Soul.ink500,
-                              );
-                            }),
-                          ),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(width: 12),
@@ -1875,47 +1838,19 @@ class _SingleUserProfileCard extends StatelessWidget {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
+                      // Top-right: more ⋮ (Super Like / Like / Shortlist sit in
+                      // the action bar below).
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                      // Super Like (coins) — separate from the shortlist heart.
-                      _SuperLikeStar(userId: profile.id, name: profile.displayName),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => controller.toggleShortlist(
-                          profile.id,
-                          displayName: profile.displayName,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: <BoxShadow>[
-                              BoxShadow(
-                                color: Color(0x1A000000),
-                                blurRadius: 6,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
+                          GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _showOptionsMenu(context),
+                            child: const Padding(
+                              padding: EdgeInsets.only(left: 2, top: 4, bottom: 4),
+                              child: Icon(Icons.more_vert_rounded, size: 20, color: _Soul.ink900),
+                            ),
                           ),
-                          child: Obx(() {
-                            final bool isShortlisted = controller.isShortlisted(
-                              profile.id,
-                            );
-                            return Icon(
-                              isShortlisted
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              size: 16,
-                              color: isShortlisted
-                                  ? _Soul.pinkInk
-                                  : _Soul.ink500,
-                            );
-                          }),
-                        ),
-                      ),
                         ],
                       ),
                       if (matchPercentage != null &&
@@ -2182,43 +2117,52 @@ class _SingleUserProfileCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: <Widget>[
-                    // Send Interest — heart cell; shows a tick when already sent.
+                    // Super Like ⭐ · Like ❤️ · Shortlist 🔖 — one icon per meaning.
                     Obx(() {
-                      final bool sent =
-                          interestCtrl?.hasSentInterestTo(profile.id) == true;
+                      final AppreciationController? ap =
+                          Get.isRegistered<AppreciationController>() ? Get.find<AppreciationController>() : null;
+                      final bool done = ap?.isSuperLiked(profile.id) == true;
                       return _ActionCell(
-                        icon: sent
-                            ? Icons.check_rounded
-                            : Icons.favorite_border_rounded,
-                        iconColor: sent ? AppColors.success : _Soul.pink600,
-                        tooltip: 'Send Interest',
-                        onTap: () => SendInterestDialog.show(context, profile),
+                        icon: done ? Icons.star_rounded : Icons.star_border_rounded,
+                        iconColor: const Color(0xFFC9A24B),
+                        tooltip: done ? 'Super Liked' : 'Super Like',
+                        onTap: () {
+                          if (ap == null || done || ap.isBusy(profile.id)) return;
+                          SuperLikeConfirmDialog.show(context, userId: profile.id, name: profile.displayName);
+                        },
                       );
                     }),
-                    // Chat.
+                    Obx(() {
+                      final AppreciationController? ap =
+                          Get.isRegistered<AppreciationController>() ? Get.find<AppreciationController>() : null;
+                      final bool liked = ap?.isLiked(profile.id) == true;
+                      return _ActionCell(
+                        icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        iconColor: const Color(0xFFE0446A),
+                        tooltip: liked ? 'Liked' : 'Like',
+                        onTap: () => ap?.toggleLike(profile.id),
+                      );
+                    }),
+                    Obx(() {
+                      final bool saved = controller.isShortlisted(profile.id);
+                      return _ActionCell(
+                        icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        iconColor: _Soul.pinkInk,
+                        tooltip: saved ? 'Shortlisted' : 'Shortlist',
+                        onTap: () => controller.toggleShortlist(
+                          profile.id,
+                          displayName: profile.displayName,
+                        ),
+                      );
+                    }),
+                    // Interest and Full Profile live in the pills above
+                    // (Sent / View Profile), so the bar keeps only what is
+                    // not shown elsewhere. Chat.
                     _ActionCell(
                       icon: Icons.chat_bubble_outline_rounded,
                       iconColor: _Soul.ink900,
                       tooltip: 'Chat',
                       onTap: () => _handleChatTap(context, profile),
-                    ),
-                    // Full profile.
-                    _ActionCell(
-                      icon: Icons.person_outline_rounded,
-                      iconColor: _Soul.ink900,
-                      tooltip: 'Full Profile',
-                      onTap: () => PublicProfileDetailSheet.show(
-                        context,
-                        profileId: profile.id,
-                        searchProfile: profile,
-                      ),
-                    ),
-                    // More options.
-                    _ActionCell(
-                      icon: Icons.more_vert_rounded,
-                      iconColor: _Soul.ink900,
-                      tooltip: 'More options',
-                      onTap: () => _showOptionsMenu(context),
                     ),
                     // Ignore.
                     _ActionCell(
@@ -2791,62 +2735,6 @@ class _WhyThisMatchSheet {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-/// Gold star on the match card: opens the Super Like confirmation (cost +
-/// balance) and turns filled once the profile is Super Liked.
-class _SuperLikeStar extends StatefulWidget {
-  const _SuperLikeStar({required this.userId, required this.name});
-
-  final int userId;
-  final String name;
-
-  @override
-  State<_SuperLikeStar> createState() => _SuperLikeStarState();
-}
-
-class _SuperLikeStarState extends State<_SuperLikeStar> {
-  @override
-  void initState() {
-    super.initState();
-    if (Get.isRegistered<AppreciationController>()) {
-      Get.find<AppreciationController>().ensureStatus(widget.userId);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!Get.isRegistered<AppreciationController>()) return const SizedBox.shrink();
-    final AppreciationController ctrl = Get.find<AppreciationController>();
-    return Tooltip(
-      message: 'Super Like',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (ctrl.isSuperLiked(widget.userId) || ctrl.isBusy(widget.userId)) return;
-          SuperLikeConfirmDialog.show(context, userId: widget.userId, name: widget.name);
-        },
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: <BoxShadow>[
-              BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
-            ],
-          ),
-          child: Obx(() {
-            final bool done = ctrl.isSuperLiked(widget.userId);
-            return Icon(
-              done ? Icons.star_rounded : Icons.star_border_rounded,
-              size: 16,
-              color: const Color(0xFFC9A24B),
-            );
-          }),
-        ),
       ),
     );
   }

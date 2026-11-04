@@ -115,7 +115,10 @@ class FinalizingController extends GetxController {
   Future<void> _submitRegistration() async {
     // An account created by an earlier attempt must not be created twice — the
     // email would already be taken.
-    if (buffer.awaitingEmailOtp) return;
+    if (buffer.awaitingEmailOtp) {
+      await reg.ensureRegistrationSession();
+      return;
+    }
     final bool ok = await reg.submitRegistration();
     if (!ok) {
       throw ApiException(

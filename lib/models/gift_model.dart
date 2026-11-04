@@ -6,6 +6,13 @@ class GiftModel {
   final String slug;
   final String thumbnail;
   final String animatedAsset;
+
+  /// Absolute URLs for admin-uploaded media; null when the file ships in the app.
+  final String? thumbnailUrl;
+  final String? animationUrl;
+
+  /// lottie | gif | svga | mp4
+  final String mediaType;
   final int coins;
   final String category;
   final int sortOrder;
@@ -17,6 +24,9 @@ class GiftModel {
     required this.slug,
     required this.thumbnail,
     required this.animatedAsset,
+    this.thumbnailUrl,
+    this.animationUrl,
+    this.mediaType = 'lottie',
     required this.coins,
     required this.category,
     required this.sortOrder,
@@ -30,11 +40,19 @@ class GiftModel {
       slug: (json['slug'] ?? '').toString(),
       thumbnail: (json['thumbnail'] ?? '').toString(),
       animatedAsset: (json['animated_asset'] ?? '').toString(),
+      thumbnailUrl: _url(json['thumbnail_url']),
+      animationUrl: _url(json['animation_url']),
+      mediaType: (json['media_type'] ?? 'lottie').toString(),
       coins: (json['coins'] as num?)?.toInt() ?? 0,
       category: (json['category'] ?? 'general').toString(),
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       isActive: json['is_active'] == true || json['is_active'] == 1,
     );
+  }
+
+  static String? _url(dynamic v) {
+    final String s = (v ?? '').toString().trim();
+    return s.isEmpty ? null : s;
   }
 }
 

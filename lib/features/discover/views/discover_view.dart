@@ -1762,7 +1762,7 @@ class _SingleUserProfileCard extends StatelessWidget {
                                     fontFamily: AppTextStyles.displayFont,
                                     fontSize: 17,
                                     fontWeight: FontWeight.w700,
-                                    color: _Soul.ink900,
+                                    color: AppColors.primaryInk, // brand rose
                                   ),
                                   maxLines: 1,
                                 ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lottie/lottie.dart';
 
 import '../../../constants/app_colors.dart';
+import '../widgets/gift_media.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/gift_controller.dart';
@@ -81,20 +81,7 @@ class _GiftDetailViewState extends State<GiftDetailView> {
                   border: Border.all(color: AppColors.roseFieldBorder),
                 ),
                 child: gift != null
-                    ? Lottie.asset(
-                        gift.animatedAsset,
-                        width: 220,
-                        height: 220,
-                        fit: BoxFit.contain,
-                        repeat: true,
-                        errorBuilder: (_, _, _) => Image.asset(
-                          gift.thumbnail,
-                          width: 180,
-                          height: 180,
-                          errorBuilder: (_, _, _) =>
-                              const Icon(Icons.card_giftcard_rounded, size: 96, color: AppColors.regAccent),
-                        ),
-                      )
+                    ? GiftAnimation(gift: gift, size: 220)
                     : const Icon(Icons.card_giftcard_rounded, size: 96, color: AppColors.regAccent),
               ),
               const SizedBox(height: AppSpacing.md),

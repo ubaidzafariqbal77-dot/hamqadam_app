@@ -307,6 +307,7 @@ class RegistrationController extends GetxController {
   /// [email] overrides the buffered address (used when the user switches to a
   /// different one on the verification screen).
   Future<String> requestEmailOtp({String? email}) async {
+    await ensureRegistrationSession();
     final ApiEnvelope res = await registrationRepository.requestRegistrationOtp(
       email: (email == null || email.isEmpty) ? registrationEmail : email,
     );
@@ -329,6 +330,37 @@ class RegistrationController extends GetxController {
     buffer.awaitingEmailOtp = false;
     await authController.refreshUser();
     return res.message;
+  }
+
+  /// The account was created but this device no longer holds its token (the
+  /// app was restarted, or a 401 elsewhere cleared the session). Every OTP call
+  /// would answer "Unauthenticated.", so sign back in with the email and
+  /// password still held in memory from this signup.
+  Future<void> ensureRegistrationSession() async {
+    if (authController.hasToken) return;
+    final String? email = registrationEmail;
+    final String? password = buffer.getString('password');
+    if (email == null || email.isEmpty || password == null || password.isEmpty) {
+      throw ApiException(
+        'Your account was already created. Please log in with $email and your '
+        'password to verify your email.',
+      );
+    }
+    try {
+      final AuthResponseModel auth = await authRepository.loginWithEmail(
+        email: email,
+        password: password,
+        deviceName: 'flutter-app',
+      );
+      if (!auth.hasToken) throw ApiException('Could not restore your session.');
+      await authController.persistSession(auth);
+      buffer.accountCreated = true;
+    } on AppException catch (e) {
+      throw ApiException(
+        'Your account was already created, but we could not sign you back in '
+        '(${e.message}). Please log in to verify your email.',
+      );
+    }
   }
 
   /// The address the OTP is sent to — the one captured on the contact step.
@@ -543,7 +575,29 @@ class RegistrationController extends GetxController {
   /// be on the stack (the failure now surfaces from the finalizing screen).
   void goToContactStep() {
     currentStep.value = 5;
-    Get.offNamed<void>(AppRoutes.contact);
+    buffer.lastStep = 5;
+    // The contact step is normally still underneath. Pushing a second copy put
+    // two screens on one Step05Controller — same form GlobalKey, same text
+    // controllers — which is the "Duplicate GlobalKey" and "TextEditingController
+    // used after being disposed" crash. Pop back to it instead.
+    bool found = false;
+    Get.until((Route<dynamic> r) {
+      if (r.settings.name == AppRoutes.contact) found = true;
+      return found || r.isFirst;
+    });
+    if (!found) Get.offNamed<void>(AppRoutes.contact);
+  }
+
+  /// "X" on the signup header: forgets everything entered so far (and any
+  /// half-finished account session on this device) and returns to login.
+  Future<void> discardRegistration() async {
+    // A session that exists only because register/complete ran but the email
+    // was never verified belongs to this abandoned signup.
+    if (authController.hasToken && !buffer.registrationDone) {
+      await authController.handleUnauthorizedSilently();
+    }
+    await resetForNewAccount();
+    Get.offAllNamed(AppRoutes.login);
   }
 
   // ---- Status / resume / finish ---------------------------------------------

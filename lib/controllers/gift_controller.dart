@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../controllers/interest_controller.dart';
 import '../core/api/api_response.dart';
+import '../core/services/gift_asset_cache.dart';
 import '../core/utils/app_logger.dart';
 import '../models/gift_model.dart';
 import '../repositories/gift_repository.dart';
@@ -45,6 +46,7 @@ class GiftController extends GetxController {
     try {
       gifts.assignAll(await _repo.fetchGifts());
       _giftsLoaded = true;
+      GiftAssetCache.instance.prefetchAll(gifts);
     } catch (e) {
       AppLogger.w('Failed to load gifts: $e');
     }
@@ -136,6 +138,10 @@ class GiftController extends GetxController {
     if (refresh && !receivedState.value.isSuccess) receivedState.value = const ApiState<List<GiftTransactionModel>>.loading();
     try {
       final List<GiftTransactionModel> items = await _repo.fetchReceived();
+      // Newly received gifts (maybe not in the catalog yet) get cached first.
+      for (final GiftTransactionModel t in items.take(10)) {
+        if (t.gift != null) GiftAssetCache.instance.prefetch(t.gift!);
+      }
       receivedState.value = items.isEmpty
           ? const ApiState<List<GiftTransactionModel>>.empty()
           : ApiState<List<GiftTransactionModel>>.success(items);

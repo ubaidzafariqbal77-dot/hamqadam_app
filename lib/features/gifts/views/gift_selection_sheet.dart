@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
+import '../widgets/gift_media.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/gift_controller.dart';
@@ -58,7 +59,7 @@ class _GiftSelectionSheetState extends State<_GiftSelectionSheet> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Image.asset(gift.thumbnail, width: 56, height: 56, errorBuilder: (_, _, _) => const SizedBox.shrink()),
+                GiftAnimation(gift: gift, size: 64),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -198,11 +199,12 @@ class _GiftSelectionSheetState extends State<_GiftSelectionSheet> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: <Widget>[
                             Expanded(
-                              child: Image.asset(
-                                gift.thumbnail,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, _, _) =>
-                                    const Icon(Icons.card_giftcard_rounded, color: AppColors.regAccent),
+                              // Animated in the grid; MP4 stays a thumbnail so
+                              // the sheet doesn't spin up a video per cell.
+                              child: LayoutBuilder(
+                                builder: (_, BoxConstraints c) => gift.mediaType == 'mp4'
+                                    ? GiftThumbnail(gift: gift, size: c.maxHeight)
+                                    : GiftAnimation(gift: gift, size: c.maxHeight),
                               ),
                             ),
                             const SizedBox(height: 4),

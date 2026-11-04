@@ -832,14 +832,15 @@ class _ActionBar extends StatelessWidget {
         Get.isRegistered<ProposalController>() ? Get.find<ProposalController>() : null;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 10, AppSpacing.md, 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.roseFieldBorder)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+        border: const Border(top: BorderSide(color: AppColors.roseFieldBorder)),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
+            color: const Color(0xFFB4487B).withValues(alpha: 0.10),
+            blurRadius: 18,
             offset: const Offset(0, -6),
           ),
         ],
@@ -849,194 +850,154 @@ class _ActionBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            // 0. Shortlist · Like · Super Like (spec 13.9 B)
-            ProfileEngagementBar(userId: profile.id, name: profile.displayName),
-            const SizedBox(height: AppSpacing.sm),
-            // 1. Send Marriage Proposal Button
-            Obx(() {
-              final bool alreadyProposed =
-                  proposalCtrl?.hasSentProposalTo(profile.id) == true;
-              if (alreadyProposed) {
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.success.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.success.withValues(alpha: 0.35)),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
-                      SizedBox(width: 6),
-                      Text(
-                        'Already Sent',
-                        style: TextStyle(
+            // Row 1 — Shortlist · Like · Super Like (spec 13.9 B)
+            ProfileEngagementBar(
+              userId: profile.id,
+              name: profile.displayName,
+              compact: true,
+            ),
+            const SizedBox(height: 8),
+
+            // Row 2 — Proposal leads; Chat / Interest / Gift as icon buttons.
+            SizedBox(
+              height: 46,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Expanded(
+                    child: Obx(() {
+                      if (proposalCtrl?.hasSentProposalTo(profile.id) == true) {
+                        return const _BarButton(
+                          icon: Icons.check_circle_rounded,
+                          label: 'Proposal Sent',
                           color: AppColors.success,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              // Visible but locked until the interest is accepted (spec §3).
-              final bool locked = interestCtrl?.isInterestAccepted(profile.id) != true;
-              return GestureDetector(
-                onTap: onProposal,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    gradient: const LinearGradient(
-                      colors: AppColors.regPrimaryGradient,
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: AppColors.regAccent.withValues(alpha: 0.38),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                        spreadRadius: -3,
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Icon(
-                        locked ? Icons.lock_outline_rounded : Icons.mail_outline_rounded,
-                        size: 18,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Send Proposal',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-
-            const SizedBox(height: AppSpacing.xs),
-
-            // 2. Chat & Express Interest Buttons
-            Row(
-              children: <Widget>[
-                // Chat Button — white pill, rose hairline
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.chat_bubble_outline_rounded,
-                        size: 17, color: AppColors.regAccent),
-                    label: const Text(
-                      'Chat',
-                      style: TextStyle(
-                        color: AppColors.regAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
-                      backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    onPressed: onChat,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-
-                // Express Interest Button
-                Expanded(
-                  child: Obx(() {
-                    final bool alreadySent =
-                        interestCtrl?.hasSentInterestTo(profile.id) == true;
-                    if (alreadySent) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        decoration: BoxDecoration(
-                          color: AppColors.gold.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.gold.withValues(alpha: 0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            Icon(Icons.favorite_rounded, color: AppColors.gold, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Interest Sent',
-                              style: TextStyle(
-                                color: AppColors.gold,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12.5,
-                              ),
-                            ),
-                          ],
-                        ),
+                        );
+                      }
+                      // Visible but locked until the interest is accepted (spec §3).
+                      final bool locked = interestCtrl?.isInterestAccepted(profile.id) != true;
+                      return _BarButton(
+                        icon: locked ? Icons.lock_outline_rounded : Icons.mail_outline_rounded,
+                        label: 'Send Proposal',
+                        filled: true,
+                        onTap: onProposal,
                       );
-                    }
-                    return OutlinedButton.icon(
-                      icon: const Icon(Icons.favorite_rounded, size: 16, color: AppColors.gold),
-                      label: const Text(
-                        'Interest',
-                        style: TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        side: BorderSide(color: AppColors.gold.withValues(alpha: 0.5), width: 1.4),
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      onPressed: onInterest,
+                    }),
+                  ),
+                  const SizedBox(width: 8),
+                  _BarIcon(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    tooltip: 'Chat',
+                    color: AppColors.primaryInk,
+                    onTap: onChat,
+                  ),
+                  const SizedBox(width: 8),
+                  Obx(() {
+                    final bool sent = interestCtrl?.hasSentInterestTo(profile.id) == true;
+                    return _BarIcon(
+                      icon: sent ? Icons.how_to_reg_rounded : Icons.volunteer_activism_rounded,
+                      tooltip: sent ? 'Interest Sent' : 'Send Interest',
+                      color: AppColors.gold,
+                      active: sent,
+                      onTap: sent ? null : onInterest,
                     );
                   }),
-                ),
-              ],
-            ),
-
-            // 3. Send Gift — opens the gift selection sheet (catalog + coins
-            // come from the backend; the deduction happens server-side).
-            const SizedBox(height: AppSpacing.xs),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.card_giftcard_rounded, size: 17, color: AppColors.fieldLabelRose),
-                label: const Text(
-                  'Send Gift',
-                  style: TextStyle(
-                    color: AppColors.fieldLabelRose,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                  const SizedBox(width: 8),
+                  // Gift catalog + coins come from the backend; the deduction
+                  // happens server-side.
+                  _BarIcon(
+                    icon: Icons.card_giftcard_rounded,
+                    tooltip: 'Send Gift',
+                    color: AppColors.primaryInk,
+                    onTap: () => showGiftSelectionSheet(context, profile.id),
                   ),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  side: const BorderSide(color: AppColors.roseFieldBorder, width: 1.4),
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: () => showGiftSelectionSheet(context, profile.id),
+                ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarButton extends StatelessWidget {
+  const _BarButton({
+    required this.icon,
+    required this.label,
+    this.color = AppColors.regAccent,
+    this.filled = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool filled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = filled ? Colors.white : color;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: filled ? null : color.withValues(alpha: 0.12),
+          border: filled ? null : Border.all(color: color.withValues(alpha: 0.35)),
+          gradient: filled
+              ? const LinearGradient(
+                  colors: <Color>[AppColors.primaryInk, AppColors.primaryDark],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                )
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Icon(icon, size: 17, color: fg),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 13.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarIcon extends StatelessWidget {
+  const _BarIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.color,
+    this.active = false,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final Color color;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: color.withValues(alpha: active ? 0.18 : 0.08),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: color.withValues(alpha: 0.25)),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: SizedBox(width: 46, height: 46, child: Icon(icon, size: 21, color: color)),
         ),
       ),
     );

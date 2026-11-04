@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/gift_controller.dart';
 import '../../controllers/help_chat_controller.dart';
 import '../../controllers/interest_controller.dart';
 import '../../controllers/notification_controller.dart';
@@ -1301,6 +1302,13 @@ class NotificationService {
     }
 
     // 3. Proposals
+    // New gift → refresh the list, which also caches its animation.
+    if (type.contains('gift')) {
+      if (Get.isRegistered<GiftController>()) {
+        Get.find<GiftController>().loadReceived(refresh: false);
+      }
+    }
+
     if (type.contains('proposal')) {
       if (Get.isRegistered<ProposalController>()) {
         Get.find<ProposalController>().loadProposals(silent: true);

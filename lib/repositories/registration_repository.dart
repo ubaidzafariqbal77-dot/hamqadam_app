@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 
 import '../constants/api_endpoints.dart';
@@ -42,14 +43,22 @@ class RegistrationRepository {
 
   /// Emails the verification code. [email] is optional — the API falls back to
   /// the authenticated user's address.
-  Future<ApiEnvelope> requestRegistrationOtp({String? email, CancelToken? cancelToken}) =>
-      _client.post(
-        ApiEndpoints.registerRequestOtp,
-        body: <String, dynamic>{
-          if (email != null && email.isNotEmpty) 'email': email,
-        },
-        cancelToken: cancelToken,
-      );
+  Future<ApiEnvelope> requestRegistrationOtp({String? email, CancelToken? cancelToken}) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.registerRequestOtp,
+      body: <String, dynamic>{
+        if (email != null && email.isNotEmpty) 'email': email,
+      },
+      cancelToken: cancelToken,
+    );
+    // Debug builds only: the server echoes the code in `meta.debug_otp` when
+    // OTP_DEBUG_RESPONSE is on, so testers can read it from the console.
+    final dynamic otp = res.meta?['debug_otp'];
+    if (kDebugMode && otp != null) {
+      debugPrint('🔑 [DEBUG] Registration OTP for ${email ?? 'account email'}: $otp');
+    }
+    return res;
+  }
 
   /// Confirms the emailed code and finalises the registration.
   Future<ApiEnvelope> verifyRegistrationOtp({

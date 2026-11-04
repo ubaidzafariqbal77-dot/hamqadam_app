@@ -189,6 +189,16 @@ class AuthController extends GetxController {
   }
 
 
+  /// Drops the local session without the "session expired" snackbar or a
+  /// redirect — used when the user abandons signup on purpose.
+  Future<void> handleUnauthorizedSilently() async {
+    await storage.clearSession();
+    await currentUser.clear();
+    _resetAuthenticatedServices();
+    isAuthenticated.value = false;
+    user.value = null;
+  }
+
   Future<void> logout() async {
     _showBlockingLoader();
     // Order matters: the push token must be removed while the session is still

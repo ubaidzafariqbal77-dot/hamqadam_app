@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../profile_activity/views/profile_activity_view.dart';
 import 'package:get/get.dart';
+
+import '../../../controllers/gift_controller.dart';
 import '../../../controllers/profile_controller.dart';
 import '../../../controllers/verification_controller.dart';
 
@@ -107,6 +109,10 @@ class _HomeViewState extends State<HomeView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _auth.refreshUser();
       _checkPushReadiness();
+      // Warm the gift cache in the background so received gifts play instantly.
+      Get.find<GiftController>()
+        ..loadGifts()
+        ..loadReceived();
     });
   }
 

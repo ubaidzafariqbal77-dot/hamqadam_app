@@ -480,9 +480,44 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
+          // Abandon signup: only in the forward flow — editing one section or
+          // correcting a rejected field has its own back-out.
+          if (_showClose) ...<Widget>[
+            const SizedBox(width: AppSpacing.sm),
+            _RoundIcon(icon: Icons.close_rounded, onTap: () => _confirmDiscard(context)),
+          ],
         ],
       ),
     );
+  }
+
+  bool get _showClose {
+    if (!Get.isRegistered<RegistrationController>()) return false;
+    final RegistrationController reg = Get.find<RegistrationController>();
+    return !reg.isEditingSection && !reg.isFixingForFinalize;
+  }
+
+  Future<void> _confirmDiscard(BuildContext context) async {
+    final bool? yes = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Clear registration?'),
+        content: const Text(
+          'Are you sure you want to clear all filled data? Everything you have '
+          'entered will be removed and you will return to the login screen.',
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes, clear all'),
+          ),
+        ],
+      ),
+    );
+    if (yes == true) await Get.find<RegistrationController>().discardRegistration();
   }
 }
 

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../constants/app_colors.dart';
+import '../widgets/gift_media.dart';
+import '../widgets/gift_player_overlay.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/gift_controller.dart';
@@ -152,7 +154,17 @@ class _GiftList extends StatelessWidget {
             return _GiftTile(
               transaction: t,
               isReceived: isReceived,
-              onTap: () => Get.to<void>(() => GiftDetailView(transactionId: t.id)),
+              // Play the gift full screen (with sound); detail only if the
+              // catalog row is missing.
+              onTap: () => t.gift != null
+                  ? GiftPlayerOverlay.show(
+                      ctx,
+                      t.gift!,
+                      caption: isReceived
+                          ? '${t.senderName} sent you ${t.gift!.name}'
+                          : 'You sent ${t.gift!.name} to ${t.receiverName}',
+                    )
+                  : Get.to<void>(() => GiftDetailView(transactionId: t.id)),
             );
           },
         ),
@@ -198,8 +210,7 @@ class _GiftTile extends StatelessWidget {
           ClipRRect(
             borderRadius: AppRadius.mdAll,
             child: gift != null
-                ? Image.asset(gift.thumbnail, width: 56, height: 56, fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const Icon(Icons.card_giftcard_rounded, color: AppColors.regAccent, size: 32))
+                ? GiftThumbnail(gift: gift, size: 56)
                 : const Icon(Icons.card_giftcard_rounded, color: AppColors.regAccent, size: 32),
           ),
           const SizedBox(width: 12),

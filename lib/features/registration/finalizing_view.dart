@@ -332,8 +332,9 @@ class _MissingSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    // Scrolls: with many sections empty the rows overflowed the screen.
+    return ListView(
+      padding: EdgeInsets.zero,
       children: <Widget>[
         Text(
           'A few required sections are still empty:',

@@ -43,19 +43,54 @@ class PaymentPlanFeatureFlags {
   const PaymentPlanFeatureFlags({
     this.aiMatching = false,
     this.advancedSearch = false,
+    this.flags = const <String>{},
   });
 
   final bool aiMatching;
   final bool advancedSearch;
 
+  /// Every flag this plan grants.
+  ///
+  /// The server stores `feature_flags` as a JSON object
+  /// (`{"ai_matching": true, "priority_interest": true}`) and only ever grows
+  /// new keys from the admin UI. Keeping the whole set means a newly added
+  /// entitlement — Super Like's `priority_interest`, for one — starts working
+  /// in the app without an app release, instead of needing a hard-coded
+  /// boolean here.
+  final Set<String> flags;
+
+  /// True when the plan grants [name]. Accepts `true` values only, so a flag
+  /// explicitly switched off never counts as granted.
+  bool has(String name) => flags.contains(name);
+
+  /// Super Like / Priority Interest entitlement (`POST /interests` `priority`).
+  bool get priorityInterest => has('priority_interest');
+
+  /// Ad-free plans get no sponsored placements (`GET /completion/sponsored`).
+  bool get adFree => has('ad_free');
+
   factory PaymentPlanFeatureFlags.fromJson(dynamic raw) {
-    if (raw is Map<String, dynamic>) {
-      return PaymentPlanFeatureFlags(
-        aiMatching: _asBool(raw['ai_matching']),
-        advancedSearch: _asBool(raw['advanced_search']),
-      );
+    final Set<String> flags = <String>{};
+
+    if (raw is Map) {
+      for (final MapEntry<Object?, Object?> e in raw.entries) {
+        final String key = '${e.key}';
+        if (e.value == true || e.value == 1 || e.value == '1' || e.value == 'true') {
+          flags.add(key);
+        }
+      }
+    } else if (raw is List) {
+      // Tolerate the plain-list shape some admin rows use.
+      for (final dynamic v in raw) {
+        flags.add('$v');
+      }
     }
-    return const PaymentPlanFeatureFlags();
+
+    return PaymentPlanFeatureFlags(
+      aiMatching: _asBool(raw is Map ? raw['ai_matching'] : null) || flags.contains('ai_matching'),
+      advancedSearch: _asBool(raw is Map ? raw['advanced_search'] : null) || flags.contains('advanced_search'),
+      flags: flags,
+    );
   }
 }
 
@@ -83,7 +118,19 @@ class PaymentPlanModel {
 
   bool get isFree => price == 0 || (tier != null && tier!.toLowerCase() == 'free');
 
-  String get priceFormatted => isFree ? 'Free' : 'PKR ${price.toStringAsFixed(0)}';
+  String get priceFormatted => priceFormattedIn('PKR');
+
+  /// Same as [priceFormatted] but with a caller-supplied currency code, so the
+  /// UI can show whatever `GET /payments/coins/pricing` reports (the admin's
+  /// `system_default_currency`) instead of a hard-coded PKR.
+  String priceFormattedIn(String currency) {
+    if (isFree) return 'Free';
+    // Never render a bare " 500" if the server sent a blank currency code.
+    final String code = _trim(currency);
+    return code.isEmpty
+        ? price.toStringAsFixed(0)
+        : '$code ${price.toStringAsFixed(0)}';
+  }
 
   factory PaymentPlanModel.fromJson(Map<String, dynamic> json) {
     return PaymentPlanModel(
@@ -397,6 +444,10 @@ class CoinPricing {
 }
 
 /// Response from `POST /payments/checkout`.
+///
+/// The backend answers with four nodes — `payment` (the record), `checkout`
+/// (what to show/do next) and `security` (the polling token) — so the fields
+/// are read from the nested nodes first and the legacy flat keys second.
 class CheckoutResult {
   const CheckoutResult({
     required this.success,
@@ -407,6 +458,14 @@ class CheckoutResult {
     this.instructions,
     this.gatewayUrl,
     this.data,
+    this.paymentId,
+    this.checkoutToken,
+    this.gatewayKey,
+    this.checkoutMode,
+    this.amount,
+    this.currency,
+    this.sandbox = false,
+    this.unavailableReason,
   });
 
   final bool success;
@@ -418,17 +477,168 @@ class CheckoutResult {
   final String? gatewayUrl;
   final Map<String, dynamic>? data;
 
+  /// Id of the payment row — the key the status endpoint is polled with.
+  final int? paymentId;
+
+  /// One-time token proving this session owns the payment (`security` node).
+  final String? checkoutToken;
+
+  /// Backend gateway key: `stripe` | `easypaisa` | `jazzcash`.
+  final String? gatewayKey;
+
+  /// `stripe_checkout` (hosted card page) or `manual_gateway_confirmation`.
+  final String? checkoutMode;
+
+  final num? amount;
+  final String? currency;
+  final bool sandbox;
+
+  /// Populated when the backend could not start the card checkout (bad keys,
+  /// Stripe unreachable) — the sheet shows this instead of a dead button.
+  final String? unavailableReason;
+
+  /// True when the member must be sent to Stripe's hosted card page.
+  bool get isCardCheckout =>
+      gatewayKey == 'stripe' || checkoutMode == 'stripe_checkout';
+
+  /// True when the backend handed back somewhere to pay.
+  bool get hasGatewayUrl => (gatewayUrl ?? '').isNotEmpty;
+
   factory CheckoutResult.fromJson(Map<String, dynamic> json, {bool success = true, String? message}) {
     final Map<String, dynamic> d = json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : json;
+    final Map<String, dynamic> payment =
+        d['payment'] is Map<String, dynamic> ? d['payment'] as Map<String, dynamic> : <String, dynamic>{};
+    final Map<String, dynamic> checkout =
+        d['checkout'] is Map<String, dynamic> ? d['checkout'] as Map<String, dynamic> : <String, dynamic>{};
+    final Map<String, dynamic> security =
+        d['security'] is Map<String, dynamic> ? d['security'] as Map<String, dynamic> : <String, dynamic>{};
+
     return CheckoutResult(
       success: success,
       message: message ?? json['message'] as String?,
-      paymentCode: d['payment_code'] as String?,
-      invoiceNumber: d['invoice_number'] as String?,
-      paymentStatus: d['payment_status'] as String? ?? d['status'] as String?,
-      instructions: d['instructions'] as String? ?? d['note'] as String?,
-      gatewayUrl: d['checkout_url'] as String? ?? d['gateway_url'] as String?,
+      paymentCode: payment['payment_code'] as String? ?? d['payment_code'] as String?,
+      invoiceNumber: payment['invoice_number'] as String? ?? d['invoice_number'] as String?,
+      paymentStatus: payment['payment_status'] as String? ?? d['payment_status'] as String? ?? d['status'] as String?,
+      instructions: checkout['instructions'] as String? ?? d['instructions'] as String? ?? checkout['note'] as String? ?? d['note'] as String?,
+      gatewayUrl: d['checkout_url'] as String? ?? d['gateway_url'] as String? ?? checkout['url'] as String?,
       data: d,
+      paymentId: _asIntOrNull(payment['id']) ?? _asIntOrNull(security['payment_id']),
+      checkoutToken: security['checkout_token'] as String?,
+      gatewayKey: d['gateway'] as String?,
+      checkoutMode: checkout['mode'] as String?,
+      amount: checkout['amount'] is num ? checkout['amount'] as num : null,
+      currency: (checkout['currency'] ?? payment['currency']) as String?,
+      sandbox: checkout['sandbox'] == true,
+      unavailableReason: checkout['unavailable'] as String?,
+    );
+  }
+}
+
+/// One row of `GET /payments/gateways` — the server's own verdict on what this
+/// member can pay with right now, so the sheet never offers a method the admin
+/// has switched off (or has not configured keys for).
+class PaymentGatewayInfo {
+  const PaymentGatewayInfo({
+    required this.id,
+    required this.key,
+    required this.name,
+    required this.label,
+    this.description,
+    required this.enabled,
+    required this.configured,
+    required this.available,
+    required this.sandbox,
+    this.mode,
+    this.image,
+    this.checkoutType,
+    this.instructions,
+    this.note,
+  });
+
+  final int id;
+  final String key;
+  final String name;
+  final String label;
+  final String? description;
+  final bool enabled;
+  final bool configured;
+  final bool available;
+  final bool sandbox;
+  final String? mode;
+  final String? image;
+  final String? checkoutType;
+  final String? instructions;
+  final String? note;
+
+  /// Hosted card page (Stripe) rather than a manual confirmation flow.
+  bool get isHostedCheckout => checkoutType == 'stripe_checkout';
+
+  factory PaymentGatewayInfo.fromJson(Map<String, dynamic> json) {
+    return PaymentGatewayInfo(
+      id: _asInt(json['id']),
+      key: (json['key'] ?? json['name'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      label: (json['label'] ?? json['name'] ?? '').toString(),
+      description: json['description'] as String?,
+      enabled: _asBool(json['enabled']),
+      configured: _asBool(json['configured']),
+      available: _asBool(json['available']),
+      sandbox: _asBool(json['sandbox']),
+      mode: json['mode'] as String?,
+      image: json['image'] as String?,
+      checkoutType: json['checkout_type'] as String?,
+      instructions: json['instructions'] as String?,
+      note: json['note'] as String?,
+    );
+  }
+}
+
+/// `GET /payments/checkout/{payment}/status` — what the app polls after a card
+/// payment (and what a wallet payer taps to refresh).
+class CheckoutStatusResult {
+  const CheckoutStatusResult({
+    this.paymentId,
+    this.paymentCode,
+    this.gateway,
+    this.paymentStatus,
+    this.gatewayStatus,
+    this.paidAt,
+    this.subscriptionEndsAt,
+    this.canRefresh = false,
+    this.message,
+  });
+
+  final int? paymentId;
+  final String? paymentCode;
+  final String? gateway;
+
+  /// `Paid` | `Due` | `Failed` | `Cancelled`.
+  final String? paymentStatus;
+  final String? gatewayStatus;
+  final String? paidAt;
+  final String? subscriptionEndsAt;
+  final bool canRefresh;
+  final String? message;
+
+  bool get isPaid => paymentStatus == 'Paid';
+  bool get isFailed => paymentStatus == 'Failed' || paymentStatus == 'Cancelled';
+
+  factory CheckoutStatusResult.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> payment =
+        json['payment'] is Map<String, dynamic> ? json['payment'] as Map<String, dynamic> : <String, dynamic>{};
+    final Map<String, dynamic> checkout =
+        json['checkout'] is Map<String, dynamic> ? json['checkout'] as Map<String, dynamic> : <String, dynamic>{};
+
+    return CheckoutStatusResult(
+      paymentId: _asIntOrNull(payment['id']) ?? _asIntOrNull(checkout['payment_id']),
+      paymentCode: payment['payment_code'] as String? ?? checkout['payment_code'] as String?,
+      gateway: payment['payment_method'] as String? ?? checkout['gateway'] as String?,
+      paymentStatus: payment['payment_status'] as String? ?? checkout['status'] as String?,
+      gatewayStatus: payment['gateway_status'] as String? ?? checkout['gateway_status'] as String?,
+      paidAt: payment['paid_at'] as String? ?? checkout['paid_at'] as String?,
+      subscriptionEndsAt: payment['subscription_ends_at'] as String? ?? checkout['subscription_ends_at'] as String?,
+      canRefresh: _asBool(checkout['can_refresh']),
+      message: json['message'] as String?,
     );
   }
 }
@@ -470,4 +680,12 @@ DateTime? _asDate(dynamic v) {
   if (v is DateTime) return v;
   if (v is String && v.isNotEmpty) return DateTime.tryParse(v);
   return null;
+}
+
+/// Normalises a currency code for display: upper-cased, or an empty string
+/// when the server sent nothing usable (callers fall back to their own default).
+String _trim(dynamic v) {
+  if (v == null) return '';
+  final String s = '$v'.trim().toUpperCase();
+  return s.isEmpty ? '' : s;
 }

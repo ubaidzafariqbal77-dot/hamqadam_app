@@ -35,7 +35,7 @@ class SearchProfilesController extends GetxController {
   final LookupController _lookup;
   final MatchRepository? _matchRepo;
 
-  static const int _perPage = 20;
+  static const int _perPage = 12;
 
   /// How many profiles the AI Filtered mode shows — the matchmaking model's
   /// top five for this member.
@@ -50,6 +50,55 @@ class SearchProfilesController extends GetxController {
 
   /// Temporary filter state edited within the filter bottom sheet.
   final Rx<SearchFilterModel> draftFilter = SearchFilterModel.empty().obs;
+
+  /// Scores fetched from `GET /profiles/{id}/compatibility` for profiles the
+  /// search response carried no `compatibility_percentage` for.
+  final RxMap<int, int> fetchedCompat = <int, int>{}.obs;
+  final Set<int> _compatRequested = <int>{};
+
+  /// The server's score for [p]: from the search row, else the lazily fetched one.
+  int? compatFor(SearchProfileModel p) {
+    // Always read the observable first: a card's Obx must touch at least one
+    // Rx on every build, otherwise GetX throws "improper use of a GetX" when the
+    // search row already carries its own score.
+    final int? fetched = fetchedCompat[p.id];
+    return p.compatibilityPercentage ?? fetched;
+  }
+
+  /// Fetches the missing score once per profile; the card rebuilds via Obx.
+  ///
+  /// Requests go through a single-file queue: each one runs the matchmaking
+  /// model on the server, so firing a dozen at once (one per visible card)
+  /// starved the feed's own requests and made Discover feel slow.
+  void ensureCompat(SearchProfileModel p) {
+    if (p.compatibilityPercentage != null || !_compatRequested.add(p.id)) return;
+    _compatQueue.add(p.id);
+    // Called from a card's build(): start the request after the frame so no
+    // observable is touched mid-build.
+    Future<void>.microtask(_drainCompatQueue);
+  }
+
+  final List<int> _compatQueue = <int>[];
+  bool _compatRunning = false;
+
+  Future<void> _drainCompatQueue() async {
+    if (_compatRunning) return;
+    _compatRunning = true;
+    try {
+      while (_compatQueue.isNotEmpty) {
+        final int id = _compatQueue.removeAt(0);
+        if (!Get.isRegistered<ProfileController>()) continue;
+        try {
+          final c = await Get.find<ProfileController>().fetchCompatibility(id);
+          if (c != null && c.percentage > 0) fetchedCompat[id] = c.percentage;
+        } catch (_) {
+          // The score is decoration; one bad response must not stop the queue.
+        }
+      }
+    } finally {
+      _compatRunning = false;
+    }
+  }
 
   /// Whether the feed is narrowed to the AI matchmaking model's top 5.
   final RxBool aiFiltered = false.obs;
@@ -120,9 +169,11 @@ class SearchProfilesController extends GetxController {
     final String? chosen = filter.value.sort;
     final bool memberChoseSort = chosen != null && chosen.isNotEmpty && chosen != 'default';
     if (!memberChoseSort) {
+      // Highest match first — including scores fetched lazily after the page
+      // loaded, so a card rises to its place as its score arrives.
       list.sort((SearchProfileModel a, SearchProfileModel b) {
-        final int? sa = a.compatibilityPercentage;
-        final int? sb = b.compatibilityPercentage;
+        final int? sa = compatFor(a);
+        final int? sb = compatFor(b);
         if (sa == null && sb == null) return 0;
         if (sa == null) return 1;
         if (sb == null) return -1;
@@ -362,7 +413,12 @@ class SearchProfilesController extends GetxController {
     // carries the member's gender is fetched lazily, so the first Discover
     // build can happen before the gender is known.
     _lockFilterToOppositeGender();
-    if (showLoading) {
+    // Refresh-in-place: when a page is already on screen, keep it visible
+    // (no full-screen skeleton) while the fresh page fetches in the
+    // background. Feels instant on pull-to-refresh and re-visits.
+    if (showLoading && profiles.isNotEmpty) {
+      state.value = ApiState<SearchProfilesPage>.loadingKeepData(pageData as SearchProfilesPage);
+    } else if (showLoading) {
       state.value = const ApiState<SearchProfilesPage>.loading();
     }
     try {
@@ -560,6 +616,37 @@ class SearchProfilesController extends GetxController {
   String? countryLabel(int? id) => _lookupName(LookupKeys.countries, id);
   String? stateLabel(int? id) => _lookupName(LookupKeys.states, id);
   String? cityLabel(int? id) => _lookupName(LookupKeys.cities, id);
+
+  // ---- Listing-card fact labels (reference card design) ----
+  String? sectLabel(int? id) => _lookupName(LookupKeys.sectMain, id);
+  String? schoolOfThoughtLabel(int? id) => _lookupName(LookupKeys.schoolOfThought, id);
+
+  /// "Master's" — the education level, or the specific degree when the level
+  /// is absent.
+  String? educationLabel(SearchProfileModel p) {
+    final String? level = _lookupName(LookupKeys.educationLevels, p.educationLevelId);
+    if (level != null && level.isNotEmpty) return level;
+    return _lookupName(LookupKeys.degrees, p.degreeId);
+  }
+
+  /// "Designer" — the profession, falling back to the job title field.
+  String? professionLabel(SearchProfileModel p) {
+    final String? profession = _lookupName(LookupKeys.professions, p.professionId);
+    if (profession != null && profession.isNotEmpty) return profession;
+    return null;
+  }
+
+  /// "Family Oriented" — the member's family-values line, cleaned of snake
+  /// casing in case the backend ever stores it that way.
+  String? familyLabel(SearchProfileModel p) {
+    final String? v = p.familyValues?.trim();
+    if (v == null || v.isEmpty) return null;
+    return v
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((String w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
 
   String formatLocation(SearchProfileModel p) {
     final List<String> parts = <String>[];

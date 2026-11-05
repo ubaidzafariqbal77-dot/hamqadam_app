@@ -75,6 +75,10 @@ class AppRoutes {
   // ---- Family & Wali mode ---------------------------------------------
   static const String family = '/family';
 
+  // ---- Gifts ------------------------------------------------------------
+  static const String myGifts = '/gifts';
+  static String giftDetail(int transactionId) => '/gifts/transaction/$transactionId';
+
   // ---- Community content ----------------------------------------------
   static const String webinars = '/content/webinars';
   static const String expertQuestions = '/content/expert-questions';

@@ -118,7 +118,7 @@ class CallForegroundService : Service() {
                 val isVideo = intent?.getBooleanExtra(EXTRA_VIDEO, false) ?: false
                 val status = intent?.getStringExtra(EXTRA_STATUS)
                     ?: if (isVideo) "Ongoing video call" else "Ongoing voice call"
-                startAsForeground(name, isVideo, status)
+                startAsForeground(name, status)
                 return START_NOT_STICKY
             }
         }
@@ -131,14 +131,21 @@ class CallForegroundService : Service() {
 
     // ── Notification ────────────────────────────────────────────────────────
 
-    private fun startAsForeground(name: String, isVideo: Boolean, status: String) {
+    private fun startAsForeground(name: String, status: String) {
         ensureChannel()
         val notification = buildNotification(name, status)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                if (isVideo) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-                startForeground(NOTIFICATION_ID, notification, type)
+                // Microphone only, on a video call too. The camera is released
+                // when the call leaves the foreground (VideoCallScreen does it
+                // on the lifecycle change), so this service never needs the
+                // camera type — and the app never needs the Play declaration
+                // that comes with it.
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
+                )
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }

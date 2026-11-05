@@ -18,6 +18,7 @@ import '../core/utils/app_logger.dart';
 import '../core/storage/current_user_service.dart';
 import '../features/chat/views/chat_conversation_view.dart';
 import '../features/chat/views/chat_inbox_view.dart';
+import '../features/payments/views/membership_plans_view.dart';
 import '../models/chat_model.dart';
 import '../repositories/chat_repository.dart';
 import '../widgets/app_snackbar.dart';
@@ -390,6 +391,11 @@ class ChatController extends GetxController {
 
     if (isOpen) {
       _mergeIntoConversation(<ChatMessage>[msg]);
+      // The conversation is on screen — tell the server this device has the
+      // message so the sender's tick climbs to a double immediately, instead
+      // of waiting for the next thread open (markDelivered is what writes
+      // delivered_at; the messages fetch alone only marks read).
+      _repo.markThreadDelivered(msg.threadId);
     }
 
     // Inbox row patched in place: instant, and no request.
@@ -774,14 +780,18 @@ class ChatController extends GetxController {
           : ApiState<List<ChatThread>>.success(list);
 
       // Keep the open conversation's header honest: the refreshed inbox row
-      // carries the other member's presence stamp (Online / Last seen …).
+      // carries the other member's fresh name/photo/presence. Adopt it when
+      // ANY of those differ — a stale deep-link thread object could carry an
+      // empty name, which blanked the chat header title.
       final ChatThread? open = activeThread.value;
       if (open != null) {
         final int index = list.indexWhere((ChatThread t) => t.id == open.id);
         if (index >= 0) {
           final ChatParticipant fresh = list[index].participant;
           if (fresh.isOnline != open.participant.isOnline ||
-              fresh.lastActiveAt != open.participant.lastActiveAt) {
+              fresh.lastActiveAt != open.participant.lastActiveAt ||
+              fresh.name != open.participant.name ||
+              fresh.photo != open.participant.photo) {
             activeThread.value = open.copyWith(participant: fresh);
           }
         }
@@ -1058,7 +1068,15 @@ class ChatController extends GetxController {
       _patchThreadPreview(sent, incrementUnread: false);
     } catch (e) {
       _markLocalFailed(localId);
-      AppSnackbar.error('Message not sent. Tap to retry.');
+      // Coin paywall (Task4): the server charges 2 coins per send and answers
+      // 402 when the wallet is empty. Route the member to the packages
+      // screen instead of a dead "not sent" toast.
+      if (e is AppException && e.statusCode == 402) {
+        AppSnackbar.error(e.message);
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error('Message not sent. Tap to retry.');
+      }
       AppLogger.w('Send failed for $localId: $e');
     } finally {
       isSending.value = false;
@@ -1129,6 +1147,68 @@ class ChatController extends GetxController {
       );
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
+    }
+  }
+
+  /// Sends an animated GIF by URL (Tenor). The server stores it as a
+  /// `gif`-type message with the URL in metadata, so neither side needs an
+  /// upload row — the bubble renders the URL directly.
+  Future<void> sendGif(String gifUrl) async {
+    if (gifUrl.trim().isEmpty) return;
+    if (activeThread.value == null || isSending.value) return;
+    if (activeThread.value!.id <= 0) {
+      AppSnackbar.info(
+        'Chat is not available yet. Please send an Express Interest first to connect.',
+      );
+      return;
+    }
+
+    final int targetId = activeThread.value!.id;
+    final int recipientUserId = activeThread.value!.participant.id;
+    final int? replyId = replyingTo.value?.id;
+
+    // Optimistic bubble — messageType 'gif' with the URL in metadata; the
+    // bubble renders the animation straight from the CDN.
+    final String localId = 'local-${DateTime.now().microsecondsSinceEpoch}-${_localIdSeed++}';
+    final ChatMessage optimistic = ChatMessage(
+      id: 0,
+      threadId: targetId,
+      senderId: myUserId,
+      message: 'GIF',
+      messageType: 'gif',
+      createdAt: DateTime.now(),
+      replyToChatId: replyId,
+      delivery: MessageDelivery.sending,
+      localId: localId,
+      metadata: <String, dynamic>{'gif_url': gifUrl},
+    );
+    messages.insert(0, optimistic);
+    replyingTo.value = null;
+
+    isSending.value = true;
+    try {
+      final ChatMessage sent = await _repo.sendMessage(
+        threadId: targetId,
+        message: 'GIF',
+        messageType: 'gif',
+        replyToChatId: replyId,
+        recipientUserId: recipientUserId,
+        metadata: <String, dynamic>{'gif_url': gifUrl},
+        disappearAfter: activeThread.value?.disappearAfter ?? 0,
+      );
+      _replaceLocal(localId, sent);
+      _patchThreadPreview(sent, incrementUnread: false);
+    } catch (e) {
+      _markLocalFailed(localId);
+      if (e is AppException && e.statusCode == 402) {
+        AppSnackbar.error(e.message);
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error('GIF not sent. Try again.');
+      }
+      AppLogger.w('GIF send failed for $localId: $e');
+    } finally {
+      isSending.value = false;
     }
   }
 
@@ -1415,6 +1495,24 @@ class ChatController extends GetxController {
       await loadArchivedThreads(silent: true);
     } catch (e) {
       AppSnackbar.error('Could not archive this chat: $e');
+    }
+  }
+
+  /// Deletes a conversation from MY list (long-press → Delete conversation).
+  ///
+  /// Per side like archive: the other member keeps the chat, and the next
+  /// message they send un-hides the thread. Dropped from the list straight
+  /// away, then both server lists are re-synced.
+  Future<void> deleteThreadConversation(ChatThread thread) async {
+    if (thread.id <= 0) return;
+    try {
+      await _repo.deleteThread(thread.id);
+      _removeThreadLocally(thread.id);
+      AppSnackbar.success('Conversation deleted.');
+      await loadThreads(silent: true);
+      await loadArchivedThreads(silent: true);
+    } catch (e) {
+      AppSnackbar.error('Could not delete this conversation: $e');
     }
   }
 

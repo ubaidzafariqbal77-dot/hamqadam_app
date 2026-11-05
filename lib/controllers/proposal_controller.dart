@@ -122,17 +122,36 @@ class ProposalController extends GetxController {
   }
 
   /// Sends a marriage proposal to [userId].
-  Future<bool> sendProposal(int userId, {String? note, String? recipientName}) async {
+  Future<bool> sendProposal(
+    int userId, {
+    required String message,
+    String language = 'en',
+    bool fromAi = false,
+    int? templateId,
+    String? recipientName,
+  }) async {
     final String name = recipientName ?? 'Member';
     try {
-      final ProposalModel result = await _repo.sendProposal(userId: userId, note: note);
-      proposals.insert(0, result);
-      sentProposalUserIds.add(userId);
-      state.value = ApiState<ProposalPage>.success(
-        ProposalPage(proposals: proposals, currentPage: _currentPage, lastPage: _lastPage, total: proposals.length),
+      await _repo.sendProposal(
+        userId: userId,
+        message: message,
+        language: language,
+        fromAi: fromAi,
+        templateId: templateId,
       );
+      sentProposalUserIds.add(userId);
       AppSnackbar.success('Marriage proposal sent to $name successfully!');
+      // The new row belongs in the sent list.
+      loadProposals(silent: true);
       return true;
+    } on ValidationException catch (e) {
+      // Business rules ("Send Interest First…") come back as 422 field errors.
+      String text = e.message;
+      if (e.errors.isNotEmpty && e.errors.values.first.isNotEmpty) {
+        text = e.errors.values.first.first;
+      }
+      AppSnackbar.error(text);
+      return false;
     } on AppException catch (e) {
       AppSnackbar.error(e.message);
       return false;

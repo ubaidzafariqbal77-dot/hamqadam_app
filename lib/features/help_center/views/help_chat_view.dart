@@ -80,7 +80,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                 _attachmentOption(
                   icon: Icons.photo_library_rounded,
                   label: 'Gallery',
-                  color: AppColors.primary,
+                  color: AppColors.regAccent,
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickImage();
@@ -140,7 +140,7 @@ class _HelpChatViewState extends State<HelpChatView> {
     return Scaffold(
       appBar: AppBar(
         elevation: 1,
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+        backgroundColor: isDark ? AppColors.darkSurface : AppColors.roseCanvas,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           tooltip: 'Back',
@@ -160,10 +160,10 @@ class _HelpChatViewState extends State<HelpChatView> {
           children: <Widget>[
             CircleAvatar(
               radius: 19,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+              backgroundColor: AppColors.regAccent.withValues(alpha: 0.15),
               child: const Icon(
                 Icons.support_agent_rounded,
-                color: AppColors.primary,
+                color: AppColors.regAccent,
                 size: 22,
               ),
             ),
@@ -197,26 +197,70 @@ class _HelpChatViewState extends State<HelpChatView> {
           // Realtime state — reserved for a connecting hint if needed later.
           const SizedBox.shrink(),
 
-          // Closed banner
+          // Locked / closed banner + countdown
           Obx(() {
-            if (!_controller.isClosed) return const SizedBox.shrink();
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
-              color: AppColors.warning.withValues(alpha: 0.12),
-              child: const Row(
-                children: <Widget>[
-                  Icon(Icons.lock_outline_rounded, color: AppColors.warning, size: 18),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'This conversation has been closed by support. Start a new message to open another one.',
-                      style: TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+            if (_controller.isLocked) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                color: AppColors.error.withValues(alpha: 0.10),
+                child: const Row(
+                  children: <Widget>[
+                    Icon(Icons.lock_rounded, color: AppColors.error, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This chat was locked — no reply was sent within 5 minutes '
+                        'of the support response. Start a new chat below.',
+                        style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            );
+                  ],
+                ),
+              );
+            }
+            if (_controller.isClosed) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 8),
+                color: AppColors.warning.withValues(alpha: 0.12),
+                child: const Row(
+                  children: <Widget>[
+                    Icon(Icons.lock_outline_rounded, color: AppColors.warning, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This conversation has been closed by support. Start a new message to open another one.',
+                        style: TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            // Response window countdown — visible while the clock runs.
+            final int seconds = _controller.secondsUntilLock.value;
+            if (seconds > 0) {
+              final int m = seconds ~/ 60;
+              final int s = seconds % 60;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 6),
+                color: AppColors.warning.withValues(alpha: 0.10),
+                child: Row(
+                  children: <Widget>[
+                    const Icon(Icons.timer_outlined, color: AppColors.warning, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Support replied — answer within ${m}:${s.toString().padLeft(2, '0')} '
+                      'or this chat locks',
+                      style: const TextStyle(color: AppColors.warning, fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
           }),
 
           // Messages stream
@@ -226,7 +270,7 @@ class _HelpChatViewState extends State<HelpChatView> {
               final List<HelpChatMessage> list = _controller.messages;
 
               if (status == ApiStatus.loading && list.isEmpty) {
-                return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
               }
 
               if (list.isEmpty) {
@@ -240,7 +284,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                           padding: const EdgeInsets.all(AppSpacing.lg),
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
-                              colors: AppColors.brandGradient,
+                              colors: AppColors.regPrimaryGradient,
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -249,7 +293,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                           child: const Icon(Icons.support_agent_rounded, size: 40, color: Colors.white),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Text('Assalam-o-Alaikum!', style: AppTextStyles.headline.copyWith(fontSize: 20)),
+                        Text('Assalam-o-Alaikum!', style: AppTextStyles.headline.copyWith(fontSize: 18)),
                         const SizedBox(height: AppSpacing.sm),
                         Text(
                           'Describe your issue below and our support team will get back to you right here.',
@@ -275,7 +319,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                         child: SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.regAccent),
                         ),
                       ),
                     );
@@ -320,7 +364,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                             width: 60,
                             height: 60,
                             color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-                            child: const Icon(Icons.insert_drive_file_rounded, color: AppColors.primary, size: 28),
+                            child: const Icon(Icons.insert_drive_file_rounded, color: AppColors.regAccent, size: 28),
                           ),
                         ),
                       ),
@@ -351,7 +395,46 @@ class _HelpChatViewState extends State<HelpChatView> {
 
   Widget _buildComposer(BuildContext context, bool isDark) {
     return Obx(() {
-      final bool disabled = _controller.isClosed;
+      final bool disabled = _controller.cannotRespond;
+      // Locked / closed: the composer makes way for "Start New chat".
+      if (disabled) {
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            MediaQuery.of(context).padding.bottom + AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
+            border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _controller.isSending.value ? null : _controller.startNewChat,
+              icon: _controller.isSending.value
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.add_comment_rounded, size: 18, color: Colors.white),
+              label: const Text(
+                'Start New chat',
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.regAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        );
+      }
       return Container(
         padding: EdgeInsets.fromLTRB(
           AppSpacing.sm,
@@ -368,7 +451,7 @@ class _HelpChatViewState extends State<HelpChatView> {
           children: <Widget>[
             if (!disabled)
               IconButton(
-                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
+                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.regAccent, size: 26),
                 tooltip: 'Attach Photo',
                 onPressed: _showAttachmentOptions,
               ),
@@ -409,7 +492,7 @@ class _HelpChatViewState extends State<HelpChatView> {
                   margin: const EdgeInsets.only(bottom: 2),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: AppColors.brandGradient,
+                      colors: AppColors.regPrimaryGradient,
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -456,7 +539,7 @@ class _HelpMessageBubble extends StatelessWidget {
     final String timeStr = DateFormat('d MMM, h:mm a').format(message.createdAt);
 
     final Color bubbleBg = isMine
-        ? AppColors.primary
+        ? AppColors.regAccent
         : (isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface);              return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -494,7 +577,7 @@ class _HelpMessageBubble extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
+                      color: AppColors.regAccent,
                     ),
                   ),
                 ),
@@ -529,7 +612,7 @@ class _HelpMessageBubble extends StatelessWidget {
                               width: 140,
                               height: 140,
                               color: Colors.black.withValues(alpha: 0.12),
-                              child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.primary),
+                              child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.regAccent),
                             ),
                           ),
                         );
@@ -543,7 +626,7 @@ class _HelpMessageBubble extends StatelessWidget {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            Icon(Icons.insert_drive_file_rounded, size: 18, color: isMine ? Colors.white : AppColors.primary),
+                            Icon(Icons.insert_drive_file_rounded, size: 18, color: isMine ? Colors.white : AppColors.regAccent),
                             const SizedBox(width: 6),
                             Text(
                               a.originalName.isNotEmpty ? a.originalName : 'Attachment',
@@ -577,7 +660,7 @@ class _HelpMessageBubble extends StatelessWidget {
                                 fit: BoxFit.cover,
                                 errorBuilder: (BuildContext _, Object __, StackTrace? ___) => Container(
                                   color: Colors.black.withValues(alpha: 0.12),
-                                  child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.primary),
+                                  child: Icon(Icons.image_outlined, color: isMine ? Colors.white : AppColors.regAccent),
                                 ),
                               ),
                               Container(

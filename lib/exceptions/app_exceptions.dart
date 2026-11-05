@@ -23,6 +23,20 @@ class TimeoutException extends AppException {
   const TimeoutException([super.message = 'The request timed out. Please try again.']);
 }
 
+/// TLS handshake / certificate failure — the request never reached the API.
+///
+/// This is distinct from [NetworkException]: the device had connectivity, but
+/// the secure channel to the server could not be established (expired, invalid
+/// or untrusted certificate). It must never be reported as a generic error
+/// with a null message, because the user can do nothing about it except wait
+/// for the server operator to fix their certificate.
+class TlsException extends AppException {
+  const TlsException([
+    super.message =
+        'We could not establish a secure connection to our servers. Please try again shortly.',
+  ]);
+}
+
 /// 401 — token missing/expired/invalid.
 class UnauthorizedException extends AppException {
   const UnauthorizedException([super.message = 'Your session has expired. Please sign in again.'])

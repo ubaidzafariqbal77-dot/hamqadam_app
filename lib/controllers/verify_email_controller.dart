@@ -120,12 +120,14 @@ class VerifyEmailController extends GetxController {
       if (gated) return;
       await reg.finishRegistration();
     } on AppException catch (e) {
-      // MANUAL REVIEW GATE: verify-otp is a POST, so a gated account gets
-      // `423 manual_review_read_only` here. The API client has already opened
-      // the review screen — stay quiet, no snackbar over it.
+      // MANUAL REVIEW GATE: a backend without the email-verification
+      // exemption 423s verify-otp for a gated account. The API client no
+      // longer jumps to the review screen for OTP calls (the review screen
+      // comes only after the code is verified), so say what happened here.
       final String? code2 = e is ApiException ? e.code : null;
       if (e.statusCode == 423 || code2 == 'manual_review_read_only') {
         AppLogger.w('verify-otp blocked — account under manual review');
+        _fail('Email verification is unavailable right now. Please try again shortly.');
         return;
       }
       // KNOWN BACKEND DEFECT: verify-otp marks the account verified, consumes

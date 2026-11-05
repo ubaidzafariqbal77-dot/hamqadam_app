@@ -50,11 +50,12 @@ class HelpChatMessage {
 
   HelpChatMessage copyWith({
     int? id,
+    int? threadId,
     MessageDelivery? delivery,
   }) {
     return HelpChatMessage(
       id: id ?? this.id,
-      threadId: threadId,
+      threadId: threadId ?? this.threadId,
       senderId: senderId,
       fromAdmin: fromAdmin,
       message: message,
@@ -100,11 +101,18 @@ class HelpChatMessage {
 }
 
 /// The member's Help Center conversation.
+///
+/// Carries the ticket-lock state: after an admin reply the member has a short
+/// response window (server-side constant, 5 minutes) — when it lapses without
+/// a reply the server stamps `locked_at` and the app shows "Start New chat".
 class HelpChatThread {
   const HelpChatThread({
     required this.id,
     required this.isClosed,
     required this.unreadCount,
+    this.isLocked = false,
+    this.lockedAt,
+    this.responseDeadline,
     this.lastMessageAt,
   });
 
@@ -113,10 +121,32 @@ class HelpChatThread {
   final int unreadCount;
   final DateTime? lastMessageAt;
 
+  /// True when the response window after the admin's reply expired without a
+  /// member reply. The composer is replaced by a "Start New chat" button.
+  final bool isLocked;
+
+  /// When the lock was stamped (null while the ticket is still open).
+  final DateTime? lockedAt;
+
+  /// The moment the member's response window closes, while the ticket is
+  /// still answerable — null once answered, locked, or before any admin reply.
+  final DateTime? responseDeadline;
+
+  /// The member can no longer send on this thread: locked, or closed by the
+  /// team (both show "Start New chat" / a new-conversation affordance).
+  bool get cannotRespond => isLocked || isClosed;
+
   factory HelpChatThread.fromJson(Map<String, dynamic> json) {
     return HelpChatThread(
       id: json['id'] as int? ?? 0,
       isClosed: json['is_closed'] as bool? ?? false,
+      isLocked: json['locked'] as bool? ?? false,
+      lockedAt: json['locked_at'] != null
+          ? DateTime.tryParse(json['locked_at'] as String)
+          : null,
+      responseDeadline: json['response_deadline'] != null
+          ? DateTime.tryParse(json['response_deadline'] as String)
+          : null,
       unreadCount: json['unread_count'] as int? ?? 0,
       lastMessageAt: json['last_message_at'] != null
           ? DateTime.tryParse(json['last_message_at'] as String)

@@ -6,7 +6,24 @@ class ApiConfig {
 
   /// Single source of truth for the site root. Uploaded media (photos, video /
   /// voice intros) are stored relative to this, e.g. `uploads/profile/…`.
-  static const String assetBaseUrl = 'https://hamqadam.com';
+  ///
+  /// Pointing the app at a local XAMPP backend for testing:
+  ///
+  /// ```
+  /// flutter run --dart-define=API_BASE_URL=http://localhost/hamqadam_live/public
+  /// ```
+  ///
+  /// `API_BASE_URL` wins over everything, so the same build works on the iOS
+  /// simulator (`localhost`), the Android emulator (`http://10.0.2.2/…`) and a
+  /// physical device (`http://<your-LAN-IP>/…`).
+  ///
+  /// `DEMO_LOCAL=true` is kept as a shorthand for the Android emulator demo.
+  static const String assetBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: bool.fromEnvironment('DEMO_LOCAL')
+        ? 'http://10.0.2.2/hamqadam_live/public'
+        : 'https://hamqadam.com',
+  );
 
   /// Single source of truth for the API base URL. `{{APP_URL}}/api/v1`.
   static const String baseUrl = '$assetBaseUrl/api/v1';
@@ -19,6 +36,30 @@ class ApiConfig {
     if (p.startsWith('http://') || p.startsWith('https://')) return p;
     return '$assetBaseUrl/${p.replaceFirst(RegExp(r'^/+'), '')}';
   }
+
+  /// Root of the Hamqadam Bio AI service (`POST /v1/bio/ai-generate`).
+  ///
+  /// Every build — debug on a phone included — uses the live service. To try a
+  /// service running on your Mac instead:
+  ///
+  /// ```
+  /// flutter run --dart-define=BIO_AI_BASE_URL=http://<your-Mac-LAN-IP>:8100
+  /// ```
+  static const String bioAiBaseUrl = String.fromEnvironment(
+    'BIO_AI_BASE_URL',
+    defaultValue: 'https://ai-bio.hamqadam.com',
+  );
+
+  /// Sent as `X-App-Key`; the live service rejects requests without it.
+  ///
+  /// Built in, so every run and build works without extra flags. It ships in
+  /// the app binary either way, so it only throttles abuse - it is not a
+  /// secret. To rotate: set a new `HQ_APP_API__KEYS` on the server (old,new
+  /// for an overlap), change it here, release, then drop the old one.
+  static const String bioAiAppKey = String.fromEnvironment(
+    'BIO_AI_APP_KEY',
+    defaultValue: '5Xhf3LQJX0_mH__GUGRAIlW_zjBb9RrUCsH7nu_olsQ',
+  );
 
   static const Duration connectTimeout = Duration(seconds: 20);
   static const Duration receiveTimeout = Duration(seconds: 30);
@@ -44,9 +85,19 @@ class AppConstants {
   static const int maxVideoBytes = 25 * 1024 * 1024; // 25 MB
   static const int maxAudioBytes = 10 * 1024 * 1024; // 10 MB
 
-  static const List<String> allowedImageExt = <String>['jpg', 'jpeg', 'png', 'webp'];
+  static const List<String> allowedImageExt = <String>[
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+  ];
   static const List<String> allowedVideoExt = <String>['mp4', 'mov', 'm4v'];
-  static const List<String> allowedAudioExt = <String>['mp3', 'm4a', 'aac', 'wav'];
+  static const List<String> allowedAudioExt = <String>[
+    'mp3',
+    'm4a',
+    'aac',
+    'wav',
+  ];
 
   /// Debounce before persisting a draft while the user types.
   static const Duration draftDebounce = Duration(milliseconds: 600);

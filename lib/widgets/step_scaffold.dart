@@ -153,7 +153,7 @@ class StepScaffold extends StatelessWidget {
             // design references. Only the English line takes the serif — the
             // Urdu companion stays Nastaliq, which has no serif counterpart.
             style: AppTextStyles.displaySerif.copyWith(
-              fontSize: 27,
+              fontSize: 22,
               color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
             ),
           ),
@@ -275,7 +275,7 @@ class StepScaffold extends StatelessWidget {
               // finalizing; steps that drive their own label (e.g. partner
               // preferences) keep it.
               primaryLabel: fixing
-                  ? 'Save & continue setup'
+                  ? 'Update & Save'
                   : editing
                   ? 'Save'
                   : primaryLabel,
@@ -300,15 +300,8 @@ class StepScaffold extends StatelessWidget {
   /// bar does (step fraction, or profile progress while editing a section).
   Widget _compactHeader(BuildContext context, RegistrationController? reg,
       Color ink, bool dark) {
-    final double fraction;
-    final int percent;
-    if (reg == null) {
-      fraction = stepNumber / totalSteps;
-      percent = ((stepNumber / totalSteps) * 100).round();
-    } else {
-      fraction = reg.progressFraction;
-      percent = reg.progressPercent;
-    }
+    final double fraction =
+        reg == null ? stepNumber / totalSteps : reg.progressFraction;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -320,18 +313,10 @@ class StepScaffold extends StatelessWidget {
                 title,
                 textAlign: TextAlign.left,
                 style: AppTextStyles.displaySerif.copyWith(
-                  fontSize: 32,
+                  fontSize: 24,
                   height: 1.1,
                   color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              '$percent%',
-              style: AppTextStyles.bodyStrong.copyWith(
-                fontSize: 15,
-                color: AppColors.regAccent.withValues(alpha: 0.75),
               ),
             ),
           ],
@@ -495,17 +480,44 @@ class _TopBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            '$percent%',
-            style: AppTextStyles.bodyStrong.copyWith(
-              color: AppColors.regAccent,
-              fontSize: 14,
-            ),
+          // Abandon signup: only in the forward flow — editing one section or
+          // correcting a rejected field has its own back-out.
+          if (_showClose) ...<Widget>[
+            const SizedBox(width: AppSpacing.sm),
+            _RoundIcon(icon: Icons.close_rounded, onTap: () => _confirmDiscard(context)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool get _showClose {
+    if (!Get.isRegistered<RegistrationController>()) return false;
+    final RegistrationController reg = Get.find<RegistrationController>();
+    return !reg.isEditingSection && !reg.isFixingForFinalize;
+  }
+
+  Future<void> _confirmDiscard(BuildContext context) async {
+    final bool? yes = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Clear registration?'),
+        content: const Text(
+          'Are you sure you want to clear all filled data? Everything you have '
+          'entered will be removed and you will return to the login screen.',
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes, clear all'),
           ),
         ],
       ),
     );
+    if (yes == true) await Get.find<RegistrationController>().discardRegistration();
   }
 }
 
@@ -516,7 +528,7 @@ class _RoundIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color color = AppColors.regAccent;
+    const Color color = AppColors.primaryDark;
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     return Opacity(
       opacity: onTap == null ? 0.25 : 1,
@@ -705,7 +717,7 @@ class _PillButton extends StatelessWidget {
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
-                      color: Colors.white,
+                      color: AppColors.primaryInk,
                       strokeWidth: 2.5,
                     ),
                   )
@@ -718,10 +730,10 @@ class _PillButton extends StatelessWidget {
                       child: BiText.inline(
                         label,
                         style: AppTextStyles.button.copyWith(
-                          color: isBackPill ? AppColors.regAccent : Colors.white,
+                          color: isBackPill ? AppColors.primaryDark : AppColors.primaryInk,
                           fontSize: 14,
                         ),
-                        urduColor: Colors.white.withValues(alpha: 0.95),
+                        urduColor: AppColors.primaryInk.withValues(alpha: 0.95),
                       ),
                     ),
                   ),

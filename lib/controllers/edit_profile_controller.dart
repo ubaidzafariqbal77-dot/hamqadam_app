@@ -5,9 +5,11 @@ import 'package:intl/intl.dart';
 import '../constants/app_lookups.dart';
 import '../constants/income_options.dart';
 import '../exceptions/app_exceptions.dart';
+import '../features/registration/bio_ai_profile.dart';
 import '../models/lookup_item_model.dart';
 import '../models/privacy_settings_model.dart';
 import '../models/profile_model.dart';
+import '../repositories/bio_ai_repository.dart';
 import '../repositories/profile_repository.dart';
 import '../widgets/app_snackbar.dart';
 import 'lookup_controller.dart';
@@ -56,6 +58,11 @@ class EditProfileController extends GetxController {
 
   // ---- About / personal -----------------------------------------------------
   final TextEditingController aboutMe = TextEditingController();
+
+  /// Same limit as the registration bio step, so an AI bio always fits.
+  static const int aboutMaxChars = 2500;
+
+  final RxBool generatingBio = false.obs;
   final TextEditingController children = TextEditingController();
   final TextEditingController travel = TextEditingController();
   final TextEditingController goals = TextEditingController();
@@ -290,6 +297,32 @@ class EditProfileController extends GetxController {
     _annualSalaryRangeId = m.annualSalaryRangeId;
   }
 
+  /// Rewrites About me with the Bio AI service from what is currently in the
+  /// form (unsaved edits included). Every tap rotates the wording; nothing is
+  /// saved until the member taps Save.
+  Future<void> generateBioWithAi() async {
+    if (generatingBio.value) return;
+    generatingBio.value = true;
+    try {
+      final BioAiRepository ai = Get.isRegistered<BioAiRepository>()
+          ? Get.find<BioAiRepository>()
+          : Get.put(BioAiRepository(), permanent: true);
+      final Map<String, dynamic> profile =
+          await BioAiProfile.buildFrom(_BioFormSource(this), lookup);
+      final BioAiResult result = await ai.generate(profile, maxChars: aboutMaxChars);
+      aboutMe.text = result.text.length > aboutMaxChars
+          ? result.text.substring(0, aboutMaxChars)
+          : result.text;
+      aboutMe.selection = TextSelection.collapsed(offset: aboutMe.text.length);
+    } on BioAiException catch (e) {
+      AppSnackbar.error(e.message);
+    } catch (_) {
+      AppSnackbar.error('Could not generate a bio right now. Please try again.');
+    } finally {
+      generatingBio.value = false;
+    }
+  }
+
   static LookupItem? _siblingItem(int? count) =>
       count == null ? null : LookupItem(id: count, name: SiblingOptions.labelFor(count));
 
@@ -517,5 +550,49 @@ class EditProfileController extends GetxController {
     familyLocation.dispose();
     familyValues.dispose();
     super.onClose();
+  }
+}
+
+/// Presents the Edit Profile form with the registration buffer's keys, so
+/// [BioAiProfile] builds the same AI input from either place.
+class _BioFormSource implements BioAiSource {
+  _BioFormSource(this.c);
+
+  final EditProfileController c;
+
+  @override
+  int? getInt(String key) => switch (key) {
+    'gender' => c.genderId.value,
+    'country_id' => c.countryId.value,
+    'state_id' => c.stateId.value,
+    'city_id' => c.cityId.value,
+    'marital_status_id' => c.maritalId.value,
+    'education_level_id' => c.educationLevelId.value,
+    'degree_id' => c.degreeId.value,
+    'field_of_study_id' => c.fieldOfStudyId.value,
+    'institution_id' => c.institutionId.value,
+    'profession_category_id' => c.professionCategoryId.value,
+    'profession_id' => c.professionId.value,
+    'years_of_experience' => int.tryParse(c.yearsOfExperience.text.trim()),
+    _ => null,
+  };
+
+  @override
+  String? getString(String key) => switch (key) {
+    'date_of_birth' => c.dob.value?.toIso8601String(),
+    'education_status' => c.educationStatus.value,
+    'job_title' => c.jobTitle.text,
+    'organization' => c.organization.text,
+    'family_values' => c.familyValues.text,
+    _ => null,
+  };
+
+  @override
+  List<String> getStringList(String key) => const <String>[];
+
+  @override
+  String? get fullName {
+    final String name = '${c.firstName.text} ${c.lastName.text}'.trim();
+    return name.isEmpty ? null : name;
   }
 }

@@ -239,5 +239,122 @@ void main() {
       expect(result.invoiceNumber, 'INV-12345');
       expect(result.instructions, 'Please complete payment on your device.');
     });
+
+    test('parses the real POST /payments/checkout payload (payment/checkout/security)', () {
+      // Exactly what the API answers for a card checkout: the record, the
+      // hosted-page link and the polling token live in three separate nodes.
+      final Map<String, dynamic> payload = <String, dynamic>{
+        'success': true,
+        'message': 'Checkout created successfully.',
+        'data': <String, dynamic>{
+          'payment': <String, dynamic>{
+            'id': 412,
+            'payment_code': '260925-1012-4471',
+            'invoice_number': 'INV-20260925-1012-4471',
+            'payment_status': 'Due',
+            'gateway_status': 'pending',
+            'gateway_reference': 'stripe_1f3a',
+            'currency': 'PKR',
+          },
+          'gateway': 'stripe',
+          'gateway_id': 1,
+          'checkout': <String, dynamic>{
+            'mode': 'stripe_checkout',
+            'url': 'https://checkout.stripe.com/c/pay/cs_test_abc',
+            'amount': 20,
+            'currency': 'PKR',
+            'publishable_key': 'pk_test_x',
+          },
+          'security': <String, dynamic>{
+            'checkout_token': 'tok_123',
+            'payment_id': 412,
+            'status_endpoint':
+                'https://hamqadam.com/api/v1/payments/checkout/412/status',
+          },
+        },
+      };
+
+      final CheckoutResult result = CheckoutResult.fromJson(payload);
+
+      expect(result.success, true);
+      expect(result.paymentId, 412);
+      expect(result.paymentCode, '260925-1012-4471');
+      expect(result.invoiceNumber, 'INV-20260925-1012-4471');
+      expect(result.paymentStatus, 'Due');
+      expect(result.gatewayKey, 'stripe');
+      expect(result.checkoutMode, 'stripe_checkout');
+      expect(result.gatewayUrl, 'https://checkout.stripe.com/c/pay/cs_test_abc');
+      expect(result.checkoutToken, 'tok_123');
+      expect(result.amount, 20);
+      expect(result.isCardCheckout, true);
+      expect(result.hasGatewayUrl, true);
+      expect(result.unavailableReason, isNull);
+    });
+
+    test('flags a card checkout the backend could not start', () {
+      final Map<String, dynamic> json = <String, dynamic>{
+        'data': <String, dynamic>{
+          'gateway': 'stripe',
+          'payment': <String, dynamic>{'id': 9, 'payment_status': 'Due'},
+          'checkout': <String, dynamic>{
+            'mode': 'stripe_checkout',
+            'url': null,
+            'unavailable': 'Card checkout could not be started.',
+          },
+        },
+      };
+
+      final CheckoutResult result = CheckoutResult.fromJson(json);
+
+      expect(result.hasGatewayUrl, false);
+      expect(result.unavailableReason, 'Card checkout could not be started.');
+    });
+
+    test('parses GET /payments/gateways rows', () {
+      final Map<String, dynamic> json = <String, dynamic>{
+        'id': 1,
+        'key': 'stripe',
+        'name': 'Stripe',
+        'label': 'Stripe Card Payments',
+        'description': 'Card and online payments via Stripe checkout.',
+        'enabled': true,
+        'configured': true,
+        'available': true,
+        'sandbox': false,
+        'mode': 'online',
+        'checkout_type': 'stripe_checkout',
+        'instructions': null,
+      };
+
+      final PaymentGatewayInfo g = PaymentGatewayInfo.fromJson(json);
+
+      expect(g.key, 'stripe');
+      expect(g.label, 'Stripe Card Payments');
+      expect(g.available, true);
+      expect(g.sandbox, false);
+      expect(g.isHostedCheckout, true);
+    });
+
+    test('parses GET /payments/checkout/{id}/status', () {
+      final Map<String, dynamic> json = <String, dynamic>{
+        'payment': <String, dynamic>{
+          'id': 412,
+          'payment_code': '260925-1012-4471',
+          'payment_method': 'stripe',
+          'payment_status': 'Paid',
+          'gateway_status': 'paid',
+          'paid_at': '2026-09-25T10:15:00.000000Z',
+          'subscription_ends_at': '2026-10-25T23:59:59.000000Z',
+        },
+        'checkout': <String, dynamic>{'payment_id': 412},
+      };
+
+      final CheckoutStatusResult st = CheckoutStatusResult.fromJson(json);
+
+      expect(st.paymentId, 412);
+      expect(st.isPaid, true);
+      expect(st.isFailed, false);
+      expect(st.paidAt, '2026-09-25T10:15:00.000000Z');
+    });
   });
 }

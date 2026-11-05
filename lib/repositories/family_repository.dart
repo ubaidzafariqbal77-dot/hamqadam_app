@@ -74,6 +74,175 @@ class FamilyRepository {
     );
   }
 
+  // ---- Guardian Mode (spec §5–§25) -----------------------------------------
+
+  /// `GET /family/guardian-mode/status` — enabled flag, permission catalog,
+  /// presets and defaults.
+  Future<Map<String, dynamic>> fetchGuardianModeStatus() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.guardianModeStatus);
+    return res.dataMap;
+  }
+
+  /// `POST /family/guardian-mode` — activate/deactivate Guardian Mode.
+  Future<void> toggleGuardianMode({required bool enabled}) async {
+    await _client.post(
+      ApiEndpoints.guardianModeToggle,
+      body: <String, dynamic>{'enabled': enabled},
+    );
+  }
+
+  /// `POST /family/guardian-invitations` — single-use expiring invite.
+  Future<Map<String, dynamic>> createGuardianInvitation({
+    required String contact,
+    required String relationship,
+    String? guardianRole,
+    bool isWali = false,
+    String permissionPreset = 'view_only',
+    List<String>? permissions,
+  }) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.guardianInvitations,
+      body: <String, dynamic>{
+        'contact': contact,
+        'relationship': relationship,
+        if (guardianRole != null) 'guardian_role': guardianRole,
+        'is_wali': isWali,
+        'permission_preset': permissionPreset,
+        if (permissions != null && permissions.isNotEmpty) 'permissions': permissions,
+      },
+    );
+    return res.dataMap;
+  }
+
+  /// `GET /family/guardian-invitations` — the member's sent invitations.
+  Future<List<Map<String, dynamic>>> fetchGuardianInvitations() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.guardianInvitations);
+    final List<dynamic> raw = res.dataList;
+    return raw.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// `POST /family/guardian-invitations/accept` — guardian consumes a token.
+  Future<Map<String, dynamic>> acceptGuardianInvitation(String token) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.guardianInvitationsAccept,
+      body: <String, dynamic>{'token': token},
+    );
+    return res.dataMap;
+  }
+
+  /// `POST /family/guardians/{id}/pause` — pause without deleting.
+  Future<void> pauseGuardian(int guardianId) async {
+    await _client.post(ApiEndpoints.familyGuardianPause(guardianId));
+  }
+
+  /// `POST /family/guardians/{id}/resume`.
+  Future<void> resumeGuardian(int guardianId) async {
+    await _client.post(ApiEndpoints.familyGuardianResume(guardianId));
+  }
+
+  /// `PATCH /family/guardians/{id}/permissions` — granular permission keys.
+  Future<void> updateGuardianPermissions(int guardianId, List<String> permissions) async {
+    await _client.patch(
+      ApiEndpoints.familyGuardianPermissions(guardianId),
+      body: <String, dynamic>{'permissions': permissions},
+    );
+  }
+
+  /// `GET /family/{profile}/activity` — readable audit trail.
+  Future<List<Map<String, dynamic>>> fetchGuardianActivity(int profileUserId) async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.familyGuardianActivity(profileUserId));
+    final List<dynamic> raw = res.dataList;
+    return raw.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// `GET /guardian/matches` — match review feed for a managed profile.
+  Future<List<Map<String, dynamic>>> fetchGuardianMatches(int profileUserId) async {
+    final ApiEnvelope res = await _client.get(
+      ApiEndpoints.guardianMatches,
+      query: <String, dynamic>{'profile_user_id': profileUserId},
+    );
+    final List<dynamic> raw = res.dataList;
+    return raw.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// `POST /guardian/matches/shortlist` — shortlist on behalf of the member.
+  Future<void> guardianShortlist({required int profileUserId, required int targetUserId}) async {
+    await _client.post(
+      ApiEndpoints.guardianMatchShortlist,
+      body: <String, dynamic>{'profile_user_id': profileUserId, 'target_user_id': targetUserId},
+    );
+  }
+
+  /// `POST /guardian/matches/feedback` — not-suitable / recommend.
+  Future<void> guardianFeedback({
+    required int profileUserId,
+    required int targetUserId,
+    required String feedbackType,
+    String? reason,
+    String? comment,
+  }) async {
+    await _client.post(
+      ApiEndpoints.guardianMatchFeedback,
+      body: <String, dynamic>{
+        'profile_user_id': profileUserId,
+        'target_user_id': targetUserId,
+        'feedback_type': feedbackType,
+        if (reason != null) 'reason': reason,
+        if (comment != null) 'comment': comment,
+      },
+    );
+  }
+
+  /// `POST /guardian/matches/note` — guardian note with explicit visibility.
+  Future<void> guardianNote({
+    required int profileUserId,
+    required int targetUserId,
+    required String note,
+    String visibility = 'primary_and_guardian',
+  }) async {
+    await _client.post(
+      ApiEndpoints.guardianMatchNote,
+      body: <String, dynamic>{
+        'profile_user_id': profileUserId,
+        'target_user_id': targetUserId,
+        'comment': note,
+        'visibility': visibility,
+      },
+    );
+  }
+
+  /// `GET /family/introductions` — family introductions involving the caller.
+  Future<List<Map<String, dynamic>>> fetchIntroductions() async {
+    final ApiEnvelope res = await _client.get(ApiEndpoints.familyIntroductions);
+    final List<dynamic> raw = res.dataList;
+    return raw.whereType<Map<String, dynamic>>().toList();
+  }
+
+  /// `POST /family/introductions` — request a family introduction.
+  Future<Map<String, dynamic>> requestIntroduction({required int proposalId, String? message}) async {
+    final ApiEnvelope res = await _client.post(
+      ApiEndpoints.familyIntroductions,
+      body: <String, dynamic>{
+        'proposal_id': proposalId,
+        if (message != null && message.isNotEmpty) 'message': message,
+      },
+    );
+    return res.dataMap;
+  }
+
+  /// `POST /family/introductions/{id}/respond` — accept or decline.
+  Future<void> respondIntroduction(int introductionId, {required bool accept}) async {
+    await _client.post(
+      ApiEndpoints.familyIntroductionRespond(introductionId),
+      body: <String, dynamic>{'accept': accept},
+    );
+  }
+
+  /// `POST /family/introductions/{id}/cancel` — the initiating side cancels.
+  Future<void> cancelIntroduction(int introductionId) async {
+    await _client.post(ApiEndpoints.familyIntroductionCancel(introductionId));
+  }
+
   // ---- Managed Profiles -----------------------------------------------------
 
   /// `GET /family/managed-profiles` — profiles managed by current guardian.

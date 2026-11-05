@@ -349,6 +349,17 @@ class ChatMessage {
     );
   }
 
+  /// Server timestamps arrive as UTC ISO-8601 (`…Z`). Parsed naively, a
+  /// DateTime carries the wall-clock digits but no zone, so the bubble clock
+  /// rendered the server's UTC hour as if it were local — messages showed up
+  /// hours off. Converting to local here fixes every screen at once.
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    final DateTime? at = DateTime.tryParse('$v');
+    if (at == null) return null;
+    return at.isUtc ? at.toLocal() : at;
+  }
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final List<dynamic> rawAttachments = json['attachments'] as List<dynamic>? ?? <dynamic>[];
     final dynamic rawReply = json['reply_to_message'] ?? json['reply_to'];
@@ -374,7 +385,7 @@ class ChatMessage {
       senderId: senderId,
       message: json['message'] as String? ?? '',
       messageType: json['message_type'] as String? ?? 'text',
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt: ChatMessage._parseDate(json['created_at']) ?? DateTime.now(),
       replyToChatId: replyId,
       replyToMessage: rawReply is Map<String, dynamic> ? ChatMessage.fromJson(rawReply) : null,
       attachments: rawAttachments
@@ -384,10 +395,10 @@ class ChatMessage {
       deletedForMe: json['deleted_for_me'] as bool? ?? false,
       senderName: senderName,
       senderPhoto: senderPhoto,
-      deliveredAt: DateTime.tryParse(json['delivered_at'] as String? ?? ''),
-      readAt: DateTime.tryParse(json['read_at'] as String? ?? ''),
+      deliveredAt: _parseDate(json['delivered_at']),
+      readAt: _parseDate(json['read_at']),
       seen: json['seen'] as bool? ?? false,
-      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? ''),
+      expiresAt: _parseDate(json['expires_at']),
       metadata: json['metadata'] is Map<String, dynamic>
           ? json['metadata'] as Map<String, dynamic>
           : null,
@@ -420,7 +431,11 @@ class ChatParticipant {
 
   bool get hasPhoto => photo != null && photo!.isNotEmpty;
 
-  String get initial => name.isNotEmpty ? name[0].toUpperCase() : '?';
+  /// Never render an empty title: a missing server name falls back to
+  /// "Member" so the chat header never shows a blank line.
+  String get displayName => name.trim().isEmpty ? 'Member' : name.trim();
+
+  String get initial => displayName != 'Member' ? displayName[0].toUpperCase() : '?';
 
   factory ChatParticipant.fromJson(Map<String, dynamic> json) {
     return ChatParticipant(
@@ -439,7 +454,7 @@ class ChatParticipant {
           (json['user'] is Map ? json['user']['photo'] as String? : null) ??
           (json['member'] is Map ? json['member']['photo'] as String? : null),
       isOnline: json['is_online'] as bool? ?? json['online'] as bool? ?? false,
-      lastActiveAt: DateTime.tryParse(json['last_active_at'] as String? ?? ''),
+      lastActiveAt: ChatMessage._parseDate(json['last_active_at']),
     );
   }
 }
@@ -462,6 +477,9 @@ class ChatThread {
     this.disappearAfter = 0,
     this.isArchived = false,
     this.isMuted = false,
+    this.viewerCoinBalance = 0,
+    this.sendCost = 2,
+    this.readCost = 2,
   });
 
   final int id;
@@ -487,6 +505,19 @@ class ChatThread {
 
   /// Notifications silenced for this member only; messages keep arriving.
   final bool isMuted;
+
+  /// Coin paywall (Task4): the viewer's live balance and the per-message
+  /// prices. Zero balance ⇒ blurred previews in the list and a paywall on
+  /// the conversation screen.
+  final int viewerCoinBalance;
+  final int sendCost;
+  final int readCost;
+
+  /// The member cannot afford to SEND a message right now.
+  bool get cannotAffordSend => viewerCoinBalance < sendCost;
+
+  /// The member has no coins at all — incoming previews blur.
+  bool get blurIncoming => viewerCoinBalance <= 0;
 
   String get previewText {
     if (lastMessage == null) return 'No messages yet';
@@ -529,6 +560,9 @@ class ChatThread {
     int? disappearAfter,
     bool? isArchived,
     bool? isMuted,
+    int? viewerCoinBalance,
+    int? sendCost,
+    int? readCost,
   }) {
     return ChatThread(
       id: id ?? this.id,
@@ -546,6 +580,9 @@ class ChatThread {
       disappearAfter: disappearAfter ?? this.disappearAfter,
       isArchived: isArchived ?? this.isArchived,
       isMuted: isMuted ?? this.isMuted,
+      viewerCoinBalance: viewerCoinBalance ?? this.viewerCoinBalance,
+      sendCost: sendCost ?? this.sendCost,
+      readCost: readCost ?? this.readCost,
     );
   }
 
@@ -592,14 +629,17 @@ class ChatThread {
       canSendMessage: json['can_send_message'] as bool? ?? true,
       threadCode: json['thread_code'],
       messageRequestStatus: json['message_request_status'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      createdAt: ChatMessage._parseDate(json['created_at']) ?? DateTime.now(),
       lastMessage: rawLastMsg is Map<String, dynamic> ? ChatMessage.fromJson(rawLastMsg) : null,
       lastMessageAt: json['last_message_at'] != null
-          ? DateTime.tryParse(json['last_message_at'] as String)
-          : (json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null),
+          ? ChatMessage._parseDate(json['last_message_at'])
+          : (json['updated_at'] != null ? ChatMessage._parseDate(json['updated_at']) : null),
       disappearAfter: json['disappear_after'] as int? ?? 0,
       isArchived: json['archived'] as bool? ?? false,
       isMuted: json['muted'] as bool? ?? false,
+      viewerCoinBalance: (json['viewer_coin_balance'] as num?)?.toInt() ?? 0,
+      sendCost: (json['send_cost'] as num?)?.toInt() ?? 2,
+      readCost: (json['read_cost'] as num?)?.toInt() ?? 2,
     );
   }
 }

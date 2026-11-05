@@ -48,6 +48,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: PremiumAppBar(
         title: 'Coin Usage',
         subtitle: 'Feature-wise coin breakdown',
@@ -95,7 +96,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
             }
 
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadUsage(silent: true),
               child: ListView.builder(
                 controller: _scrollController,
@@ -114,7 +115,7 @@ class _CoinUsageViewState extends State<CoinUsageView> {
                       return const Padding(
                         padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                         child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.regAccent),
                         ),
                       );
                     }
@@ -148,14 +149,14 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(AppRadius.md),
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.2),
+            color: AppColors.regAccent.withValues(alpha: 0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -317,13 +318,32 @@ class _UsageRow extends StatelessWidget {
   IconData _iconFor(String feature) {
     switch (feature) {
       case 'interest':
+      case 'express_interest':
         return Icons.favorite_rounded;
+      case 'proposal':
+        return Icons.mail_rounded;
+      case 'favourite':
+        return Icons.star_rounded;
       case 'shortlist':
         return Icons.bookmark_rounded;
+      case 'call':
+        return Icons.call_rounded;
+      case 'chat_message_sent':
+        return Icons.send_rounded;
+      case 'chat_message_read':
+        return Icons.mark_email_read_rounded;
+      case 'gift':
+        return Icons.card_giftcard_rounded;
+      case 'welcome_bonus':
+        return Icons.redeem_rounded;
+      case 'coins_purchase':
+        return Icons.add_shopping_cart_rounded;
       case 'profile_viewer_view':
         return Icons.visibility_rounded;
       case 'contact_view':
         return Icons.contact_phone_rounded;
+      case 'profile_image_view':
+        return Icons.portrait_rounded;
       case 'gallery_image_view':
         return Icons.photo_rounded;
       default:
@@ -334,13 +354,28 @@ class _UsageRow extends StatelessWidget {
   Color _iconColor(String feature, BuildContext context) {
     switch (feature) {
       case 'interest':
-        return AppColors.primary;
+      case 'express_interest':
+      case 'favourite':
+        return AppColors.regAccent;
+      case 'proposal':
+        return Colors.deepOrange;
       case 'shortlist':
         return AppColors.gold;
+      case 'call':
+        return Colors.purple;
+      case 'chat_message_sent':
+      case 'chat_message_read':
+        return Colors.blue;
+      case 'gift':
+        return Colors.pinkAccent;
+      case 'welcome_bonus':
+      case 'coins_purchase':
+        return Colors.green;
       case 'profile_viewer_view':
         return Colors.teal;
       case 'contact_view':
         return Colors.green;
+      case 'profile_image_view':
       case 'gallery_image_view':
         return Colors.blue;
       default:

@@ -34,11 +34,11 @@ class _ExpertQuestionsViewState extends State<ExpertQuestionsView> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Expert Advice', subtitle: 'Questions answered by professionals'),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'ask_expert_fab',
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         onPressed: _showAskSheet,
         icon: const Icon(Icons.add_comment_rounded, color: Colors.white, size: 20),
         label: const Text('Ask', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -49,7 +49,7 @@ class _ExpertQuestionsViewState extends State<ExpertQuestionsView> {
         switch (state.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: _controller.loadExpertQuestions);
           case ApiStatus.unauthorized:
@@ -64,7 +64,7 @@ class _ExpertQuestionsViewState extends State<ExpertQuestionsView> {
           case ApiStatus.success:
             final List<Map<String, dynamic>> items = state.data?.items ?? <Map<String, dynamic>>[];
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadExpertQuestions(),
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -127,11 +127,11 @@ class _QuestionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
+                    color: AppColors.regAccent.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(category,
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.regAccent)),
                 ),
               const Spacer(),
               Icon(Icons.verified_rounded, size: 15, color: AppColors.success),
@@ -143,7 +143,7 @@ class _QuestionCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const Icon(Icons.help_outline_rounded, size: 17, color: AppColors.primary),
+              const Icon(Icons.help_outline_rounded, size: 17, color: AppColors.regAccent),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(question, style: AppTextStyles.bodyStrong.copyWith(fontSize: 13.5)),
@@ -158,7 +158,7 @@ class _QuestionCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.lightSurfaceAlt.withValues(alpha: 0.7),
                 borderRadius: AppRadius.mdAll,
-                border: Border(left: BorderSide(color: AppColors.primary, width: 3)),
+                border: Border(left: BorderSide(color: AppColors.regAccent, width: 3)),
               ),
               child: Text(answer, style: AppTextStyles.body.copyWith(fontSize: 13, height: 1.45)),
             ),
@@ -268,7 +268,7 @@ class _AskExpertSheetState extends State<_AskExpertSheet> {
               SwitchListTile.adaptive(
                 contentPadding: EdgeInsets.zero,
                 value: _anonymous,
-                activeColor: AppColors.primary,
+                activeColor: AppColors.regAccent,
                 title: const Text('Ask anonymously', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
                 onChanged: (bool v) => setState(() => _anonymous = v),
               ),
@@ -277,7 +277,7 @@ class _AskExpertSheetState extends State<_AskExpertSheet> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.regAccent,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
                   ),

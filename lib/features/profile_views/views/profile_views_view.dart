@@ -662,12 +662,10 @@ class _ProfileViewCard extends StatelessWidget {
                             ],
                             if (location.isNotEmpty) ...<Widget>[
                               Text('•', style: AppTextStyles.caption),
-                              Flexible(
-                                child: Text(
-                                  location,
-                                  style: AppTextStyles.caption,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              Text(
+                                location,
+                                style: AppTextStyles.caption,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           ],

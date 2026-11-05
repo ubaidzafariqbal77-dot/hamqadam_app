@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/call_controller.dart';
 import '../../controllers/chat_controller.dart';
+import '../../controllers/gift_controller.dart';
 import '../../controllers/help_chat_controller.dart';
 import '../../controllers/lookup_controller.dart';
 import '../../controllers/ai_verification_controller.dart';
@@ -13,6 +14,10 @@ import '../../controllers/partner_preference_controller.dart';
 import '../../controllers/payment_controller.dart';
 import '../../controllers/profile_controller.dart';
 import '../../controllers/profile_view_controller.dart';
+import '../../controllers/rewards_controller.dart';
+import '../../controllers/referral_controller.dart';
+import '../../repositories/referral_repository.dart';
+import '../../controllers/completion_controller.dart';
 import '../../controllers/proposal_controller.dart';
 import '../../controllers/registration_controller.dart';
 import '../../controllers/search_profiles_controller.dart';
@@ -27,6 +32,7 @@ import '../../core/utils/media_picker_helper.dart';
 import '../../repositories/auth_repository.dart';
 import '../../repositories/call_repository.dart';
 import '../../repositories/chat_repository.dart';
+import '../../repositories/gift_repository.dart';
 import '../../repositories/help_chat_repository.dart';
 import '../../repositories/lookup_repository.dart';
 import '../../repositories/ai_verification_repository.dart';
@@ -40,6 +46,8 @@ import '../../repositories/proposal_repository.dart';
 import '../../repositories/registration_repository.dart';
 import '../../repositories/search_repository.dart';
 import '../../repositories/shortlist_repository.dart';
+import '../../repositories/appreciation_repository.dart';
+import '../../controllers/appreciation_controller.dart';
 import '../../repositories/auth_extra_repository.dart';
 import '../../repositories/proposal_extra_repository.dart';
 import '../../repositories/search_extra_repository.dart';
@@ -65,7 +73,10 @@ import '../../controllers/family_controller.dart';
 import '../../controllers/auth_extra_controller.dart';
 import '../../controllers/horoscope_controller.dart';
 import '../../repositories/horoscope_repository.dart';
+import '../../repositories/rewards_repository.dart';
+import '../../repositories/completion_repository.dart';
 import '../../repositories/bridge_repository.dart';
+import '../../repositories/message_template_repository.dart';
 
 
 
@@ -133,6 +144,7 @@ class AppDependencies {
     Get.put<CallRepository>(CallRepository(apiClient), permanent: true);
     Get.put<ProfileViewRepository>(ProfileViewRepository(apiClient), permanent: true);
     Get.put<ShortlistRepository>(ShortlistRepository(apiClient), permanent: true);
+    Get.put<AppreciationRepository>(AppreciationRepository(apiClient), permanent: true);
     Get.put<PaymentRepository>(PaymentRepository(apiClient), permanent: true);
     Get.put<ProposalRepository>(ProposalRepository(apiClient), permanent: true);
     Get.put<NotificationRepository>(NotificationRepository(apiClient), permanent: true);
@@ -147,9 +159,14 @@ class AppDependencies {
     Get.put<AiHelperRepository>(AiHelperRepository(apiClient), permanent: true);
     Get.put<ContentRepository>(ContentRepository(apiClient), permanent: true);
     Get.put<FamilyRepository>(FamilyRepository(apiClient), permanent: true);
+    Get.put<GiftRepository>(GiftRepository(apiClient), permanent: true);
     Get.put<AuthExtraRepository>(AuthExtraRepository(apiClient), permanent: true);
     Get.put<HoroscopeRepository>(HoroscopeRepository(apiClient), permanent: true);
+    Get.put<RewardsRepository>(RewardsRepository(apiClient), permanent: true);
+    Get.put<ReferralRepository>(ReferralRepository(apiClient), permanent: true);
+    Get.put<CompletionRepository>(CompletionRepository(apiClient), permanent: true);
     Get.put<BridgeRepository>(BridgeRepository(apiClient), permanent: true);
+    Get.put<MessageTemplateRepository>(MessageTemplateRepository(apiClient), permanent: true);
 
 
 
@@ -222,6 +239,12 @@ class AppDependencies {
     // Shortlist Controller (Permanent so shortlist state is globally cached & synced)
     Get.put<ShortlistController>(
       ShortlistController(Get.find<ShortlistRepository>()),
+      permanent: true,
+    );
+
+    // Like / Super Like state, shared by every card and the detail sheet.
+    Get.put<AppreciationController>(
+      AppreciationController(Get.find<AppreciationRepository>()),
       permanent: true,
     );
 
@@ -322,6 +345,19 @@ class AppDependencies {
       () => ProfileViewController(Get.find<ProfileViewRepository>()),
       fenix: true,
     );
+    Get.lazyPut<ReferralController>(
+      () => ReferralController(Get.find<ReferralRepository>()),
+      fenix: true,
+    );
+    Get.lazyPut<RewardsController>(
+      () => RewardsController(Get.find<RewardsRepository>()),
+      fenix: true,
+    );
+
+    Get.lazyPut<CompletionController>(
+      () => CompletionController(Get.find<CompletionRepository>()),
+      fenix: true,
+    );
 
     Get.put<RegistrationController>(
       RegistrationController(
@@ -355,6 +391,7 @@ class AppDependencies {
     Get.lazyPut<ProposalExtraController>(() => ProposalExtraController(Get.find<ProposalExtraRepository>()), fenix: true);
     Get.lazyPut<ContentController>(() => ContentController(Get.find<ContentRepository>()), fenix: true);
     Get.lazyPut<FamilyController>(() => FamilyController(Get.find<FamilyRepository>()), fenix: true);
+    Get.lazyPut<GiftController>(() => GiftController(Get.find<GiftRepository>()), fenix: true);
     Get.lazyPut<HoroscopeController>(() => HoroscopeController(Get.find<HoroscopeRepository>()), fenix: true);
 
     // Restore any persisted session for the splash bootstrap.

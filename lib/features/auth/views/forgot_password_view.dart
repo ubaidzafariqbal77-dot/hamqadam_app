@@ -114,6 +114,7 @@ class _ForgotPasswordViewState extends State<ForgotPasswordView>
           AppPasswordField(
             label: 'Confirm new password',
             controller: c.confirmCtrl,
+            revalidateWhenControllerChanges: c.passwordCtrl,
             validator: c.validateConfirm,
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -160,7 +161,7 @@ class _Header extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
         BiText(
           otpSent ? 'Enter OTP & new password' : 'Forgot your password?',
-          style: AppTextStyles.headline,
+          style: AppTextStyles.title,
         ),
         const SizedBox(height: 4),
         BiText(

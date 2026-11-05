@@ -25,6 +25,10 @@ class PaymentController extends GetxController {
   final Rx<ApiState<PaymentHistoryPage>> historyState =
       const ApiState<PaymentHistoryPage>.initial().obs;
 
+  /// Payment methods as the server reports them (`GET /payments/gateways`).
+  final Rx<ApiState<List<PaymentGatewayInfo>>> gatewaysState =
+      const ApiState<List<PaymentGatewayInfo>>.initial().obs;
+
   // Selected plan for checkout modal
   final Rxn<PaymentPlanModel> selectedPlan = Rxn<PaymentPlanModel>();
 
@@ -38,6 +42,18 @@ class PaymentController extends GetxController {
   // Custom coins
   final Rx<CoinPricing> coinPricing = const CoinPricing(unitPrice: 1, currency: 'PKR').obs;
   final RxBool isLoadingCoinPricing = false.obs;
+
+  /// The admin's `system_default_currency`, as reported by
+  /// `GET /payments/coins/pricing`. Falls back to PKR until that lands, and
+  /// again if the server ever sends a blank code — the UI must never render
+  /// " 500" with no currency symbol.
+  String get currency {
+    final String code = coinPricing.value.currency.trim().toUpperCase();
+    return code.isEmpty ? 'PKR' : code;
+  }
+
+  /// Formats [amount] with [currency], e.g. `PKR 500`.
+  String money(num amount) => '$currency ${amount.toStringAsFixed(0)}';
 
   // Pagination states
   final RxBool isLoadingMoreUsage = false.obs;
@@ -57,6 +73,7 @@ class PaymentController extends GetxController {
     if (_hasToken) {
       loadCurrentPackage();
       loadPlans();
+      loadGateways();
     }
   }
 
@@ -65,6 +82,7 @@ class PaymentController extends GetxController {
     currentPackageState.value = const ApiState<CurrentPackageData>.initial();
     usageState.value = const ApiState<PaymentUsagePage>.initial();
     historyState.value = const ApiState<PaymentHistoryPage>.initial();
+    gatewaysState.value = const ApiState<List<PaymentGatewayInfo>>.initial();
     selectedPlan.value = null;
     couponResult.value = null;
   }
@@ -75,6 +93,9 @@ class PaymentController extends GetxController {
   Future<void> loadPlans({bool silent = false}) async {
     if (!_hasToken) return;
 
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (plansState.value.isSuccess) silent = true;
     if (!silent) {
       plansState.value = const ApiState<List<PaymentPlanModel>>.loading();
     }
@@ -96,6 +117,9 @@ class PaymentController extends GetxController {
   Future<void> loadCurrentPackage({bool silent = false}) async {
     if (!_hasToken) return;
 
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (currentPackageState.value.isSuccess) silent = true;
     if (!silent) {
       currentPackageState.value = const ApiState<CurrentPackageData>.loading();
     }
@@ -114,6 +138,9 @@ class PaymentController extends GetxController {
 
   /// Fetches usage breakdown list (`GET /payments/usage`).
   Future<void> loadUsage({bool silent = false, String? feature}) async {
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (usageState.value.isSuccess) silent = true;
     if (!silent) {
       usageState.value = const ApiState<PaymentUsagePage>.loading();
     }
@@ -164,6 +191,9 @@ class PaymentController extends GetxController {
 
   /// Fetches payment history list (`GET /payments/history`).
   Future<void> loadHistory({bool silent = false}) async {
+    // Stale-while-revalidate: if data is already on screen, refresh quietly
+    // instead of flashing the spinner on every visit.
+    if (historyState.value.isSuccess) silent = true;
     if (!silent) {
       historyState.value = const ApiState<PaymentHistoryPage>.loading();
     }
@@ -222,23 +252,85 @@ class PaymentController extends GetxController {
     }
   }
 
-  // ---- 5. Coupon & Checkout ------------------------------------------------
+  // ---- 5. Payment methods ---------------------------------------------------
+
+  /// Loads the admin-configured gateways. Silent by default: the checkout
+  /// sheet falls back to the built-in three while this is in flight or when
+  /// the endpoint is unreachable.
+  Future<void> loadGateways({bool silent = true}) async {
+    if (!_hasToken) return;
+    if (!silent) {
+      gatewaysState.value = const ApiState<List<PaymentGatewayInfo>>.loading();
+    }
+    try {
+      final List<PaymentGatewayInfo> list = await _repo.fetchGateways();
+      gatewaysState.value = list.isEmpty
+          ? const ApiState<List<PaymentGatewayInfo>>.empty(
+              message: 'No payment methods are available right now.')
+          : ApiState<List<PaymentGatewayInfo>>.success(list);
+    } on AppException catch (e) {
+      if (!silent) {
+        gatewaysState.value =
+            ApiState<List<PaymentGatewayInfo>>.fromException(e);
+      }
+    } catch (e) {
+      if (!silent) {
+        gatewaysState.value =
+            ApiState<List<PaymentGatewayInfo>>.serverError(e.toString());
+      }
+    }
+  }
+
+  /// One status check — the sheets poll this while a card payment is open.
+  ///
+  /// Deliberately quiet: the poller calls it every three seconds and a snackbar
+  /// per tick would bury the member when the network blips. Callers surface
+  /// their own feedback.
+  Future<CheckoutStatusResult?> fetchCheckoutStatus(
+    int paymentId, {
+    String? checkoutToken,
+  }) async {
+    try {
+      return await _repo.fetchCheckoutStatus(
+        paymentId,
+        checkoutToken: checkoutToken,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ---- 6. Coupon & Checkout ------------------------------------------------
 
   /// Validates promo coupon for the selected package (`POST /payments/coupons/validate`).
+  ///
+  /// The accepted code is stored in [couponCode] so `checkout()` can send it as
+  /// `coupon_code` — the server only discounts when it receives the code at
+  /// checkout, so validating alone would show a discount that is never applied.
+  /// Upper-cased to match the server's `strtoupper($code)` lookup.
   Future<void> validateCoupon(int packageId, String code) async {
-    if (code.trim().isEmpty) return;
+    final String normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) return;
     isValidatingCoupon.value = true;
     couponResult.value = null;
+    couponCode.value = '';
     try {
       final CouponValidationResult result = await _repo.validateCoupon(
         packageId: packageId,
-        code: code,
+        code: normalized,
       );
       couponResult.value = result;
-      AppSnackbar.success('Coupon applied successfully!');
+      if (result.isValid) {
+        couponCode.value = normalized;
+        AppSnackbar.success('Coupon applied successfully!');
+      } else {
+        AppSnackbar.error('Coupon is invalid or expired.');
+      }
     } on AppException catch (e) {
+      couponResult.value = null;
       AppSnackbar.error(e.message);
     } catch (e) {
+      couponResult.value = null;
       AppSnackbar.error('Coupon is invalid or expired.');
     } finally {
       isValidatingCoupon.value = false;
@@ -261,7 +353,10 @@ class PaymentController extends GetxController {
       final CheckoutResult result = await _repo.checkout(
         packageId: packageId,
         gateway: selectedGateway.value,
-        couponCode: couponResult.value?.isValid == true ? couponCode.value : null,
+        couponCode: (couponResult.value?.isValid ?? false) &&
+                couponCode.value.trim().isNotEmpty
+            ? couponCode.value
+            : null,
         easypaisaPhone: easypaisaPhone,
         jazzcashPhone: jazzcashPhone,
       );
@@ -283,14 +378,22 @@ class PaymentController extends GetxController {
   }
 
   /// Loads admin-configured per-coin pricing (`GET /payments/coins/pricing`).
-  Future<void> loadCoinPricing() async {
+  ///
+  /// [silent] suppresses the error toast for callers that only want the
+  /// currency code as a label (the checkout sheet): a network blip must not
+  /// greet someone with an error they cannot act on. The coins sheet keeps the
+  /// toast, because there the member explicitly asked to buy coins.
+  ///
+  /// On failure the last known [coinPricing] is kept, so labels stay correct
+  /// rather than resetting.
+  Future<void> loadCoinPricing({bool silent = false}) async {
     isLoadingCoinPricing.value = true;
     try {
       coinPricing.value = await _repo.fetchCoinPricing();
     } on AppException catch (e) {
-      AppSnackbar.error(e.message);
+      if (!silent) AppSnackbar.error(e.message);
     } catch (e) {
-      AppSnackbar.error('Could not load coin pricing.');
+      if (!silent) AppSnackbar.error('Could not load coin pricing.');
     } finally {
       isLoadingCoinPricing.value = false;
     }

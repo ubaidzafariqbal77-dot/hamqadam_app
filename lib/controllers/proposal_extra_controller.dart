@@ -1,5 +1,7 @@
 import 'package:get/get.dart';
 import '../exceptions/app_exceptions.dart';
+import '../features/payments/views/membership_plans_view.dart';
+import '../models/search_filter_profile_model.dart';
 import '../repositories/proposal_extra_repository.dart';
 import '../widgets/app_snackbar.dart';
 
@@ -36,7 +38,14 @@ class ProposalExtraController extends GetxController {
         AppSnackbar.success('Added to favourites.');
       }
     } on AppException catch (e) {
-      AppSnackbar.error(e.message);
+      // Favouriting now costs a coin: a 402 means the wallet is empty, so
+      // send the member to the packages screen instead of a dead error.
+      if (e.statusCode == 402 || (e is ApiException && e.code == 'insufficient_coins')) {
+        AppSnackbar.error('You need a coin to favourite this profile.');
+        Get.to<void>(() => const MembershipPlansView());
+      } else {
+        AppSnackbar.error(e.message);
+      }
     } catch (e) {
       AppSnackbar.error('Failed to update favourite.');
     } finally {
@@ -45,6 +54,23 @@ class ProposalExtraController extends GetxController {
   }
 
   // ---- Ignored ---------------------------------------------------------------
+
+  /// The member's ignored profiles (Discover 'Ignore Profile'), for the
+  /// separate Ignored list screen with its Restore action.
+  final RxList<SearchProfileModel> ignoredProfiles = <SearchProfileModel>[].obs;
+  final RxBool ignoredLoading = false.obs;
+
+  Future<void> loadIgnored() async {
+    ignoredLoading.value = true;
+    try {
+      final List<SearchProfileModel> data = await _repo.fetchIgnored();
+      ignoredProfiles.assignAll(data);
+    } catch (_) {
+      // Keep whatever is showing; the screen has its own retry affordance.
+    } finally {
+      ignoredLoading.value = false;
+    }
+  }
 
   Future<void> ignoreUser(int userId) async {
     try {
@@ -55,12 +81,15 @@ class ProposalExtraController extends GetxController {
     }
   }
 
+  /// Removes the profile from the server's ignored list and, on success, from
+  /// the local list so the row disappears immediately.
   Future<void> unignoreUser(int userId) async {
     try {
       await _repo.removeIgnore(userId);
-      AppSnackbar.success('Profile unignored.');
+      ignoredProfiles.removeWhere((SearchProfileModel p) => p.id == userId);
+      AppSnackbar.success('Profile restored to Discover.');
     } catch (e) {
-      AppSnackbar.error('Failed to unignore profile.');
+      AppSnackbar.error('Failed to restore profile.');
     }
   }
 

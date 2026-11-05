@@ -34,7 +34,7 @@ class _ForumsViewState extends State<ForumsView> {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Community Forums', subtitle: 'Discuss, share and learn together'),
       body: Obx(() {
         final ApiState<ContentPage<Map<String, dynamic>>> state = _controller.forumsState.value;
@@ -42,7 +42,7 @@ class _ForumsViewState extends State<ForumsView> {
         switch (state.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
           case ApiStatus.noInternet:
             return NoInternetWidget(onRetry: _controller.loadForums);
           case ApiStatus.unauthorized:
@@ -57,7 +57,7 @@ class _ForumsViewState extends State<ForumsView> {
           case ApiStatus.success:
             final List<Map<String, dynamic>> items = state.data?.items ?? <Map<String, dynamic>>[];
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadForums(),
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -115,10 +115,10 @@ class _ForumCard extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.10),
+                color: AppColors.regAccent.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.forum_rounded, color: AppColors.primary, size: 24),
+              child: const Icon(Icons.forum_rounded, color: AppColors.regAccent, size: 24),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -141,11 +141,11 @@ class _ForumCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: AppColors.regAccent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text('$threads',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.regAccent)),
               )
             else
               const Icon(Icons.chevron_right_rounded, color: AppColors.lightTextHint),
@@ -177,11 +177,11 @@ class _ForumThreadsScreenState extends State<_ForumThreadsScreen> {
     final String forumTitle = (forum['title'] ?? forum['name'] ?? 'Forum').toString();
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: PremiumAppBar(title: forumTitle, subtitle: 'Discussions'),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'new_thread_fab',
-        backgroundColor: AppColors.primary,
+        backgroundColor: AppColors.regAccent,
         onPressed: _showNewThreadSheet,
         icon: const Icon(Icons.edit_note_rounded, color: Colors.white, size: 20),
         label: const Text('New', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -192,7 +192,7 @@ class _ForumThreadsScreenState extends State<_ForumThreadsScreen> {
         switch (state.status) {
           case ApiStatus.initial:
           case ApiStatus.loading:
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
           case ApiStatus.noInternet:
             return NoInternetWidget(
                 onRetry: () => _controller.loadForumThreads(_controller.selectedForum.value ?? <String, dynamic>{}));
@@ -211,7 +211,7 @@ class _ForumThreadsScreenState extends State<_ForumThreadsScreen> {
           case ApiStatus.success:
             final List<Map<String, dynamic>> items = state.data?.items ?? <Map<String, dynamic>>[];
             return RefreshIndicator(
-              color: AppColors.primary,
+              color: AppColors.regAccent,
               onRefresh: () => _controller.loadForumThreads(_controller.selectedForum.value ?? <String, dynamic>{}),
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -359,7 +359,7 @@ class _NewThreadSheetState extends State<_NewThreadSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.regAccent,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
                 ),
@@ -403,7 +403,7 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
     final String threadTitle = (thread['title'] ?? 'Discussion').toString();
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      backgroundColor: isDark ? AppColors.darkBackground : AppColors.roseCanvas,
       appBar: PremiumAppBar(title: threadTitle, subtitle: 'Replies'),
       body: Column(
         children: <Widget>[
@@ -414,7 +414,7 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
               switch (state.status) {
                 case ApiStatus.initial:
                 case ApiStatus.loading:
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+                  return const Center(child: CircularProgressIndicator(color: AppColors.regAccent));
                 case ApiStatus.noInternet:
                   return NoInternetWidget(
                       onRetry: () => _controller.loadThreadPosts(_controller.selectedThread.value ?? <String, dynamic>{}));
@@ -433,7 +433,7 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
                 case ApiStatus.success:
                   final List<Map<String, dynamic>> items = state.data?.items ?? <Map<String, dynamic>>[];
                   return RefreshIndicator(
-                    color: AppColors.primary,
+                    color: AppColors.regAccent,
                     onRefresh: () => _controller.loadThreadPosts(_controller.selectedThread.value ?? <String, dynamic>{}),
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -455,7 +455,7 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
                             color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
                             borderRadius: AppRadius.lgAll,
                             border: isOp
-                                ? Border.all(color: AppColors.primary.withValues(alpha: 0.35))
+                                ? Border.all(color: AppColors.regAccent.withValues(alpha: 0.35))
                                 : Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                           ),
                           child: Column(
@@ -465,11 +465,11 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
                                 children: <Widget>[
                                   CircleAvatar(
                                     radius: 12,
-                                    backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+                                    backgroundColor: AppColors.regAccent.withValues(alpha: 0.14),
                                     child: Text(
                                       author.isNotEmpty ? author[0].toUpperCase() : '?',
                                       style: const TextStyle(
-                                          fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                          fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.regAccent),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -479,12 +479,12 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(alpha: 0.10),
+                                        color: AppColors.regAccent.withValues(alpha: 0.10),
                                         borderRadius: BorderRadius.circular(999),
                                       ),
                                       child: const Text('OP',
                                           style: TextStyle(
-                                              fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                                              fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.regAccent)),
                                     ),
                                   ],
                                 ],
@@ -540,7 +540,7 @@ class _ThreadPostsScreenState extends State<_ThreadPostsScreen> {
                     height: 40,
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
-                        colors: AppColors.brandGradient,
+                        colors: AppColors.regPrimaryGradient,
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),

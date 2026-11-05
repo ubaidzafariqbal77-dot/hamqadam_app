@@ -56,6 +56,7 @@ class _EditProfileViewState extends State<EditProfileView> {
   Widget build(BuildContext context) {
     final DateTime now = DateTime.now();
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: const PremiumAppBar(title: 'Edit Profile', subtitle: 'Update your details'),
       body: Form(
         key: c.formKey,
@@ -139,9 +140,32 @@ class _EditProfileViewState extends State<EditProfileView> {
                   controller: c.aboutMe,
                   requirement: FieldRequirement.optional,
                   hint: 'Tell us a little about yourself',
-                  maxLines: 4,
-                  minLines: 3,
-                  maxLength: 500,
+                  maxLines: 10,
+                  minLines: 4,
+                  maxLength: EditProfileController.aboutMaxChars,
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Obx(() {
+                    final bool busy = c.generatingBio.value;
+                    return TextButton.icon(
+                      onPressed: busy ? null : c.generateBioWithAi,
+                      icon: busy
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: Text(
+                        busy
+                            ? 'Writing…'
+                            : (c.aboutMe.text.trim().isEmpty
+                                ? 'Write with AI'
+                                : 'Regenerate with AI'),
+                      ),
+                    );
+                  }),
                 ),
               ],
             ),
@@ -808,14 +832,14 @@ class _Section extends StatelessWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: AppRadius.lgAll,
-        border: Border.all(color: AppColors.primary.withValues(alpha: dark ? 0.18 : 0.10)),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: dark ? 0.18 : 0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
             children: <Widget>[
-              Icon(icon, size: AppDimensions.iconMd, color: AppColors.primary),
+              Icon(icon, size: AppDimensions.iconMd, color: AppColors.regAccent),
               const SizedBox(width: AppSpacing.xs),
               Text(title, style: AppTextStyles.subtitle),
             ],
@@ -838,9 +862,9 @@ class _LangChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 7, 6, 7),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.10),
+        color: AppColors.regAccent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.30)),
+        border: Border.all(color: AppColors.regAccent.withValues(alpha: 0.30)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -850,7 +874,7 @@ class _LangChip extends StatelessWidget {
           InkWell(
             onTap: onRemove,
             borderRadius: BorderRadius.circular(AppRadius.pill),
-            child: const Icon(Icons.close_rounded, size: 15, color: AppColors.primary),
+            child: const Icon(Icons.close_rounded, size: 15, color: AppColors.regAccent),
           ),
         ],
       ),

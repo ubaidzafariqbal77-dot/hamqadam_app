@@ -141,7 +141,8 @@ class _Step17ViewState extends State<Step17View> {
                 .map((LookupItem o) => PillOption(o.code!, o.name))
                 .toList(),
             selected: c.liveWithFamily.value,
-            onSelect: (PillOption o) => c.liveWithFamily.value = o.value as String,
+            onSelect: (PillOption o) =>
+                c.liveWithFamily.value = o.value as String,
           ),
         ),
         // Financial status uses the reference's icon-tile grid: a thin rose
@@ -236,7 +237,8 @@ class _Step17ViewState extends State<Step17View> {
           ],
         ),
       );
-      if (i + 2 < options.length) rows.add(const SizedBox(height: AppSpacing.md));
+      if (i + 2 < options.length)
+        rows.add(const SizedBox(height: AppSpacing.md));
     }
     return Column(children: rows);
   }

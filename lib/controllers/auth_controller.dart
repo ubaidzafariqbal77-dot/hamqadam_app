@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart' show PopScope, Center, CircularProgressIndicator;
+import 'appreciation_controller.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -158,6 +160,9 @@ class AuthController extends GetxController {
     if (Get.isRegistered<ShortlistController>()) {
       Get.find<ShortlistController>().reset();
     }
+    if (Get.isRegistered<AppreciationController>()) {
+      Get.find<AppreciationController>().reset();
+    }
     if (Get.isRegistered<ProposalController>()) {
       Get.find<ProposalController>().reset();
     }
@@ -184,23 +189,58 @@ class AuthController extends GetxController {
   }
 
 
+  /// Drops the local session without the "session expired" snackbar or a
+  /// redirect — used when the user abandons signup on purpose.
+  Future<void> handleUnauthorizedSilently() async {
+    await storage.clearSession();
+    await currentUser.clear();
+    _resetAuthenticatedServices();
+    isAuthenticated.value = false;
+    user.value = null;
+  }
+
   Future<void> logout() async {
-    try {
-      await authRepository.logout();
-    } catch (e) {
-      AppLogger.w('Logout API failed (ignored): $e');
-    }
+    _showBlockingLoader();
+    // Order matters: the push token must be removed while the session is still
+    // valid, and the logout call then revokes it. Each server step is capped so
+    // a slow server can never leave the member staring at a frozen screen.
+    await _bestEffort(() async {
+      if (Get.isRegistered<NotificationController>()) {
+        await Get.find<NotificationController>().deletePushToken();
+      }
+    });
+    await _bestEffort(authRepository.logout);
     await _clearAndGoOnboarding();
   }
 
   /// Logs out from every device/session.
   Future<void> logoutAllDevices() async {
-    try {
-      await authRepository.logoutAll();
-    } catch (e) {
-      AppLogger.w('Logout-all API failed (ignored): $e');
-    }
+    _showBlockingLoader();
+    await _bestEffort(authRepository.logoutAll);
     await _clearAndGoOnboarding();
+  }
+
+  /// Runs a server step that must not block sign-out: errors are logged and a
+  /// slow call is abandoned after a few seconds.
+  Future<void> _bestEffort(Future<void> Function() step) async {
+    try {
+      await step().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      AppLogger.w('Sign-out server step skipped: $e');
+    }
+  }
+
+  /// Non-dismissible spinner shown while signing out. It is removed together
+  /// with every other route when the app navigates to the welcome screen.
+  void _showBlockingLoader() {
+    if (Get.isDialogOpen ?? false) return;
+    Get.dialog<void>(
+      const PopScope(
+        canPop: false,
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      barrierDismissible: false,
+    );
   }
 
   /// Deactivates the account then clears the session.
@@ -277,15 +317,16 @@ class AuthController extends GetxController {
     manualReview.value = null;
   }
 
-  /// Explicit logout / deactivation: session data is wiped, the "onboarding
-  /// seen" flag resets, and the member lands on the ONBOARDING flow — the
-  /// same first-look experience a fresh install gets. (A forced 401
-  /// re-authentication keeps the plain login shortcut in
-  /// [handleUnauthorized] — there the session died behind the app's back.)
+  /// Explicit logout / deactivation: session data is wiped and the member
+  /// lands on the Welcome Preview ("Proposals for you") screen — the same
+  /// guest landing they reach after finishing onboarding, with the
+  /// login/register entry point one tap away. The full onboarding replay is
+  /// reserved for the very first launch only (splash routes there when the
+  /// seen-flag is absent); replaying it after every logout felt like a reset.
   Future<void> _clearAndGoOnboarding() async {
     await _clearSessionData();
     await _clearOnboardingSeen();
-    Get.offAllNamed(AppRoutes.onboarding);
+    Get.offAllNamed(AppRoutes.welcomePreview);
   }
 
   /// Wipes everything a signed-in session owns. Fingerprint-login credentials

@@ -49,6 +49,7 @@ class ProfileCompletionView extends StatelessWidget {
     final RegistrationController reg = Get.find<RegistrationController>();
 
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: const PremiumAppBar(
         title: 'Complete your profile',
         subtitle: 'Every section brings better matches',
@@ -102,14 +103,14 @@ class _ProgressHeader extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: AppColors.brandGradient,
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: AppRadius.xlAll,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.32),
+            color: AppColors.regAccent.withValues(alpha: 0.32),
             blurRadius: 22,
             offset: const Offset(0, 10),
             spreadRadius: -6,
@@ -192,7 +193,7 @@ class _SectionTile extends StatelessWidget {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     final Color statusColor = done
         ? AppColors.success
-        : (skipped ? AppColors.warning : AppColors.primary);
+        : (skipped ? AppColors.warning : AppColors.regAccent);
     final String statusLabel = done ? 'Completed' : (skipped ? 'Skipped' : 'Not added');
     final Color titleColor = Theme.of(context).textTheme.titleLarge?.color ?? AppColors.lightTextPrimary;
 

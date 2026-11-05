@@ -14,6 +14,7 @@ import '../../../widgets/app_picker_field.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
+import '../../../widgets/faith_disc_grid.dart';
 import '../../../constants/reg_icons.dart';
 import '../../../constants/app_colors.dart';
 
@@ -43,6 +44,7 @@ class Step18Controller extends StepController {
   final Rxn<LookupItem> city = Rxn<LookupItem>();
   final RxnString education = RxnString();
   final RxnString profession = RxnString();
+
   /// Preferred income, picked as a band at each end rather than typed. `From`
   /// posts the band's lower bound and `To` its upper bound, which is what
   /// `income_min` / `income_max` expect (both numeric).
@@ -73,7 +75,8 @@ class Step18Controller extends StepController {
   bool get _isLast => qIndex.value >= questions.length - 1;
   void _syncLabel() => primaryLabel.value = _isLast ? 'Finish' : 'Continue';
 
-  List<String> get heightLabels => heights.map((LookupItem e) => e.name).toList();
+  List<String> get heightLabels =>
+      heights.map((LookupItem e) => e.name).toList();
   String? labelFor(int? cm) {
     for (final LookupItem h in heights) {
       if (h.id == cm) return h.name;
@@ -145,16 +148,20 @@ class Step18Controller extends StepController {
         }
         return null;
       case 'marital':
-        if (maritalStatus.value == null) return 'Please select a preferred marital status.';
+        if (maritalStatus.value == null)
+          return 'Please select a preferred marital status.';
         return null;
       case 'religion':
-        if (religion.value == null) return 'Please select a preferred religion.';
+        if (religion.value == null)
+          return 'Please select a preferred religion.';
         return null;
       case 'education':
-        if (education.value == null) return 'Please select a preferred education.';
+        if (education.value == null)
+          return 'Please select a preferred education.';
         return null;
       case 'profession':
-        if (profession.value == null) return 'Please select a preferred profession.';
+        if (profession.value == null)
+          return 'Please select a preferred profession.';
         return null;
       case 'income':
         final int? iMin = incomeFrom.value?.id;
@@ -247,7 +254,9 @@ class _Step18ViewState extends State<Step18View> {
     // Obx wraps the whole scaffold, not just the body: twelve questions sit
     // behind one heading, so the step title's colour and the bottom button's
     // label are part of what changes as the member advances.
-    return Obx(() => _scaffold(context, Step18Controller.questions[c.qIndex.value]));
+    return Obx(
+      () => _scaffold(context, Step18Controller.questions[c.qIndex.value]),
+    );
   }
 
   Widget _scaffold(BuildContext context, String key) {
@@ -293,7 +302,10 @@ class _Step18ViewState extends State<Step18View> {
                 child: SlideTransition(position: slide, child: child),
               );
             },
-            child: KeyedSubtree(key: ValueKey<String>(key), child: _question(key)),
+            child: KeyedSubtree(
+              key: ValueKey<String>(key),
+              child: _question(key),
+            ),
           );
         }),
       ],
@@ -325,39 +337,30 @@ class _Step18ViewState extends State<Step18View> {
                 )
                 .toList(),
             selected: c.maritalStatus.value,
-            onSelect: (CardOption o) =>
-                c.maritalStatus.value = o.value as int,
+            onSelect: (CardOption o) => c.maritalStatus.value = o.value as int,
           ),
         );
       case 'religion':
+        // The "Group 2" reference, exactly: header copy over big soft-pink
+        // 3D-symbol discs labelled "Islam · Crescent" style, with the full
+        // server list one tap below so anything the artwork does not cover is
+        // still reachable.
         return Obx(
           () => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // One design across the whole step: the same tall disc cards the
-              // Marital-status reference draws, with the 3D faith symbols in
-              // the disc and the full server list one tap below so anything the
-              // artwork does not cover is still reachable.
-              AppCardSelector(
-                discSize: 88,
-                label: 'Preferred religion / sect',
-                options: c.lookup
+              FaithDiscGrid(
+                items: c.lookup
                     .itemsOf(LookupKeys.religions)
                     .take(6)
-                    .map(
-                      (LookupItem i) => CardOption(
-                        i,
-                        i.name,
-                        image: RegIcons.religionRowArt[i.id],
-                        icon: RegIcons.faithGlyph(i.name),
-                      ),
-                    )
+                    .map((LookupItem i) => FaithOption(i.id, i.name))
                     .toList(),
-                selected: c.religion.value,
-                onSelect: (CardOption o) =>
-                    c.religion.value = o.value as LookupItem,
+                artFor: (int id) => RegIcons.religionRowArt[id],
+                selectedId: c.religion.value?.id,
+                onSelect: (FaithOption o) =>
+                    c.onReligion(LookupItem(id: o.id, name: o.name)),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 6),
               AppLookupPicker(
                 label: 'Or pick from the full list',
                 lookupKey: LookupKeys.religions,
@@ -495,11 +498,8 @@ class _Step18ViewState extends State<Step18View> {
             label: 'Preferred profession',
             options: RegOptions.partnerProfession
                 .map(
-                  (String s) => CardOption(
-                    s,
-                    s,
-                    icon: RegIcons.professionGlyph(s),
-                  ),
+                  (String s) =>
+                      CardOption(s, s, icon: RegIcons.professionGlyph(s)),
                 )
                 .toList(),
             selected: c.profession.value,
@@ -544,11 +544,7 @@ class _Step18ViewState extends State<Step18View> {
             label: 'Preferred diet',
             options: RegOptions.partnerDiet
                 .map(
-                  (String s) => CardOption(
-                    s,
-                    s,
-                    icon: RegIcons.dietGlyph(s),
-                  ),
+                  (String s) => CardOption(s, s, icon: RegIcons.dietGlyph(s)),
                 )
                 .toList(),
             selected: c.diet.value,
@@ -565,11 +561,8 @@ class _Step18ViewState extends State<Step18View> {
             label: 'Profile managed by',
             options: RegOptions.profileManagedBy
                 .map(
-                  (String s) => CardOption(
-                    s,
-                    s,
-                    icon: RegIcons.managedByGlyph(s),
-                  ),
+                  (String s) =>
+                      CardOption(s, s, icon: RegIcons.managedByGlyph(s)),
                 )
                 .toList(),
             selected: c.managedBy.value,
@@ -594,7 +587,8 @@ class _Step18ViewState extends State<Step18View> {
                     options: RegOptions.ages,
                     requirement: FieldRequirement.optional,
                     hint: 'Select',
-                    onChanged: (String? v) => c.ageMin.value = int.tryParse(v ?? ''),
+                    onChanged: (String? v) =>
+                        c.ageMin.value = int.tryParse(v ?? ''),
                   ),
                 ),
               ),
@@ -607,7 +601,8 @@ class _Step18ViewState extends State<Step18View> {
                     options: RegOptions.ages,
                     requirement: FieldRequirement.optional,
                     hint: 'Select',
-                    onChanged: (String? v) => c.ageMax.value = int.tryParse(v ?? ''),
+                    onChanged: (String? v) =>
+                        c.ageMax.value = int.tryParse(v ?? ''),
                   ),
                 ),
               ),
@@ -721,9 +716,15 @@ class _Step18ViewState extends State<Step18View> {
   /// One gray field with its label sitting OUTSIDE, above-left — the age and
   /// height references' layout (every other registration field insets the
   /// label). [text] is the already-formatted value, or null for "Select".
-  Widget _rangeField(String label, String? text, bool dark, VoidCallback onTap) {
-    final Color ink =
-        dark ? AppColors.darkTextPrimary : const Color(0xFF2B2230);
+  Widget _rangeField(
+    String label,
+    String? text,
+    bool dark,
+    VoidCallback onTap,
+  ) {
+    final Color ink = dark
+        ? AppColors.darkTextPrimary
+        : const Color(0xFF2B2230);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -748,9 +749,7 @@ class _Step18ViewState extends State<Step18View> {
               decoration: BoxDecoration(
                 // The reference's fields are flat neutral gray, not white
                 // with a pink hairline like the rest of the flow.
-                color: dark
-                    ? AppColors.darkSurface
-                    : const Color(0xFFF4F4F5),
+                color: dark ? AppColors.darkSurface : const Color(0xFFF4F4F5),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -898,7 +897,7 @@ class _Step18ViewState extends State<Step18View> {
           textAlign: TextAlign.center,
           // Playfair Display, matching the Partner preferences references.
           style: AppTextStyles.displaySerif.copyWith(
-            fontSize: 25,
+            fontSize: 19,
             color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
           ),
         ),

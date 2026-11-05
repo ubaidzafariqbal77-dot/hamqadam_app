@@ -30,15 +30,21 @@ class Step03Controller extends StepController {
 
   bool get hasSects =>
       religion.value != null &&
-      lookup.itemsOf(LookupKeys.sectMain, parentId: religion.value!.id).isNotEmpty;
+      lookup
+          .itemsOf(LookupKeys.sectMain, parentId: religion.value!.id)
+          .isNotEmpty;
 
   bool get hasSchools =>
       sect.value != null &&
-      lookup.itemsOf(LookupKeys.schoolOfThought, parentId: sect.value!.id).isNotEmpty;
+      lookup
+          .itemsOf(LookupKeys.schoolOfThought, parentId: sect.value!.id)
+          .isNotEmpty;
 
   bool get hasTraditions =>
       school.value != null &&
-      lookup.itemsOf(LookupKeys.traditions, parentId: school.value!.id).isNotEmpty;
+      lookup
+          .itemsOf(LookupKeys.traditions, parentId: school.value!.id)
+          .isNotEmpty;
 
   @override
   void restore() {
@@ -154,7 +160,8 @@ class _Step03ViewState extends State<Step03View> {
       primaryLabel: 'Continue',
       onPrimary: c.submit,
       onBack: c.back,
-      note: 'Tip: Your answers help us personalize content in line with your '
+      note:
+          'Tip: Your answers help us personalize content in line with your '
           'faith tradition.',
       children: <Widget>[
         Obx(

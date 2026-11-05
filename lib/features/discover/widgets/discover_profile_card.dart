@@ -6,6 +6,7 @@ import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
 import '../../../controllers/search_profiles_controller.dart';
 import '../../../models/search_filter_profile_model.dart';
+import '../../profile_activity/widgets/profile_engagement_bar.dart';
 import 'public_profile_detail_sheet.dart';
 
 /// One member, as every Discover sub-screen lists them.
@@ -25,6 +26,7 @@ class DiscoverProfileCard extends StatelessWidget {
     this.badgeIcon,
     this.footnote,
     this.onTap,
+    this.showEngagement = true,
   });
 
   final SearchProfileModel profile;
@@ -41,6 +43,9 @@ class DiscoverProfileCard extends StatelessWidget {
   final String? footnote;
 
   final VoidCallback? onTap;
+
+  /// Shows the Shortlist / Like / Super Like row under the details.
+  final bool showEngagement;
 
   String get _metaLine {
     final List<String> parts = <String>[];
@@ -95,7 +100,10 @@ class DiscoverProfileCard extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 ClipRRect(
@@ -221,6 +229,18 @@ class DiscoverProfileCard extends StatelessWidget {
                 if (trailing != null) ...<Widget>[
                   const SizedBox(width: AppSpacing.xs),
                   trailing!,
+                ],
+              ],
+            ),
+                // Shortlist · Like · Super Like (spec 13.9 A). Screens with
+                // their own trailing actions (the swipe deck) keep just those.
+                if (showEngagement && trailing == null) ...<Widget>[
+                  const SizedBox(height: AppSpacing.sm),
+                  ProfileEngagementBar(
+                    userId: profile.id,
+                    name: profile.displayName,
+                    compact: true,
+                  ),
                 ],
               ],
             ),

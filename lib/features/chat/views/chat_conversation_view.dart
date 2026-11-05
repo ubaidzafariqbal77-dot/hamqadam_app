@@ -12,13 +12,17 @@ import 'package:intl/intl.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../payments/views/membership_plans_view.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
+import '../../../core/storage/current_user_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../controllers/call_controller.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/app_snackbar.dart';
+import '../../discover/widgets/public_profile_detail_sheet.dart';
 import '../widgets/chat_export_sheet.dart';
+import '../widgets/chat_gif_picker.dart';
 import '../widgets/chat_reaction_bar.dart';
 import '../widgets/chat_report_dialog.dart';
 
@@ -47,10 +51,22 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   /// observable, so the mic/send swap needs this to rebuild on each keystroke.
   final RxBool _composerHasText = false.obs;
 
-  /// Composer panels (emoji picker / disappearing-timer menu). Only one is
-  /// open at a time; both close when a message is sent.
+  /// Composer panels (emoji picker / GIF picker / disappearing-timer menu).
+  /// Only one is open at a time; all close when a message is sent.
   bool _emojiPanelOpen = false;
+  bool _gifPanelOpen = false;
   bool _timerMenuOpen = false;
+
+  /// Closes any open composer panel — one place so a new panel (or a send)
+  /// can never leave a stale one behind.
+  void _closePanels() {
+    if (!_emojiPanelOpen && !_gifPanelOpen && !_timerMenuOpen) return;
+    setState(() {
+      _emojiPanelOpen = false;
+      _gifPanelOpen = false;
+      _timerMenuOpen = false;
+    });
+  }
 
   @override
   void initState() {
@@ -81,6 +97,18 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   }
 
   Future<void> _pickImage() async {
+    // QA: Android-keyboard GIFs were "not sending" — pickImage(imageQuality: 85)
+    // re-encodes through the platform image codec, which flattens an animated
+    // GIF to its first frame (or drops it entirely). The media picker with
+    // FileType.image hands the ORIGINAL file path straight through, so a GIF
+    // travels as a real animated file; JPEGs still go through the quality
+    // path because they benefit from the compression.
+    final XFile? picked = await _imagePicker.pickMedia();
+    if (picked == null) return;
+    if (picked.path.toLowerCase().endsWith('.gif')) {
+      _controller.addAttachment(picked.path);
+      return;
+    }
     final XFile? photo = await _imagePicker.pickImage(
       source: ImageSource.gallery,
       imageQuality: 85,
@@ -192,6 +220,10 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         if (didPop) _controller.closeThread();
       },
       child: Scaffold(
+        // SoulMeet canvas: plain white, so the bubbles read clean and premium
+        backgroundColor: isDark
+            ? AppColors.darkBackground
+            : AppColors.lightBackground,
         appBar: _buildAppBar(context, isDark),
         body: Column(
           children: <Widget>[
@@ -315,10 +347,17 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     final ChatMessage msg = list[index];
                     final bool isMine = msg.isMine(_controller.myUserId);
 
-                    return _MessageBubble(
+                    // Coin paywall (Task4): with a zero balance the member's
+                    // own incoming messages blur; tapping one opens the
+                    // packages screen to buy coins.
+                    final bool blurThis = !isMine &&
+                        (widget.thread.blurIncoming ||
+                            (_controller.activeThread.value?.blurIncoming ?? false));
+
+                    final Widget bubble = _MessageBubble(
                       message: msg,
                       isMine: isMine,
-                      participantName: widget.thread.participant.name,
+                      participantName: widget.thread.participant.displayName,
                       participantPhoto: widget.thread.participant.photo,
                       onReply: () => _controller.setReplyTo(msg),
                       onDelete: () => _controller.deleteMessageForMe(msg.id),
@@ -327,6 +366,22 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       // emoji twice behaves on the server.
                       onReact: (String? emoji) =>
                           _controller.reactToMessage(msg, emoji),
+                    );
+
+                    if (!blurThis) return bubble;
+
+                    return GestureDetector(
+                      onTap: () => Get.to<void>(
+                          () => const MembershipPlansView()),
+                      child: ShaderMask(
+                        shaderCallback: (Rect r) => const LinearGradient(
+                          colors: <Color>[
+                            Color(0x996B7280),
+                            Color(0x996B7280),
+                          ],
+                        ).createShader(r),
+                        child: AbsorbPointer(child: bubble),
+                      ),
                     );
 
                   },
@@ -349,16 +404,18 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      const Text('Typing', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
-                      const SizedBox(width: 6),
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: theme.hintColor,
+                      const Text(
+                        'Typing',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(width: 6),
+                      // QA: no loading spinner next to "Typing" — the animated
+                      // dots ARE the indicator, WhatsApp-style.
+                      const _TypingDots(),
                     ],
                   ),
                 ),
@@ -381,7 +438,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           Text(
-                            replyMsg.isMine(_controller.myUserId) ? 'Replying to yourself' : 'Replying to ${widget.thread.participant.name}',
+                            replyMsg.isMine(_controller.myUserId) ? 'Replying to yourself' : 'Replying to ${widget.thread.participant.displayName}',
                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                           ),
                           Text(
@@ -496,39 +553,59 @@ class _ChatConversationViewState extends State<ChatConversationView> {
       titleSpacing: 0,
       title: Row(
         children: <Widget>[
-          CircleAvatar(
-            radius: 19,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-            backgroundImage: widget.thread.participant.hasPhoto
-                ? NetworkImage(widget.thread.participant.photo!)
-                : null,
-            child: !widget.thread.participant.hasPhoto
-                ? Text(
-                    widget.thread.participant.initial,
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                  )
-                : null,
+          // QA: tapping the member's picture in chat must open their main
+          // profile. The avatar (and name, already tappable below) route to the
+          // public profile detail sheet.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _openParticipantProfile(context),
+            child: Obx(() {
+              final ChatParticipant participant =
+                  _controller.activeThread.value?.participant ??
+                      widget.thread.participant;
+              return CircleAvatar(
+                radius: 19,
+                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                backgroundImage: participant.hasPhoto
+                    ? NetworkImage(participant.photo!)
+                    : null,
+                child: !participant.hasPhoto
+                    ? Text(
+                        participant.initial,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                      )
+                    : null,
+              );
+            }),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  widget.thread.participant.name,
-                  style: AppTextStyles.bodyStrong.copyWith(fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Obx(() {
-                  final bool typing = _controller.isOtherTyping.value;
-                  // Live presence: the inbox refresh carries the other
-                  // member's fresh stamp, so read it from the controller's
-                  // active thread rather than the stale widget.thread copy.
-                  final ChatParticipant participant =
-                      _controller.activeThread.value?.participant ??
-                          widget.thread.participant;
-                  return Text(
+            child: Obx(() {
+              // Name AND presence both come from the controller's active
+              // thread — the widget.thread copy can be a stale deep-link
+              // object whose participant name is empty (the blank header
+              // bug). Falling back keeps the title filled in every path.
+              final ChatParticipant participant =
+                  _controller.activeThread.value?.participant ??
+                      widget.thread.participant;
+              final bool typing = _controller.isOtherTyping.value;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    participant.displayName,
+                    // Explicit black: the global AppBarTheme's titleTextStyle
+                    // paints titles WHITE for the pink brand bar, but this
+                    // screen's bar is white — without this override the name
+                    // was white-on-white and invisible.
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      fontSize: 15,
+                      color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
                     typing
                         ? 'Typing…'
                         : _presenceLabel(participant),
@@ -536,13 +613,15 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                       fontSize: 11,
                       color: typing
                           ? AppColors.primary
-                          : (participant.isOnline ? AppColors.success : Theme.of(context).hintColor),
+                          : (participant.isOnline
+                              ? AppColors.success
+                              : (isDark ? AppColors.darkTextSecondary : Colors.black54)),
                       fontWeight: typing || participant.isOnline ? FontWeight.bold : FontWeight.normal,
                     ),
-                  );
-                }),
-              ],
-            ),
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),
@@ -575,7 +654,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
         PopupMenuButton<String>(
 
-          icon: const Icon(Icons.more_vert_rounded),
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.black),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           onSelected: (String value) {
             switch (value) {
@@ -680,6 +759,20 @@ class _ChatConversationViewState extends State<ChatConversationView> {
 
   /// Presence line under the conversation title: Online / Last seen …
   /// (never a bare "Active" that could mean anything).
+  /// Opens the member's main profile — the QA requirement for tapping the
+  /// chat header's profile picture.
+  void _openParticipantProfile(BuildContext context) {
+    final ChatThread thread = _controller.activeThread.value ?? widget.thread;
+    final int id = thread.participant.id;
+    if (id <= 0) return;
+    PublicProfileDetailSheet.show(
+      context,
+      profileId: id,
+      name: thread.participant.displayName,
+      photo: thread.participant.photo,
+    );
+  }
+
   String _presenceLabel(ChatParticipant participant) {
     if (participant.isOnline) return 'Online';
     final DateTime? at = participant.lastActiveAt;
@@ -694,17 +787,20 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     return 'Last seen ${DateFormat('d MMM').format(at)}';
   }
 
+  /// WhatsApp-style composer: ONE rounded pill holds the text field; the
+  /// attachment (+), emoji and mic/send buttons sit inside it. The timer lives
+  /// outside on the left of the pill. Everything is vertically centered and
+  /// the row never grows taller than the field itself.
   Widget _buildComposer(BuildContext context, bool isDark) {
     return Container(
       padding: EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.xs,
-        AppSpacing.sm,
-        MediaQuery.of(context).padding.bottom + AppSpacing.xs,
+        8,
+        6,
+        8,
+        MediaQuery.of(context).padding.bottom + 6,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.lightBackground,
-        border: Border(top: BorderSide(color: isDark ? AppColors.darkBorder : AppColors.lightDivider)),
       ),
       child: Obx(() {
         // While recording, the whole composer becomes the recording bar.
@@ -716,135 +812,196 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           children: <Widget>[
             // Emoji / timer panels live above the input row when open.
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
+            if (_gifPanelOpen)
+              ChatGifPicker(
+                // The panel closes itself here — the picker renders inline in
+                // the composer, so IT must not pop the navigator (that used
+                // to close the whole conversation on tap).
+                onPick: (String gifUrl) {
+                  setState(() => _gifPanelOpen = false);
+                  _controller.sendGif(gifUrl);
+                },
+              ),
             if (_timerMenuOpen) _buildTimerMenu(isDark),
             Row(
-            // Vertically centered, not end-aligned: the field's contentPadding
-            // grows its intrinsic height, so CrossAxisAlignment.end pushed the
-            // mic/send bubble below the row's baseline (the screenshot bug).
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: <Widget>[
-          // Attachment Button
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
-            tooltip: 'Attach Media or Document',
-            onPressed: _showAttachmentOptions,
-          ),
-          // Emoji button — quick picker above the keyboard.
-          IconButton(
-            icon: Icon(
-              Icons.emoji_emotions_outlined,
-              color: _emojiPanelOpen ? AppColors.primary : AppColors.primary.withValues(alpha: 0.75),
-              size: 24,
-            ),
-            tooltip: 'Emoji',
-            onPressed: () {
-              setState(() {
-                _emojiPanelOpen = !_emojiPanelOpen;
-                _timerMenuOpen = false;
-              });
-            },
-          ),
-          // Text Input Box
-          Expanded(
-            child: Container(
-              // A minimum height matching the circular buttons (40dp) keeps the
-              // single-line field from rendering shorter than its neighbours —
-              // the box looked visually “floating” between them.
-              constraints: const BoxConstraints(minHeight: 44, maxHeight: 120),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: _timerActive
-                      ? AppColors.success
-                      : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
-                ),
-              ),
-              child: TextField(
-                controller: _controller.messageInputController,
-                onChanged: _controller.onTextChanged,
-                maxLines: null,
-                keyboardType: TextInputType.multiline,
-                textCapitalization: TextCapitalization.sentences,
-                style: AppTextStyles.body,
-                decoration: InputDecoration(
-                  hintText: _timerActive ? 'Disappearing message…' : 'Type a message…',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: Theme.of(context).hintColor.withValues(alpha: 0.7),
-                    fontSize: 14,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                // Disappearing-message timer — small chip outside the pill.
+                SizedBox(
+                  width: 34,
+                  height: 34,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: Icon(
+                      Icons.timer_outlined,
+                      size: 20,
+                      color: _timerActive
+                          ? AppColors.success
+                          : AppColors.primary.withValues(alpha: 0.7),
+                    ),
+                    tooltip: 'Disappearing messages',
+                    onPressed: () {
+                      setState(() {
+                        _timerMenuOpen = !_timerMenuOpen;
+                        _emojiPanelOpen = false;
+                        _gifPanelOpen = false;
+                      });
+                    },
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  isDense: true,
-                  border: InputBorder.none,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          // Disappearing-message timer — timer chip toggles the menu.
-          IconButton(
-            icon: Icon(
-              Icons.timer_outlined,
-              size: 22,
-              color: _timerActive
-                  ? AppColors.success
-                  : AppColors.primary.withValues(alpha: 0.75),
-            ),
-            tooltip: 'Disappearing messages',
-            onPressed: () {
-              setState(() {
-                _timerMenuOpen = !_timerMenuOpen;
-                _emojiPanelOpen = false;
-              });
-            },
-          ),
-          // Mic when the composer is empty, send otherwise — the WhatsApp
-          // pattern: one thumb, no mode switching.
-          Obx(() {
-            final bool hasText = _composerHasText.value;
-            final bool sending = _controller.isSending.value;
-            return Container(
-              // No bottom margin: the row is center-aligned now, so an offset
-              // here visibly dropped the mic/send bubble below the others.
-              decoration: BoxDecoration(
-                gradient: hasText || sending
-                    ? const LinearGradient(
-                        colors: AppColors.brandGradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: hasText || sending
-                    ? null
-                    : AppColors.primary.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: sending
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : Icon(
-                        hasText ? Icons.send_rounded : Icons.mic_rounded,
-                        color: hasText || sending
-                            ? Colors.white
-                            : AppColors.primary,
-                        size: hasText ? 19 : 22,
+                const SizedBox(width: 2),
+                // THE pill: + / emoji / text field / mic-send, all inside.
+                // Every child is hard-capped at 48px so the pill can never
+                // stretch taller — the earlier versions let the theme's
+                // intrinsic TextField height blow the row up.
+                Expanded(
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: _timerActive
+                            ? AppColors.success.withValues(alpha: 0.6)
+                            : (isDark ? AppColors.darkBorder : AppColors.lightDivider),
                       ),
-                tooltip: hasText ? 'Send' : 'Record voice note',
-                onPressed: sending
-                    ? null
-                    : hasText
-                        ? _controller.sendMessage
-                        : _controller.startRecording,
-              ),
-            );
-          }),
-            ],
-          ),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        _ComposerIcon(
+                          tooltip: 'Attach Media or Document',
+                          onTap: _showAttachmentOptions,
+                          icon: const Icon(Icons.add_circle_outline_rounded,
+                              color: AppColors.primary, size: 22),
+                        ),
+                        _ComposerIcon(
+                          tooltip: 'Emoji',
+                          onTap: () {
+                            setState(() {
+                              _emojiPanelOpen = !_emojiPanelOpen;
+                              _gifPanelOpen = false;
+                              _timerMenuOpen = false;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.emoji_emotions_outlined,
+                            color: _emojiPanelOpen
+                                ? AppColors.primary
+                                : AppColors.primary.withValues(alpha: 0.7),
+                            size: 20,
+                          ),
+                        ),
+                        _ComposerIcon(
+                          tooltip: 'GIF',
+                          onTap: () {
+                            setState(() {
+                              _gifPanelOpen = !_gifPanelOpen;
+                              _emojiPanelOpen = false;
+                              _timerMenuOpen = false;
+                            });
+                          },
+                          icon: Icon(
+                            Icons.gif_rounded,
+                            color: _gifPanelOpen
+                                ? AppColors.primary
+                                : AppColors.primary.withValues(alpha: 0.7),
+                            size: 22,
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _controller.messageInputController,
+                            onChanged: _controller.onTextChanged,
+                            maxLines: null,
+                            keyboardType: TextInputType.multiline,
+                            textCapitalization: TextCapitalization.sentences,
+                            style: AppTextStyles.body.copyWith(fontSize: 14.5, height: 1.2),
+                            cursorColor: AppColors.primary,
+                            textAlignVertical: TextAlignVertical.center,
+                            // Kill the global input theme's filled box +
+                            // outlined border here: the pill itself is the
+                            // container, so the field must render bare.
+                            decoration: InputDecoration(
+                              filled: false,
+                              fillColor: Colors.transparent,
+                              hintText: _timerActive
+                                  ? 'Disappearing message…'
+                                  : 'Type a message…',
+                              hintStyle: AppTextStyles.body.copyWith(
+                                color: Theme.of(context)
+                                    .hintColor
+                                    .withValues(alpha: 0.65),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 2, vertical: 15),
+                              isDense: true,
+                              isCollapsed: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        // Mic when nothing is ready to send, send otherwise —
+                        // the WhatsApp pattern. An attachment counts as ready:
+                        // without this the mic stayed after picking a file and
+                        // there was no way to send it.
+                        Obx(() {
+                          final bool hasText = _composerHasText.value;
+                          final bool hasAttachments =
+                              _controller.pendingAttachments.isNotEmpty;
+                          final bool readyToSend = hasText || hasAttachments;
+                          final bool sending = _controller.isSending.value;
+                          return Padding(
+                            padding: const EdgeInsets.all(3),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                gradient: readyToSend || sending
+                                    ? const LinearGradient(
+                                        colors: AppColors.brandGradient,
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      )
+                                    : null,
+                                color: readyToSend || sending
+                                    ? null
+                                    : AppColors.primary.withValues(alpha: 0.35),
+                                shape: BoxShape.circle,
+                              ),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                // No spinner: the bubble is drawn instantly and its
+                                // own tick shows delivery, so the button stays a
+                                // plain send icon while the request is in flight.
+                                icon: Icon(
+                                  readyToSend
+                                      ? Icons.send_rounded
+                                      : Icons.mic_rounded,
+                                  color: AppColors.primaryInk,
+                                  size: readyToSend ? 18 : 20,
+                                ),
+                                tooltip: readyToSend ? 'Send' : 'Record voice note',
+                                onPressed: readyToSend
+                                    ? () {
+                                        _closePanels();
+                                        _controller.sendMessage();
+                                      }
+                                    : (sending ? null : _controller.startRecording),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         );
       }),
@@ -918,17 +1075,30 @@ class _ChatConversationViewState extends State<ChatConversationView> {
         border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
       ),
       child: SizedBox(
-        height: 108,
+        height: 220,
         child: GridView.builder(
           physics: const BouncingScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 10,
-            childAspectRatio: 1,
+            crossAxisCount: 8,
+            childAspectRatio: 1.1,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
           ),
           itemCount: _emojiChoices.length,
-          itemBuilder: (BuildContext _, int i) => IconButton(
-            icon: Text(_emojiChoices[i], style: const TextStyle(fontSize: 20)),
-            onPressed: () => _controller.appendEmoji(_emojiChoices[i]),
+          // FittedBox instead of IconButton: IconButton's 48px min target in
+          // a narrower grid cell squeezed the glyph and clipped emojis.
+          itemBuilder: (BuildContext _, int i) => Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _controller.appendEmoji(_emojiChoices[i]),
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(_emojiChoices[i], style: const TextStyle(fontSize: 28)),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -999,7 +1169,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             shape: BoxShape.circle,
           ),
           child: IconButton(
-            icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
+            icon: const Icon(Icons.send_rounded, color: AppColors.primaryInk, size: 19),
             tooltip: 'Send voice note',
             onPressed: _controller.stopRecordingAndSend,
           ),
@@ -1152,7 +1322,8 @@ class _MessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
-    final String timeStr = DateFormat('h:mm a').format(message.createdAt);
+    final String timeStr = DateFormat('h:mm a')
+        .format(message.createdAt.toLocal());
 
     // Separate images from documents. A voice note's audio clip must NOT hit
     // the document list — the player bubble below renders it, and a second
@@ -1176,34 +1347,73 @@ class _MessageBubble extends StatelessWidget {
             : message.localAttachmentPaths)
         : const <String>[];
 
-    // Bubble bg
+    // Bubble bg — mine hot-pink with white ink, theirs a light neutral so it
+    // still reads on the pure-white canvas.
     final Color bubbleBg = isMine
         ? AppColors.primary
-        : (isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface);
+        : (isDark ? AppColors.darkSurfaceAlt : const Color(0xFFF3F4F6));
 
     // For image-only messages, use zero padding + rounded clipping
     final bool hasOnlyImages = images.isNotEmpty && docs.isEmpty && message.message.isEmpty;
 
+    // ── Avatar rail (WhatsApp style) ────────────────────────────────────────
+    // Every bubble gets a small circular photo: mine on the right, theirs on
+    // the left. Sender photo comes from the message payload (server-sent) with
+    // the thread participant as fallback; my own photo comes from session.
+    final String? avatarUrl = isMine ? _myAvatarUrl : (message.senderPhoto ?? participantPhoto);
+    final String avatarInitial = isMine
+        ? (_myInitial ?? 'M')
+        : (participantName?.isNotEmpty ?? false ? participantName![0].toUpperCase() : 'H');
+
     return Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment:
-            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: <Widget>[
+      child: _bubbleRow(context, theme, isDark, timeStr, images, docs, localFiles, bubbleBg, hasOnlyImages, avatarUrl, avatarInitial),
+    );
+  }
+
+  /// The avatar + bubble + reaction stack. The avatar sits on the side of the
+  /// sender: right for mine, left for theirs.
+  Widget _bubbleRow(
+    BuildContext context,
+    ThemeData theme,
+    bool isDark,
+    String timeStr,
+    List<ChatAttachment> images,
+    List<ChatAttachment> docs,
+    List<String> localFiles,
+    Color bubbleBg,
+    bool hasOnlyImages,
+    String? avatarUrl,
+    String avatarInitial,
+  ) {
+    final List<Widget> railChildren = <Widget>[
+          // Avatar — 28px disc hugging the bubble's tail corner.
+          Padding(
+            // 4px up so the disc aligns with the bubble body, not the
+            // reaction row that sits below it.
+            padding: const EdgeInsets.only(bottom: 14),
+            child: _BubbleAvatar(url: avatarUrl, initial: avatarInitial, isDark: isDark),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment:
+                  isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: <Widget>[
           GestureDetector(
             onLongPress: () => _showContextMenu(context),
             onTap: message.isFailed ? onRetry : null,
             child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 3),
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
           decoration: BoxDecoration(
             color: bubbleBg,
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(isMine ? 18 : 3),
-              bottomRight: Radius.circular(isMine ? 3 : 18),
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMine ? 16 : 3),
+              bottomRight: Radius.circular(isMine ? 3 : 16),
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
@@ -1215,10 +1425,10 @@ class _MessageBubble extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(18),
-              topRight: const Radius.circular(18),
-              bottomLeft: Radius.circular(isMine ? 18 : 3),
-              bottomRight: Radius.circular(isMine ? 3 : 18),
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMine ? 16 : 3),
+              bottomRight: Radius.circular(isMine ? 3 : 16),
             ),
             child: Column(
               crossAxisAlignment:
@@ -1269,7 +1479,7 @@ class _MessageBubble extends StatelessWidget {
                 // ── Text + docs + time ────────────────────────────────────
                 if (!hasOnlyImages)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    padding: const EdgeInsets.fromLTRB(10, 5, 10, 4),
                     child: Column(
                       crossAxisAlignment:
                           isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -1315,9 +1525,16 @@ class _MessageBubble extends StatelessWidget {
                             failed: message.isFailed,
                           ),
 
+                        // Animated GIF bubble — the URL rides in metadata.
+                        if (message.messageType == 'gif')
+                          _GifBubble(message: message, timeStr: timeStr, isMine: isMine)
                         // Message text / Voice player / Call event tile
-                        if (message.isVoice)
-                          _VoiceBubble(message: message, isMine: isMine)
+                        else if (message.isVoice)
+                          _VoiceBubble(
+                            message: message,
+                            isMine: isMine,
+                            timeStr: timeStr,
+                          )
                         else if (message.isCallEvent)
                           InkWell(
                             // A call tile is a record of a past call, so tapping
@@ -1366,50 +1583,113 @@ class _MessageBubble extends StatelessWidget {
                             ),
                           )
                         else if (message.message.isNotEmpty)
-                          Text(
-                            message.message,
-                            style: TextStyle(
-                              color: isMine
-                                  ? Colors.white
-                                  : theme.textTheme.bodyLarge?.color,
-                              fontSize: 14.5,
-                            ),
-                          ),
-
-                        const SizedBox(height: 3),
-                        // Time + tick row
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
-                              timeStr,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: isMine
-                                    ? Colors.white.withValues(alpha: 0.7)
-                                    : theme.hintColor,
+                          // WhatsApp signature: the timestamp + tick ride on
+                          // the message's LAST line, right-aligned — an inline
+                          // invisible spacer reserves their width so wrapped
+                          // text flows around them.
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: <Widget>[
+                              Flexible(
+                                child: Text(
+                                  message.message,
+                                  // QA: some emojis (pizza slice, etc.) rendered
+                                  // half-clipped at 14.5px — the fallback font's
+                                  // glyph metrics cut the bottom. A line-height
+                                  // bump plus the platform emoji font lets every
+                                  // glyph draw in full.
+                                  style: TextStyle(
+                                    color: isMine
+                                        ? Colors.white
+                                        : theme.textTheme.bodyLarge?.color,
+                                    fontSize: 14.5,
+                                    height: 1.45,
+                                    fontFamilyFallback: <String>[
+                                      'Apple Color Emoji',
+                                      'Noto Color Emoji',
+                                      'Segoe UI Emoji',
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            if (isMine) ...<Widget>[
-                              const SizedBox(width: 4),
-                              _DeliveryTick(
-                                message: message,
-                                color: Colors.white.withValues(alpha: 0.8),
-                              ),
-                            ],
-                            if (isMine && message.isFailed) ...<Widget>[
-                              const SizedBox(width: 4),
-                              const Text(
-                                'Tap to retry',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 10),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isMine
+                                            ? Colors.white.withValues(alpha: 0.75)
+                                            : theme.hintColor,
+                                      ),
+                                    ),
+                                    if (isMine) ...<Widget>[
+                                      const SizedBox(width: 3),
+                                      _DeliveryTick(
+                                        message: message,
+                                        color: Colors.white.withValues(alpha: 0.85),
+                                      ),
+                                    ],
+                                    if (isMine && message.isFailed) ...<Widget>[
+                                      const SizedBox(width: 3),
+                                      const Text(
+                                        'Tap to retry',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                             ],
-                          ],
-                        ),
+                          ),
+                        // Voice/call/doc bubbles keep the timestamp on its own
+                        // row — their content already fills the line.
+                        if (!message.isVoice &&
+                            !message.isCallEvent &&
+                            message.message.isEmpty) ...<Widget>[
+                          const SizedBox(height: 1),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Text(
+                                timeStr,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isMine
+                                      ? Colors.white.withValues(alpha: 0.7)
+                                      : theme.hintColor,
+                                ),
+                              ),
+                              if (isMine) ...<Widget>[
+                                const SizedBox(width: 4),
+                                _DeliveryTick(
+                                  message: message,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ],
+                              if (isMine && message.isFailed) ...<Widget>[
+                                const SizedBox(width: 4),
+                                const Text(
+                                  'Tap to retry',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1426,8 +1706,138 @@ class _MessageBubble extends StatelessWidget {
               onTap: (ChatReaction reaction) =>
                   onReact(reaction.mine ? null : reaction.emoji),
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ];
+    // Mine: [bubble, gap, avatar] — theirs: [avatar, gap, bubble].
+    final List<Widget> ordered = isMine
+        ? <Widget>[railChildren[2], railChildren[1], railChildren[0]]
+        : railChildren;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: ordered,
+    );
+  }
+}
+
+/// My own photo for the bubble rail — session cache, null when signed out or
+/// photo-less (the initial-based disc takes over).
+String? get _myAvatarUrl {
+  try {
+    return Get.find<CurrentUserService>().user?.photoUrl;
+  } catch (_) {
+    return null;
+  }
+}
+
+String? get _myInitial {
+  final String name = Get.find<CurrentUserService>().user?.fullName ?? '';
+  return name.isNotEmpty ? name[0].toUpperCase() : null;
+}
+
+/// Animated GIF bubble. The Tenor URL rides in `metadata.gif_url`; the frame
+/// animates itself because Flutter's network image decoder handles GIFs.
+class _GifBubble extends StatelessWidget {
+  const _GifBubble({required this.message, required this.timeStr, required this.isMine});
+
+  final ChatMessage message;
+  final String timeStr;
+  final bool isMine;
+
+  String? get _gifUrl {
+    final dynamic url = message.metadata?['gif_url'];
+    return url is String && url.isNotEmpty ? url : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: <Widget>[
+          _gifUrl == null
+              ? Container(
+                  width: 180,
+                  height: 120,
+                  color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                  child: const Icon(Icons.gif_rounded, size: 40, color: AppColors.primary),
+                )
+              : Image.network(
+                  _gifUrl!,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (BuildContext ctx, Widget child, ImageChunkEvent? p) {
+                    if (p == null) return child;
+                    return Container(
+                      width: 200,
+                      height: 140,
+                      color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                      child: const Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 180,
+                    height: 120,
+                    color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+                    child: const Icon(Icons.gif_rounded, size: 40, color: AppColors.primary),
+                  ),
+                ),
+          // Timestamp pill over the GIF's bottom edge.
+          Positioned(
+            bottom: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                timeStr,
+                style: const TextStyle(fontSize: 10, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The 28px circular photo beside every chat bubble. Real photo when there is
+/// one, soft pink initial-disc otherwise — never a broken image.
+class _BubbleAvatar extends StatelessWidget {
+  const _BubbleAvatar({required this.initial, required this.isDark, this.url});
+
+  final String? url;
+  final String initial;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return CircleAvatar(
+      radius: 14,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.14),
+      backgroundImage: (url != null && url!.isNotEmpty) ? NetworkImage(url!) : null,
+      child: (url == null || url!.isEmpty)
+          ? Text(
+              initial,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            )
+          : null,
     );
   }
 }
@@ -1584,6 +1994,72 @@ class _DeliveryTick extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Image Grid (WhatsApp-style): 1 image = full width, 2+ = grid
 // ---------------------------------------------------------------------------
+
+/// Three pulsing dots shown beside the "Typing" label — the QA report asked
+/// for the loading spinner to be removed and only "Typing" (with its indicator
+/// motion) displayed.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (BuildContext context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (int i = 0; i < 3; i++) ...<Widget>[
+              if (i > 0) const SizedBox(width: 2),
+              Opacity(
+                // Each dot peaks in turn, giving the wave the indicator needs.
+                opacity: (0.25 +
+                        0.75 *
+                            (0.5 +
+                                0.5 *
+                                    _wave(
+                                      (_ctrl.value - i * 0.18) % 1,
+                                    )))
+                    .clamp(0.0, 1.0),
+                child: Container(
+                  width: 4,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).hintColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// A 0..1 triangle wave so each dot fades in and out once per cycle.
+  double _wave(double t) {
+    final double x = t < 0 ? t + 1 : t;
+    return x < 0.5 ? x * 2 : 2 - x * 2;
+  }
+}
 
 class _ImageGrid extends StatelessWidget {
   const _ImageGrid({required this.images});
@@ -1805,10 +2281,17 @@ class _DocCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _VoiceBubble extends StatefulWidget {
-  const _VoiceBubble({required this.message, required this.isMine});
+  const _VoiceBubble({
+    required this.message,
+    required this.isMine,
+    required this.timeStr,
+  });
 
   final ChatMessage message;
   final bool isMine;
+
+  /// Sent-time label shown on the player row's right edge (WhatsApp style).
+  final String timeStr;
 
   @override
   State<_VoiceBubble> createState() => _VoiceBubbleState();
@@ -1819,7 +2302,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
 
   /// Width of the waveform strip. Named because the scrub gesture has to map a
   /// touch x back onto it.
-  static const double _waveWidth = 110;
+  static const double _waveWidth = 130;
 
   final AudioPlayer _player = AudioPlayer();
   bool _playing = false;
@@ -1956,7 +2439,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
     final List<int> wave = widget.message.voiceWaveform;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -1964,8 +2447,8 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
             onTap: _toggle,
             customBorder: const CircleBorder(),
             child: Container(
-              width: 38,
-              height: 38,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: widget.isMine
                     ? Colors.white.withValues(alpha: 0.2)
@@ -1975,11 +2458,11 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
               child: Icon(
                 _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
                 color: accent,
-                size: 24,
+                size: 20,
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           // Scrubbing: tap or drag anywhere on the waveform to jump, the way
           // WhatsApp does. Opaque hit testing so a drag starting here is not
           // stolen by the message list's own vertical scroll.
@@ -1990,7 +2473,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
             onHorizontalDragUpdate: (DragUpdateDetails d) =>
                 _seekToFraction(d.localPosition.dx / _waveWidth),
             child: CustomPaint(
-              size: const Size(_waveWidth, 30),
+              size: const Size(_waveWidth, 22),
               painter: _WaveformPainter(
                 wave: wave,
                 progress: _progress,
@@ -1999,7 +2482,7 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(
             _label,
             style: TextStyle(
@@ -2009,6 +2492,34 @@ class _VoiceBubbleState extends State<_VoiceBubble> {
                   ? Colors.white.withValues(alpha: 0.85)
                   : Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
               fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Sent-time rides on the player row's right edge, WhatsApp style —
+          // the parent bubble no longer draws a separate timestamp row for
+          // voice notes.
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  widget.timeStr,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: widget.isMine
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : Theme.of(context).hintColor,
+                  ),
+                ),
+                if (widget.isMine) ...<Widget>[
+                  const SizedBox(width: 3),
+                  _DeliveryTick(
+                    message: widget.message,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -2121,3 +2632,32 @@ class _FullScreenImage extends StatelessWidget {
   }
 }
 
+
+/// A fixed-size tap target used inside the composer pill. Hard-caps the row
+/// height at 48px so the global theme's intrinsic TextField metrics can never
+/// stretch the composer — the bug behind the oversized input bubble.
+class _ComposerIcon extends StatelessWidget {
+  const _ComposerIcon({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final Widget icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38,
+      height: 48,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        icon: icon,
+        tooltip: tooltip,
+        onPressed: onTap,
+      ),
+    );
+  }
+}

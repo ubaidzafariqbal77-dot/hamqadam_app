@@ -68,6 +68,8 @@ class _StateBase extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 340),
               child: Text(
                 message,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
                 style: AppTextStyles.body.copyWith(
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                   fontSize: 14.5,

@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../profile_activity/views/profile_activity_view.dart';
 import 'package:get/get.dart';
+
+import '../../../controllers/gift_controller.dart';
+import '../../../controllers/profile_controller.dart';
+import '../../../controllers/verification_controller.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
@@ -10,6 +15,7 @@ import '../../../controllers/chat_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/services/biometric_auth_service.dart';
+import '../../../core/storage/current_user_service.dart';
 import '../../../core/services/push_readiness_service.dart';
 import '../../../core/widgets/push_readiness_dialog.dart';
 import '../../../models/chat_model.dart';
@@ -18,7 +24,7 @@ import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/premium_bottom_nav.dart';
 import '../../chat/views/chat_inbox_view.dart';
 import '../../discover/views/discover_view.dart';
-import '../../discover/widgets/search_filter_bottom_sheet.dart';
+import '../../help_center/views/guest_help_view.dart';
 import '../../help_center/views/help_chat_view.dart';
 import '../../interests/views/interests_view.dart';
 import '../../notifications/views/notifications_view.dart';
@@ -30,6 +36,8 @@ import '../../verification/views/ai_verification_view.dart';
 import '../../payments/views/membership_plans_view.dart';
 import '../../payments/views/payment_history_view.dart';
 import '../../payments/views/coin_usage_view.dart';
+import '../../settings/views/change_password_view.dart';
+import '../../wallet/views/wallet_view.dart';
 import '../../proposals/views/proposals_view.dart';
 
 /// Authenticated app shell: premium gradient AppBar, floating bottom navigation
@@ -41,6 +49,11 @@ class HomeView extends StatefulWidget {
   /// the Discover tab with its filter active, from anywhere in the app.
   static final ValueNotifier<int> tabRequest = ValueNotifier<int>(0);
 
+  /// The shell Scaffold's key. The Discover tab draws its own header (the
+  /// shell's AppBar is suppressed there), so its menu button opens THIS
+  /// scaffold's drawer through this key.
+  static final GlobalKey<ScaffoldState> shellKey = GlobalKey<ScaffoldState>();
+
   /// Jumps the shell to [index]: 0 Discover, 1 Matches, 2 Chat, 3 Profile.
   static void goToTab(int index) => tabRequest.value = index;
 
@@ -51,12 +64,33 @@ class HomeView extends StatefulWidget {
 class _HomeViewState extends State<HomeView> {
   final AuthController _auth = Get.find<AuthController>();
   int _index = 0;
+  final Set<int> _built = <int>{0};
 
   static const List<_TabItem> _tabs = <_TabItem>[
-    _TabItem('Discover', Icons.search_rounded, Icons.search_rounded, 'Find your match'),
-    _TabItem('Matches', Icons.favorite_outline_rounded, Icons.favorite_rounded, 'Your matches & likes'),
-    _TabItem('Chat', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Conversations'),
-    _TabItem('Profile', Icons.person_outline_rounded, Icons.person_rounded, 'Your profile'),
+    _TabItem(
+      'Discover',
+      Icons.search_rounded,
+      Icons.search_rounded,
+      'Find your match',
+    ),
+    _TabItem(
+      'Matches',
+      Icons.favorite_outline_rounded,
+      Icons.favorite_rounded,
+      'Your matches & likes',
+    ),
+    _TabItem(
+      'Chat',
+      Icons.chat_bubble_outline_rounded,
+      Icons.chat_bubble_rounded,
+      'Conversations',
+    ),
+    _TabItem(
+      'Profile',
+      Icons.person_outline_rounded,
+      Icons.person_rounded,
+      'Your profile',
+    ),
   ];
 
   /// Real screens are wired here; the rest keep the "coming soon" placeholder.
@@ -75,13 +109,20 @@ class _HomeViewState extends State<HomeView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _auth.refreshUser();
       _checkPushReadiness();
+      // Warm the gift cache in the background so received gifts play instantly.
+      Get.find<GiftController>()
+        ..loadGifts()
+        ..loadReceived();
     });
   }
 
   void _onTabRequest() {
     final int requested = HomeView.tabRequest.value;
     if (requested != _index && requested >= 0 && requested < _tabs.length) {
-      setState(() => _index = requested);
+      setState(() {
+        _index = requested;
+        _built.add(requested);
+      });
     }
   }
 
@@ -109,49 +150,48 @@ class _HomeViewState extends State<HomeView> {
   Widget build(BuildContext context) {
     final _TabItem tab = _tabs[_index];
     return Scaffold(
+      key: HomeView.shellKey,
+      backgroundColor: const Color(0xFFFAFAFA),
+      // Body extends behind the bar, but the bar itself must sit FLUSH with
+      // the bottom edge (the floating-gap look read as a misplaced bar).
       extendBody: true,
       // The Chat tab draws its own reference header (a large serif "Chat
-      // Conversations" title on the blush canvas), so the shell's gradient bar
-      // is suppressed there and the inbox supplies the drawer control instead.
-      appBar: _index == 2
+      // Conversations" title on the blush canvas), and the Discover tab now
+      // draws its own white reference header (serif "Discover / CHOOSE
+      // FOREVER" logo, search row, pink filter chip) — so the shell's gradient
+      // bar is suppressed on both and each screen supplies the drawer control
+      // itself. Matches draws its header inside its own scroll view so the
+      // bar, wallet and tabs scroll away together with the list.
+      appBar: _index == 2 || _index == 0 || _index == 1
           ? null
           : PremiumAppBar(
               title: tab.label,
               subtitle: tab.subtitle,
-              actions: _index == 0
+              actions: _index == 3
                   ? <Widget>[
                       IconButton(
-                        icon: const Icon(Icons.tune_rounded, color: Colors.white),
-                        tooltip: 'Filter Profiles',
-                        onPressed: () => SearchFilterBottomSheet.show(context),
+                        icon: const Icon(
+                          Icons.remove_red_eye_outlined,
+                          color: Color(0xFFB25C82),
+                        ),
+                        tooltip: 'Profile Views',
+                        onPressed: () =>
+                            Get.to<void>(() => const ProfileViewsView()),
                       ),
                     ]
-                  : _index == 3
-                      ? <Widget>[
-                          IconButton(
-                            icon: const Icon(Icons.remove_red_eye_outlined,
-                                color: Colors.white),
-                            tooltip: 'Profile Views',
-                            onPressed: () =>
-                                Get.to<void>(() => const ProfileViewsView()),
-                          ),
-                        ]
-                      : null,
+                  : null,
             ),
       drawer: _AppDrawer(auth: _auth, currentTab: _index),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        switchInCurve: Curves.easeOutCubic,
-        transitionBuilder: (Widget child, Animation<double> a) => FadeTransition(
-          opacity: a,
-          child: SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0, 0.04), end: Offset.zero).animate(a),
-            child: child,
-          ),
-        ),
-        child: KeyedSubtree(
-          key: ValueKey<int>(_index),
-          child: _bodyFor(tab),
+      // Tabs are built the first time they are opened and then KEPT alive
+      // (IndexedStack). Rebuilding a tab on every switch re-ran its initState
+      // — refetching data, flashing spinners and losing scroll position.
+      body: IndexedStack(
+        index: _index,
+        children: List<Widget>.generate(
+          _tabs.length,
+          (int i) => _built.contains(i)
+              ? _bodyFor(_tabs[i])
+              : const SizedBox.shrink(),
         ),
       ),
       bottomNavigationBar: Obx(() {
@@ -169,22 +209,36 @@ class _HomeViewState extends State<HomeView> {
         }
         return PremiumBottomNav(
           currentIndex: _index,
-          onTap: (int i) => setState(() => _index = i),
+          onTap: (int i) {
+            setState(() {
+              _index = i;
+              _built.add(i);
+            });
+            if (_tabs[i].label == 'Profile' && Get.isRegistered<ProfileController>()) {
+              Get.find<ProfileController>().refreshSilently();
+              if (Get.isRegistered<VerificationController>()) {
+                Get.find<VerificationController>().refreshSilently();
+              }
+            }
+          },
           items: <PremiumNavItem>[
             const PremiumNavItem(icon: Icons.search_rounded, label: 'Discover'),
             const PremiumNavItem(
-                icon: Icons.favorite_outline_rounded,
-                activeIcon: Icons.favorite_rounded,
-                label: 'Matches'),
+              icon: Icons.favorite_outline_rounded,
+              activeIcon: Icons.favorite_rounded,
+              label: 'Matches',
+            ),
             PremiumNavItem(
-                icon: Icons.chat_bubble_outline_rounded,
-                activeIcon: Icons.chat_bubble_rounded,
-                label: 'Chat',
-                badge: unread),
+              icon: Icons.chat_bubble_outline_rounded,
+              activeIcon: Icons.chat_bubble_rounded,
+              label: 'Chat',
+              badge: unread,
+            ),
             const PremiumNavItem(
-                icon: Icons.person_outline_rounded,
-                activeIcon: Icons.person_rounded,
-                label: 'Profile'),
+              icon: Icons.person_outline_rounded,
+              activeIcon: Icons.person_rounded,
+              label: 'Profile',
+            ),
           ],
         );
       }),
@@ -216,7 +270,7 @@ class _TabBody extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.xl),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: AppColors.brandGradient,
+                  colors: AppColors.regPrimaryGradient,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -233,17 +287,22 @@ class _TabBody extends StatelessWidget {
               child: Icon(tab.activeIcon, size: 46, color: Colors.white),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Text(tab.label, style: AppTextStyles.headline),
+            Text(tab.label, style: AppTextStyles.title),
             const SizedBox(height: AppSpacing.xs),
             Text(
               tab.subtitle,
               textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(color: Theme.of(context).textTheme.bodyMedium?.color),
+              style: AppTextStyles.body.copyWith(
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               'Coming soon',
-              style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700),
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),
@@ -271,17 +330,13 @@ class _AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final bool dark = theme.brightness == Brightness.dark;
-    final Color cardColor = dark ? AppColors.darkSurface : AppColors.lightSurface;
-    final Color hairline =
-        (dark ? AppColors.darkBorder : AppColors.lightDivider).withValues(alpha: 0.7);
-
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: AppColors.roseCanvas,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.horizontal(right: Radius.circular(AppRadius.xl)),
+        borderRadius: BorderRadius.horizontal(
+          right: Radius.circular(AppRadius.xl),
+        ),
       ),
       child: SafeArea(
         bottom: false,
@@ -291,81 +346,156 @@ class _AppDrawer extends StatelessWidget {
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
+                  18,
+                  AppSpacing.md,
+                  18,
+                  AppSpacing.sm,
+                ),
                 children: <Widget>[
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'MEMBERSHIP & PAYMENTS',
                     entries: <_DrawerEntry>[
-                      _DrawerEntry(Icons.workspace_premium_outlined, 'Membership Plans',
-                          () => Get.to<void>(() => const MembershipPlansView())),
-                      _DrawerEntry(Icons.receipt_long_outlined, 'Payment History & Invoices',
-                          () => Get.to<void>(() => const PaymentHistoryView())),
-                      _DrawerEntry(Icons.monetization_on_outlined, 'Coin & Feature Usage',
-                          () => Get.to<void>(() => const CoinUsageView())),
+                      _DrawerEntry(
+                        Icons.account_balance_wallet_outlined,
+                        'Wallet',
+                        () => Get.to<void>(() => const WalletView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.workspace_premium_outlined,
+                        'Membership Plans',
+                        () => Get.to<void>(() => const MembershipPlansView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.receipt_long_outlined,
+                        'Payment History & Invoices',
+                        () => Get.to<void>(() => const PaymentHistoryView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.monetization_on_outlined,
+                        'Coin & Feature Usage',
+                        () => Get.to<void>(() => const CoinUsageView()),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'MY ACTIVITY',
                     entries: <_DrawerEntry>[
-                      _DrawerEntry(Icons.mail_outline_rounded, 'Proposals / Rishtay',
-                          () => Get.to<void>(() => const ProposalsView())),
-                      _DrawerEntry(Icons.bookmark_added_outlined, 'Shortlisted Profiles',
-                          () => Get.to<void>(() => const ShortlistView())),
-                      _DrawerEntry(Icons.favorite_border_rounded, 'Manage Interests',
-                          () => Get.to<void>(() => const InterestsView())),
-                      _DrawerEntry(Icons.visibility_outlined, 'Profile Views',
-                          () => Get.to<void>(() => const ProfileViewsView())),
-                      _DrawerEntry(Icons.bookmarks_outlined, 'Saved Searches',
-                          () => Get.toNamed<void>(AppRoutes.savedSearches)),
-                      _DrawerEntry(Icons.notifications_none_rounded, 'Notifications',
-                          () => Get.to<void>(() => const NotificationsView())),
+                      _DrawerEntry(
+                        Icons.mail_outline_rounded,
+                        'Proposals / Rishtay',
+                        () => Get.to<void>(() => const ProposalsView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.bookmark_added_outlined,
+                        'Shortlisted Profiles',
+                        () => Get.to<void>(() => const ShortlistView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.favorite_border_rounded,
+                        'Manage Interests',
+                        () => Get.to<void>(() => const InterestsView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.star_border_rounded,
+                        'Profile Activity (Likes / Super Likes)',
+                        () => Get.to<void>(() => const ProfileActivityView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.visibility_outlined,
+                        'Profile Views',
+                        () => Get.to<void>(() => const ProfileViewsView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.bookmarks_outlined,
+                        'Saved Searches',
+                        () => Get.toNamed<void>(AppRoutes.savedSearches),
+                      ),
+                      _DrawerEntry(
+                        Icons.notifications_none_rounded,
+                        'Notifications',
+                        () => Get.to<void>(() => const NotificationsView()),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'FAMILY & COMMUNITY',
                     entries: <_DrawerEntry>[
-                      _DrawerEntry(Icons.family_restroom_rounded, 'Family & Wali Mode',
-                          () => Get.toNamed<void>(AppRoutes.family)),
-                      _DrawerEntry(Icons.videocam_outlined, 'Webinars',
-                          () => Get.toNamed<void>(AppRoutes.webinars)),
-                      _DrawerEntry(Icons.support_rounded, 'Expert Advice',
-                          () => Get.toNamed<void>(AppRoutes.expertQuestions)),
-                      _DrawerEntry(Icons.forum_outlined, 'Community Forums',
-                          () => Get.toNamed<void>(AppRoutes.forums)),
+                      _DrawerEntry(
+                        Icons.family_restroom_rounded,
+                        'Family & Wali Mode',
+                        () => Get.toNamed<void>(AppRoutes.family),
+                      ),
+                      _DrawerEntry(
+                        Icons.videocam_outlined,
+                        'Webinars',
+                        () => Get.toNamed<void>(AppRoutes.webinars),
+                      ),
+                      _DrawerEntry(
+                        Icons.support_rounded,
+                        'Expert Advice',
+                        () => Get.toNamed<void>(AppRoutes.expertQuestions),
+                      ),
+                      _DrawerEntry(
+                        Icons.forum_outlined,
+                        'Community Forums',
+                        () => Get.toNamed<void>(AppRoutes.forums),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   _group(
                     context,
-                    cardColor: cardColor,
-                    hairline: hairline,
                     label: 'ACCOUNT',
                     entries: <_DrawerEntry>[
-                      _DrawerEntry(Icons.edit_outlined, 'Edit Profile',
-                          () => Get.to<void>(() => const EditProfileView())),
-                      _DrawerEntry(Icons.playlist_add_check_rounded, 'Complete your profile',
-                          () => Get.toNamed<void>(AppRoutes.profileCompletion)),
-                      _DrawerEntry(Icons.verified_user_outlined, 'Verification',
-                          () => Get.to<void>(() => const AiVerificationView())),
-                      _DrawerEntry(Icons.fingerprint_rounded, 'Fingerprint Login',
-                          () => _fingerprintSettings(context)),
-                      _DrawerEntry(Icons.support_agent_rounded, 'Help Center', _helpTileTap),
-                      _DrawerEntry(Icons.logout_rounded, 'Logout', () => _confirmLogout(context)),
+                      _DrawerEntry(
+                        Icons.edit_outlined,
+                        'Edit Profile',
+                        () => Get.to<void>(() => const EditProfileView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.card_giftcard_rounded,
+                        'My Gifts',
+                        () => Get.toNamed<void>(AppRoutes.myGifts),
+                      ),
+                      _DrawerEntry(
+                        Icons.playlist_add_check_rounded,
+                        'Complete your profile',
+                        () => Get.toNamed<void>(AppRoutes.profileCompletion),
+                      ),
+                      _DrawerEntry(
+                        Icons.verified_user_outlined,
+                        'Verification',
+                        () => Get.to<void>(() => const AiVerificationView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.fingerprint_rounded,
+                        'Fingerprint Login',
+                        () => _fingerprintSettings(context),
+                      ),
+                      _DrawerEntry(
+                        Icons.lock_outline_rounded,
+                        'Change Password',
+                        () => Get.to<void>(() => const ChangePasswordView()),
+                      ),
+                      _DrawerEntry(
+                        Icons.support_agent_rounded,
+                        'Help Center',
+                        _helpTileTap,
+                      ),
+                      _DrawerEntry(
+                        Icons.logout_rounded,
+                        'Logout',
+                        () => _confirmLogout(context),
+                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  _moreRow(context, cardColor),
+                  _moreRow(context),
                 ],
               ),
             ),
@@ -373,7 +503,9 @@ class _AppDrawer extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Text(
                 '${AppStrings.appName} • v1.0.0',
-                style: AppTextStyles.caption.copyWith(color: theme.hintColor),
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.lightTextHint,
+                ),
               ),
             ),
           ],
@@ -391,11 +523,11 @@ class _AppDrawer extends StatelessWidget {
         AppSpacing.lg,
         AppSpacing.lg,
         AppSpacing.lg,
-        AppSpacing.xl,
+        AppSpacing.lg,
       ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.brandGradient,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: AppColors.regPrimaryGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -403,6 +535,14 @@ class _AppDrawer extends StatelessWidget {
           bottomLeft: Radius.circular(AppRadius.xl),
           bottomRight: Radius.circular(AppRadius.xl),
         ),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+            spreadRadius: -5,
+          ),
+        ],
       ),
       child: Obx(() {
         final String name = auth.user.value?.fullName.trim().isNotEmpty == true
@@ -413,14 +553,16 @@ class _AppDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Container(
                   padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.6), width: 2),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      width: 2,
+                    ),
                     boxShadow: <BoxShadow>[
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.15),
@@ -431,17 +573,82 @@ class _AppDrawer extends StatelessWidget {
                     ],
                   ),
                   child: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                      style: AppTextStyles.title.copyWith(color: Colors.white),
+                    radius: 27,
+                    backgroundColor: Colors.white.withValues(alpha: 0.22),
+                    // The member's own photo when there is one; the initial
+                    // only as the fallback.
+                    backgroundImage: auth.user.value?.photoUrl != null
+                        ? NetworkImage(auth.user.value!.photoUrl!)
+                        : null,
+                    child: auth.user.value?.photoUrl == null
+                        ? Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : 'H',
+                            style: AppTextStyles.displaySerif.copyWith(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.displaySerif.copyWith(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (email.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 2),
+                          Text(
+                            email,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTextStyles.caption.copyWith(
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-                const Spacer(),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: <Widget>[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -453,7 +660,11 @@ class _AppDrawer extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Icon(Icons.workspace_premium_rounded, color: Colors.white, size: 13),
+                      Icon(
+                        Icons.workspace_premium_rounded,
+                        color: Colors.white,
+                        size: 13,
+                      ),
                       SizedBox(width: 5),
                       Text(
                         'Member',
@@ -467,28 +678,55 @@ class _AppDrawer extends StatelessWidget {
                     ],
                   ),
                 ),
+                const Spacer(),
+                // Straight back to the Profile tab in the bottom bar — the
+                // drawer's own "Edit Profile" tile opens the editor instead.
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      HomeView.goToTab(3);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(AppRadius.pill),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          width: 1,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Icon(
+                            Icons.person_outline_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            'View profile',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.title.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            if (email.isNotEmpty) ...<Widget>[
-              const SizedBox(height: 2),
-              Text(
-                email,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTextStyles.caption
-                    .copyWith(color: Colors.white.withValues(alpha: 0.85)),
-              ),
-            ],
           ],
         );
       }),
@@ -499,73 +737,128 @@ class _AppDrawer extends StatelessWidget {
 
   Widget _group(
     BuildContext context, {
-    required Color cardColor,
-    required Color hairline,
     required String label,
     required List<_DrawerEntry> entries,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: AppRadius.lgAll,
-        border: Border.all(color: hairline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 2),
-            child: Text(
-              label,
-              style: AppTextStyles.caption.copyWith(
-                color: Theme.of(context).hintColor,
-                fontWeight: FontWeight.w800,
-                fontSize: 10.5,
-                letterSpacing: 1.4,
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        // Caps label above the card, in the rose the registration screens print
+        // their field labels in.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xs,
+            0,
+            AppSpacing.xs,
+            7,
+          ),
+          child: Text(
+            label,
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.lightTextHint,
+              fontWeight: FontWeight.w800,
+              fontSize: 10.5,
+              letterSpacing: 1.4,
             ),
           ),
-          for (int i = 0; i < entries.length; i++) ...<Widget>[
-            if (i > 0)
-              Divider(height: 1, thickness: 0.6, indent: 54, color: hairline),
-            _tile(context, entries[i]),
-          ],
-          const SizedBox(height: AppSpacing.xs),
-        ],
-      ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            // Warm white (not plain) + hairline rose border + soft two-layer
+            // shadow: the premium card recipe the reference drawer uses.
+            color: AppColors.cardWarmWhite,
+            borderRadius: AppRadius.xlAll,
+            border: Border.all(
+              color: AppColors.roseFieldBorder.withValues(alpha: 0.55),
+            ),
+            boxShadow: <BoxShadow>[
+              BoxShadow(
+                color: const Color(0xFFB4487B).withValues(alpha: 0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+                spreadRadius: -8,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (int i = 0; i < entries.length; i++) ...<Widget>[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 0.6,
+                    indent: 58,
+                    endIndent: 14,
+                    color: AppColors.roseFieldBorder.withValues(alpha: 0.4),
+                  ),
+                _tile(context, entries[i]),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _tile(BuildContext context, _DrawerEntry e) {
-    const Color iconColor = AppColors.primary;
+    // Logout is the one destructive row: it keeps the error tint so it never
+    // reads like the daily actions above it.
+    final bool danger = e.label == 'Logout';
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: AppRadius.mdAll,
+        borderRadius: AppRadius.lgAll,
         onTap: () {
           Navigator.of(context).pop();
           e.onTap();
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 11),
-          child: Row(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: 11,
+          ),          child: Row(
             children: <Widget>[
+              // Soft-tint icon disc — a quiet pink wash with the hot-pink
+              // glyph (enterprise drawer recipe): the gradient discs shouted
+              // next to a long menu; this keeps the brand but lets the LABELS
+              // lead the hierarchy.
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.10),
-                  borderRadius: AppRadius.smAll,
+                  shape: BoxShape.circle,
+                  color: danger
+                      ? AppColors.error.withValues(alpha: 0.10)
+                      : const Color(0xFFFFF1F4),
+                  border: Border.all(
+                    color: danger
+                        ? AppColors.error.withValues(alpha: 0.18)
+                        : const Color(0xFFFFE0E9),
+                  ),
                 ),
-                child: Icon(e.icon, color: iconColor, size: AppDimensions.iconSm + 2),
+                child: Icon(
+                  e.icon,
+                  color: danger ? AppColors.error : AppColors.primary,
+                  size: AppDimensions.iconSm,
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
                   e.label,
-                  style: AppTextStyles.bodyStrong,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    color: danger
+                        ? AppColors.error
+                        : AppColors.lightTextPrimary,
+                  ),
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: Theme.of(context).hintColor, size: 20),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.lightTextHint.withValues(alpha: 0.55),
+                size: 19,
+              ),
             ],
           ),
         ),
@@ -575,35 +868,61 @@ class _AppDrawer extends StatelessWidget {
 
   /// Session utilities tucked into one quiet row so the destructive ones stay
   /// out of the tap-path of daily actions.
-  Widget _moreRow(BuildContext context, Color cardColor) {
+  Widget _moreRow(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: cardColor.withValues(alpha: 0.6),
-        borderRadius: AppRadius.lgAll,
+        color: AppColors.lightSurface,
+        borderRadius: AppRadius.xlAll,
         border: Border.all(
-          color: (Theme.of(context).brightness == Brightness.dark
-                  ? AppColors.darkBorder
-                  : AppColors.lightDivider)
-              .withValues(alpha: 0.7),
+          color: AppColors.roseFieldBorder.withValues(alpha: 0.85),
         ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1AB4487B),
+            blurRadius: 30,
+            offset: Offset(0, 10),
+            spreadRadius: -6,
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: AppRadius.lgAll,
+          borderRadius: AppRadius.xlAll,
           onTap: () => _sessionMenu(context),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 13),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: 12,
+            ),
             child: Row(
               children: <Widget>[
-                Icon(Icons.settings_suggest_outlined,
-                    size: 20, color: Theme.of(context).hintColor),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text('Session & account settings', style: AppTextStyles.caption),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFFF1F4),
+                  ),
+                  child: const Icon(
+                    Icons.settings_suggest_outlined,
+                    size: AppDimensions.iconSm + 2,
+                    color: AppColors.primary,
+                  ),
                 ),
-                Icon(Icons.keyboard_arrow_down_rounded,
-                    size: 20, color: Theme.of(context).hintColor),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    'Session & account settings',
+                    style: AppTextStyles.bodyStrong.copyWith(
+                      color: AppColors.lightTextPrimary,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: AppColors.lightTextHint,
+                ),
               ],
             ),
           ),
@@ -614,7 +933,9 @@ class _AppDrawer extends StatelessWidget {
 
   Future<void> _sessionMenu(BuildContext context) async {
     final RenderBox box = context.findRenderObject()! as RenderBox;
-    final Offset pos = box.localToGlobal(Offset(box.size.width - 16, box.size.height - 120));
+    final Offset pos = box.localToGlobal(
+      Offset(box.size.width - 16, box.size.height - 120),
+    );
     await showMenu<String>(
       context: context,
       position: RelativeRect.fromLTRB(pos.dx, pos.dy, 16, 0),
@@ -636,7 +957,7 @@ class _AppDrawer extends StatelessWidget {
             children: <Widget>[
               Icon(Icons.no_accounts_rounded, size: 18, color: AppColors.error),
               SizedBox(width: 10),
-              Text('Deactivate account', style: TextStyle(color: AppColors.error)),
+              Text('Delete Account', style: TextStyle(color: AppColors.error)),
             ],
           ),
         ),
@@ -649,14 +970,26 @@ class _AppDrawer extends StatelessWidget {
 
   // ---- Actions --------------------------------------------------------------
 
-  void _helpTileTap() => HelpChatView.open();
+  void _helpTileTap() {
+    // Signed-in members get the live Help Center chat; a visitor without a
+    // session gets the guest form (name / email / description).
+    if (Get.isRegistered<CurrentUserService>() &&
+        Get.find<CurrentUserService>().hasUser) {
+      HelpChatView.open();
+    } else {
+      GuestHelpView.open();
+    }
+  }
 
   /// Turn fingerprint login ON from the drawer.
   ///
   /// The password is never kept in memory between sessions, so the member
   /// confirms it once here: enter password → live fingerprint scan proves the
   /// phone's owner → credentials are saved for future fingerprint logins.
-  Future<void> _enableFingerprintFlow(BuildContext sheetCtx, BiometricAuthService bio) async {
+  Future<void> _enableFingerprintFlow(
+    BuildContext sheetCtx,
+    BiometricAuthService bio,
+  ) async {
     // No TextEditingController: the dialog's exit animation can still be
     // running when the awaited future resolves, and the field inside reads
     // its controller during that window. Disposing right after the await
@@ -678,8 +1011,12 @@ class _AppDrawer extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                email.isEmpty ? 'Signed in without an email — use the login screen instead.' : email,
-                style: AppTextStyles.caption.copyWith(color: Theme.of(dlgCtx).hintColor),
+                email.isEmpty
+                    ? 'Signed in without an email — use the login screen instead.'
+                    : email,
+                style: AppTextStyles.caption.copyWith(
+                  color: Theme.of(dlgCtx).hintColor,
+                ),
               ),
               const SizedBox(height: AppSpacing.md),
               TextFormField(
@@ -687,8 +1024,9 @@ class _AppDrawer extends StatelessWidget {
                 autofillHints: const <String>[AutofillHints.password],
                 textInputAction: TextInputAction.done,
                 onChanged: (String v) => typedPassword = v,
-                validator: (String? v) =>
-                    (v == null || v.isEmpty) ? 'Enter your current password' : null,
+                validator: (String? v) => (v == null || v.isEmpty)
+                    ? 'Enter your current password'
+                    : null,
                 decoration: const InputDecoration(
                   labelText: 'Current password',
                   prefixIcon: Icon(Icons.lock_outline_rounded),
@@ -698,9 +1036,15 @@ class _AppDrawer extends StatelessWidget {
           ),
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(dlgCtx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.pop(dlgCtx, formKey.currentState?.validate() ?? false),
+            onPressed: () => Navigator.pop(
+              dlgCtx,
+              formKey.currentState?.validate() ?? false,
+            ),
             child: const Text('Continue'),
           ),
         ],
@@ -738,7 +1082,12 @@ class _AppDrawer extends StatelessWidget {
       showDragHandle: true,
       builder: (BuildContext ctx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,14 +1098,20 @@ class _AppDrawer extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.primary.withValues(alpha: 0.10),
+                      color: AppColors.regAccent.withValues(alpha: 0.12),
                     ),
-                    child: const Icon(Icons.fingerprint_rounded,
-                        color: AppColors.primary, size: 26),
+                    child: const Icon(
+                      Icons.fingerprint_rounded,
+                      color: AppColors.regAccent,
+                      size: 26,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
-                    child: Text('Fingerprint Login', style: AppTextStyles.title),
+                    child: Text(
+                      'Fingerprint Login',
+                      style: AppTextStyles.title,
+                    ),
                   ),
                 ],
               ),
@@ -764,14 +1119,20 @@ class _AppDrawer extends StatelessWidget {
               if (!canUse)
                 Text(
                   'This device has no fingerprint scanner set up. Add a fingerprint in your phone\'s security settings first.',
-                  style: AppTextStyles.body.copyWith(color: Theme.of(ctx).hintColor, height: 1.45),
+                  style: AppTextStyles.body.copyWith(
+                    color: Theme.of(ctx).hintColor,
+                    height: 1.45,
+                  ),
                 )
               else ...<Widget>[
                 Text(
                   enabled
                       ? 'Fingerprint login is ON. After logging out you can sign back in with your fingerprint.'
                       : 'Turn on to sign back in with your fingerprint after logging out.',
-                  style: AppTextStyles.body.copyWith(color: Theme.of(ctx).hintColor, height: 1.45),
+                  style: AppTextStyles.body.copyWith(
+                    color: Theme.of(ctx).hintColor,
+                    height: 1.45,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (!enabled)
@@ -805,14 +1166,23 @@ class _AppDrawer extends StatelessWidget {
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
-    if (await _confirm(context, 'Logout', 'Are you sure you want to log out?', 'Logout')) {
+    if (await _confirm(
+      context,
+      'Logout',
+      'Are you sure you want to log out?',
+      'Logout',
+    )) {
       await auth.logout();
     }
   }
 
   Future<void> _confirmLogoutAll(BuildContext context) async {
     if (await _confirm(
-        context, 'Logout all devices', 'This signs you out on every device.', 'Logout all')) {
+      context,
+      'Logout all devices',
+      'This signs you out on every device.',
+      'Logout all',
+    )) {
       await auth.logoutAllDevices();
     }
   }
@@ -820,27 +1190,37 @@ class _AppDrawer extends StatelessWidget {
   Future<void> _confirmDeactivate(BuildContext context) async {
     if (await _confirm(
       context,
-      'Deactivate account',
-      'Your profile will be deactivated and hidden. You can reactivate by contacting support. Continue?',
-      'Deactivate',
+      'Delete Account',
+      'Your account will be deleted and your personal data removed: profile, photos, chats, gifts and wallet are erased permanently. This cannot be undone. Continue?',
+      'Delete',
       danger: true,
     )) {
       await auth.deactivateAccount();
     }
   }
 
-  Future<bool> _confirm(BuildContext context, String title, String message, String confirmLabel,
-      {bool danger = false}) async {
+  Future<bool> _confirm(
+    BuildContext context,
+    String title,
+    String message,
+    String confirmLabel, {
+    bool danger = false,
+  }) async {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext ctx) => AlertDialog(
         title: Text(title),
         content: Text(message),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text(AppStrings.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(AppStrings.cancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: danger ? AppColors.error : AppColors.primary),
+            style: TextButton.styleFrom(
+              foregroundColor: danger ? AppColors.error : AppColors.regAccent,
+            ),
             child: Text(confirmLabel),
           ),
         ],

@@ -50,7 +50,6 @@ class Step16Controller extends StepController {
     if (count == null) return null;
     return LookupItem(id: count, name: SiblingOptions.labelFor(count));
   }
-
 }
 
 class Step16View extends StatefulWidget {
@@ -106,7 +105,7 @@ class _Step16ViewState extends State<Step16View> {
             onChanged: (String? v) => c.fatherOccupation.value = v,
           ),
         ),
-       const SizedBox(height: 8),
+        const SizedBox(height: 8),
         Obx(
           () => AppStringPicker(
             icon: Icons.work_rounded,
@@ -119,7 +118,7 @@ class _Step16ViewState extends State<Step16View> {
             onChanged: (String? v) => c.motherOccupation.value = v,
           ),
         ),
-       const SizedBox(height: 8),
+        const SizedBox(height: 8),
         Obx(
           () => AppLookupDropdown(
             icon: Icons.groups_rounded,

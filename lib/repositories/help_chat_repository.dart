@@ -14,6 +14,10 @@ class HelpChatRepository {
 
   /// `GET /help-chat/thread` — the member's conversation, created on first
   /// use. Opening it also clears the unread count server-side.
+  ///
+  /// Carries the ticket-lock state (`locked`, `responseDeadline`): after an
+  /// admin reply the member has a short window to answer before the server
+  /// locks the ticket.
   Future<HelpChatThread> fetchThread() async {
     final ApiEnvelope res = await _client.get(ApiEndpoints.helpChatThread);
     return HelpChatThread.fromJson(res.dataMap);
@@ -56,5 +60,61 @@ class HelpChatRepository {
       );
     }
     return HelpChatMessage.fromJson(res.dataMap);
+  }
+
+  /// `POST /help-chat/new` — "Start New chat" after a locked ticket.
+  ///
+  /// Opens a fresh conversation; when [message] / attachments ride along they
+  /// become the first message of the new thread. Returns the new thread (and
+  /// the first message when one was sent).
+  Future<(HelpChatThread, HelpChatMessage?)> startNewChat({
+    String message = '',
+    List<String> attachmentPaths = const <String>[],
+  }) async {
+    final ApiEnvelope res;
+    final bool hasText = message.trim().isNotEmpty;
+    if (attachmentPaths.isNotEmpty || hasText) {
+      res = await _client.multipart(
+        ApiEndpoints.helpChatNew,
+        fields: <String, dynamic>{
+          if (hasText) 'message': message,
+        },
+        arrayFiles: attachmentPaths.isNotEmpty
+            ? <String, List<String>>{
+                'attachments': attachmentPaths,
+              }
+            : const <String, List<String>>{},
+      );
+    } else {
+      res = await _client.post(ApiEndpoints.helpChatNew);
+    }
+
+    final HelpChatThread thread = HelpChatThread.fromJson(
+      (res.dataMap['thread'] as Map<String, dynamic>?) ?? res.dataMap,
+    );
+    final dynamic rawMessage = res.dataMap['message'];
+    final HelpChatMessage? first = rawMessage is Map<String, dynamic>
+        ? HelpChatMessage.fromJson(rawMessage)
+        : null;
+    return (thread, first);
+  }
+
+  /// `POST /public/help` — the guest (pre-login) Help Center form:
+  /// name, email and a description. No token needed.
+  Future<void> submitGuestHelp({
+    required String name,
+    required String email,
+    required String description,
+  }) async {
+    await _client.post(
+      ApiEndpoints.publicHelp,
+      body: <String, dynamic>{
+        'name': name,
+        'email': email,
+        'description': description,
+      },
+      // Public endpoint: sent without the bearer token.
+      authenticated: false,
+    );
   }
 }

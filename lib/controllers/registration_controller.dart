@@ -307,6 +307,7 @@ class RegistrationController extends GetxController {
   /// [email] overrides the buffered address (used when the user switches to a
   /// different one on the verification screen).
   Future<String> requestEmailOtp({String? email}) async {
+    await ensureRegistrationSession();
     final ApiEnvelope res = await registrationRepository.requestRegistrationOtp(
       email: (email == null || email.isEmpty) ? registrationEmail : email,
     );
@@ -329,6 +330,37 @@ class RegistrationController extends GetxController {
     buffer.awaitingEmailOtp = false;
     await authController.refreshUser();
     return res.message;
+  }
+
+  /// The account was created but this device no longer holds its token (the
+  /// app was restarted, or a 401 elsewhere cleared the session). Every OTP call
+  /// would answer "Unauthenticated.", so sign back in with the email and
+  /// password still held in memory from this signup.
+  Future<void> ensureRegistrationSession() async {
+    if (authController.hasToken) return;
+    final String? email = registrationEmail;
+    final String? password = buffer.getString('password');
+    if (email == null || email.isEmpty || password == null || password.isEmpty) {
+      throw ApiException(
+        'Your account was already created. Please log in with $email and your '
+        'password to verify your email.',
+      );
+    }
+    try {
+      final AuthResponseModel auth = await authRepository.loginWithEmail(
+        email: email,
+        password: password,
+        deviceName: 'flutter-app',
+      );
+      if (!auth.hasToken) throw ApiException('Could not restore your session.');
+      await authController.persistSession(auth);
+      buffer.accountCreated = true;
+    } on AppException catch (e) {
+      throw ApiException(
+        'Your account was already created, but we could not sign you back in '
+        '(${e.message}). Please log in to verify your email.',
+      );
+    }
   }
 
   /// The address the OTP is sent to — the one captured on the contact step.
@@ -543,7 +575,29 @@ class RegistrationController extends GetxController {
   /// be on the stack (the failure now surfaces from the finalizing screen).
   void goToContactStep() {
     currentStep.value = 5;
-    Get.offNamed<void>(AppRoutes.contact);
+    buffer.lastStep = 5;
+    // The contact step is normally still underneath. Pushing a second copy put
+    // two screens on one Step05Controller — same form GlobalKey, same text
+    // controllers — which is the "Duplicate GlobalKey" and "TextEditingController
+    // used after being disposed" crash. Pop back to it instead.
+    bool found = false;
+    Get.until((Route<dynamic> r) {
+      if (r.settings.name == AppRoutes.contact) found = true;
+      return found || r.isFirst;
+    });
+    if (!found) Get.offNamed<void>(AppRoutes.contact);
+  }
+
+  /// "X" on the signup header: forgets everything entered so far (and any
+  /// half-finished account session on this device) and returns to login.
+  Future<void> discardRegistration() async {
+    // A session that exists only because register/complete ran but the email
+    // was never verified belongs to this abandoned signup.
+    if (authController.hasToken && !buffer.registrationDone) {
+      await authController.handleUnauthorizedSilently();
+    }
+    await resetForNewAccount();
+    Get.offAllNamed(AppRoutes.login);
   }
 
   // ---- Status / resume / finish ---------------------------------------------
@@ -574,8 +628,12 @@ class RegistrationController extends GetxController {
   ///  * the cached user is fetched when the login response carried none, so
   ///    there is a `registration_completed` verdict to read — without it an
   ///    abandoned local draft wins again;
-  ///  * a draft whose email is not the signed-in member's is discarded — those
-  ///    answers belong to a signup this session is not continuing.
+  ///  * a draft that must not resume is discarded, whatever email it carries
+  ///    (see [_dropOutrankedDraft]). Matching the draft's email against the
+  ///    signed-in member's was never enough: a member who backs out of signup
+  ///    with their OWN address typed in leaves a same-email draft behind, and
+  ///    logging in with that finished account used to reopen the abandoned
+  ///    steps.
   Future<void> resumeAfterLogin() async {
     if (!authController.hasToken) {
       Get.offAllNamed(AppRoutes.login);
@@ -584,15 +642,46 @@ class RegistrationController extends GetxController {
     if (_serverRegistrationComplete == null) {
       await authController.refreshUser();
     }
-    await _dropForeignDraft();
+    await _dropOutrankedDraft();
     await resume();
   }
 
-  /// Throws away a draft that belongs to a different email than the session
-  /// just opened. Same email (or nothing typed yet) → the draft is this
-  /// member's own and [resume] continues it.
-  Future<void> _dropForeignDraft() async {
+  /// Throws away a local draft that must not resume on the login path.
+  ///
+  /// Three independent reasons a draft is dead the moment a login succeeds:
+  ///
+  ///  * the server calls the signed-in account fully registered — that verdict
+  ///    outranks ANY draft, whatever email it carries;
+  ///  * the draft never reached `register/complete`. A successful login proves
+  ///    the account already exists on the server, and the ONLY place the signup
+  ///    flow creates one is the final `POST /auth/register/complete`, which
+  ///    stamps [RegistrationBuffer.accountCreated] in the same breath as the
+  ///    token. So a session plus a draft still in progress has no way to be the
+  ///    signup we just signed into — it is leftover from an abandoned one;
+  ///  * the draft's email is not the signed-in member's at all.
+  ///
+  /// The second rule is why this cannot lean on `registration_completed` alone:
+  /// the live API answers `false` for members who are demonstrably established
+  /// (chats, gifts, proposals), so trusting that flag dropped them straight back
+  /// into their abandoned steps. Likewise [RegistrationBuffer.hasDraftInProgress]
+  /// is exactly `!accountCreated && !awaitingEmailOtp && !registrationDone` with
+  /// steps on it, so it matches precisely the drafts this rule must kill.
+  ///
+  /// Runs BEFORE [resume]'s own branches, so by the time [resume] falls through
+  /// to `hasDraftInProgress` there is nothing left for it to route into.
+  Future<void> _dropOutrankedDraft() async {
     if (buffer.registrationDone) return; // this device already finished it
+    if (_serverRegistrationComplete == true) {
+      AppLogger.i('Signed-in account is fully registered — local draft discarded.');
+      await buffer.clear();
+      return;
+    }
+    if (buffer.hasDraftInProgress) {
+      AppLogger.i(
+          'Local signup draft never reached the server — discarded on login.');
+      await buffer.clear();
+      return;
+    }
     final String draft =
         (buffer.getString('email') ?? '').trim().toLowerCase();
     final String signedIn =

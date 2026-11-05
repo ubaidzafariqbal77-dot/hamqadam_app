@@ -99,14 +99,16 @@ class _Step12ViewState extends State<Step12View> {
       title: 'Upload photos',
       art: RegIcons.step12Photos,
       artIcon: Icons.photo_camera_outlined,
-      subtitle: 'You need to upload at least 3 photos to continue. '
+      subtitle:
+          'You need to upload at least 3 photos to continue. '
           'You can change them later.',
       busy: c.busy,
       error: c.error,
       primaryLabel: 'Add photos',
       onPrimary: c.submit,
       onBack: c.back,
-      helpText: 'Use clear, recent photos of yourself. Avoid group photos for '
+      helpText:
+          'Use clear, recent photos of yourself. Avoid group photos for '
           'your main picture.',
       children: <Widget>[
         Obx(
@@ -167,13 +169,32 @@ class _PhotoCell extends StatelessWidget {
         onTap: disabled ? null : onTap,
         child: Stack(
           children: <Widget>[
-            DottedContainer(hasMedia: hasMedia, child: hasMedia ? Image.file(File(media!.path), fit: BoxFit.cover, width: double.infinity, height: double.infinity) : const Center(child: Icon(Icons.add_rounded, size: 30, color: AppColors.regAccent))),
+            DottedContainer(
+              hasMedia: hasMedia,
+              child: hasMedia
+                  ? Image.file(
+                      File(media!.path),
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                    )
+                  : const Center(
+                      child: Icon(
+                        Icons.add_rounded,
+                        size: 30,
+                        color: AppColors.regAccent,
+                      ),
+                    ),
+            ),
             if (isMain)
               Positioned(
                 left: 0,
                 bottom: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
                   decoration: const BoxDecoration(
                     // Brand pink either way: on a photo the badge used to go
                     // black, the one non-rose chip in the whole flow.
@@ -204,7 +225,11 @@ class _PhotoCell extends StatelessWidget {
                     onTap: onRemove,
                     child: const Padding(
                       padding: EdgeInsets.all(4),
-                      child: Icon(Icons.close_rounded, color: Colors.white, size: 16),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                     ),
                   ),
                 ),
@@ -217,7 +242,11 @@ class _PhotoCell extends StatelessWidget {
 }
 
 class DottedContainer extends StatelessWidget {
-  const DottedContainer({super.key, required this.child, this.hasMedia = false});
+  const DottedContainer({
+    super.key,
+    required this.child,
+    this.hasMedia = false,
+  });
   final Widget child;
   final bool hasMedia;
 

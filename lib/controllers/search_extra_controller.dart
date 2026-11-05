@@ -17,6 +17,12 @@ class SearchExtraController extends GetxController {
   final RxList<Map<String, dynamic>> searchHistory = <Map<String, dynamic>>[].obs;
   final RxBool loading = false.obs;
 
+  /// History pagination — the server pages at 20 rows and the member's full
+  /// search history should be reachable, not just the first page.
+  final RxBool loadingMoreHistory = false.obs;
+  int _historyPage = 1;
+  bool _historyHasMore = false;
+
   /// Profiles this account has opened, newest first (`GET /profile-views`).
   final RxList<ViewedProfile> recentlyViewed = <ViewedProfile>[].obs;
   final RxBool loadingRecentlyViewed = false.obs;
@@ -37,8 +43,39 @@ class SearchExtraController extends GetxController {
 
   Future<void> loadHistory() async {
     try {
-      searchHistory.assignAll(await _repo.fetchHistory());
+      final ({List<Map<String, dynamic>> items, int page, bool hasMore}) res =
+          await _repo.fetchHistoryPaged(page: 1);
+      searchHistory.assignAll(res.items);
+      _historyPage = res.page;
+      _historyHasMore = res.hasMore;
     } catch (_) {}
+  }
+
+  /// Appends the next page of history. No-op while a page is already in
+  /// flight or the server says this was the last one.
+  Future<void> loadMoreHistory() async {
+    if (!_historyHasMore || loadingMoreHistory.value) {
+      return;
+    }
+    loadingMoreHistory.value = true;
+    try {
+      final ({List<Map<String, dynamic>> items, int page, bool hasMore}) res =
+          await _repo.fetchHistoryPaged(page: _historyPage + 1);
+      // De-dup on id: a re-apply during the fetch could have reloaded page 1.
+      final Set<int> seen = searchHistory
+          .map((Map<String, dynamic> e) => (e['id'] as num?)?.toInt() ?? 0)
+          .toSet();
+      searchHistory.addAll(
+        res.items.where((Map<String, dynamic> e) =>
+            !seen.contains((e['id'] as num?)?.toInt() ?? 0)),
+      );
+      _historyPage = res.page;
+      _historyHasMore = res.hasMore;
+    } catch (_) {
+      // A failed page load keeps what is on screen.
+    } finally {
+      loadingMoreHistory.value = false;
+    }
   }
 
   /// `DELETE /search/history` — the list is emptied here first so the screen
@@ -49,6 +86,8 @@ class SearchExtraController extends GetxController {
     try {
       final int deleted = await _discover.clearSearchHistory();
       searchHistory.clear();
+      _historyPage = 1;
+      _historyHasMore = false;
       AppSnackbar.success(deleted == 0
           ? 'Your search history is already empty.'
           : 'Search history cleared.');
@@ -69,6 +108,9 @@ class SearchExtraController extends GetxController {
       AppSnackbar.error('Could not remove that search: $e');
     }
   }
+
+  /// True while the server still has older history pages to load.
+  bool get searchHistoryHasMore => _historyHasMore;
 
   /// Recently viewed profiles (`GET /profile-views`).
   Future<void> loadRecentlyViewed() async {

@@ -44,6 +44,7 @@ import '../../features/discover/views/saved_searches_view.dart';
 import '../../features/discover/views/search_history_view.dart';
 import '../../features/discover/views/swipe_matching_view.dart';
 import '../../features/family/views/family_view.dart';
+import '../../features/gifts/views/my_gifts_view.dart';
 import 'app_routes.dart';
 
 /// GetX page table. Controllers are created/disposed by their own views
@@ -114,6 +115,10 @@ class AppPages {
     _page(AppRoutes.expressInterests, () => const InterestsView()),
     _page(AppRoutes.partnerPreferencesEdit, () => const PartnerPreferencesView()),
     _page(AppRoutes.family, () => const FamilyView()),
+
+    // Gift module. Gift detail opens via Get.to with the transaction id
+    // (no route-table entry needed — it needs a constructor argument).
+    _page(AppRoutes.myGifts, () => const MyGiftsView()),
     _page(AppRoutes.webinars, () => const WebinarsView()),
     _page(AppRoutes.expertQuestions, () => const ExpertQuestionsView()),
     _page(AppRoutes.forums, () => const ForumsView()),

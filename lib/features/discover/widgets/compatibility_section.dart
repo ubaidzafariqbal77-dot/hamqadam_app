@@ -88,10 +88,35 @@ class _CompatibilityCard extends StatelessWidget {
   }
 
   String get _levelLabel {
+    // The QA reference's five tiers — exact wording, per band.
     if (_shownPercentage >= 80) return 'Very high compatibility';
     if (_shownPercentage >= 60) return 'High compatibility';
     if (_shownPercentage >= 40) return 'Moderate compatibility';
-    return 'Low compatibility';
+    if (_shownPercentage >= 20) return 'Low compatibility';
+    return 'Very low compatibility';
+  }
+
+  /// The "AI Compatibility Summary:" block's lines — the client's format
+  /// wants the summary as separate sentences, one per line, not a paragraph.
+  ///
+  /// Prefer the backend's own reasons list (already sentence-shaped); when a
+  /// source sends none, fall back to the softened explanation split on
+  /// sentence ends so the block never draws as one long paragraph.
+  List<String> get summaryLines {
+    final List<String> reasons = data.reasons
+        .map((String r) => r.trim())
+        .where((String r) => r.isNotEmpty)
+        .toList(growable: false);
+    if (reasons.isNotEmpty) return reasons.take(5).toList(growable: false);
+
+    final String? explained = data.displayExplanation?.trim();
+    if (explained == null || explained.isEmpty) return const <String>[];
+    return explained
+        .split(RegExp(r'(?<=[.!?])\s+'))
+        .map((String s) => s.trim())
+        .where((String s) => s.isNotEmpty)
+        .take(5)
+        .toList(growable: false);
   }
 
   @override
@@ -187,17 +212,38 @@ class _CompatibilityCard extends StatelessWidget {
             ),
           ),
 
-          // ---- The model's own explanation -----------------------------
-          if (data.explanation != null && data.explanation!.trim().isNotEmpty) ...<Widget>[
+          // ---- "AI Compatibility Summary:" — the client's exact
+          // heading, followed by the summary sentences one per line -------
+          if (summaryLines.isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             Padding(
               padding: const EdgeInsets.only(left: 14),
               child: Text(
-                data.explanation!.trim(),
-                style: AppTextStyles.caption.copyWith(
-                  height: 1.5,
-                  color: AppColors.lightInputText,
+                'AI Compatibility Summary:',
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.lightTextPrimary,
                 ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  for (final String line in summaryLines)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Text(
+                        line,
+                        style: AppTextStyles.caption.copyWith(
+                          height: 1.5,
+                          color: AppColors.lightInputText,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ],
@@ -242,9 +288,17 @@ class _CompatibilityCard extends StatelessWidget {
   }
 }
 
-/// One line of the "Why?" checklist: ✓ for a satisfied criterion, ⚠ for one
-/// that did not line up. Tap shows the model's own sentence for that criterion
-/// when it has one — far more specific than the label alone.
+/// One line of the "Why?" checklist, in the reference format:
+///
+///   ✓ Similar marriage timeline
+///   ✓ Same city preference
+///   ⚠ Different relocation preference
+///
+/// The point text comes straight from the backend — the model's own sentence
+/// ("Religion matches: Islam") or the rule-based scorer's human line ("Same
+/// religion preference"). A satisfied criterion shows a green check; one that
+/// did not line up shows an amber warning triangle with ITS reason, so the
+/// "Different relocation preference" point reads exactly like the reference.
 class _WhyRow extends StatelessWidget {
   const _WhyRow({required this.criterion, required this.met});
 
@@ -254,6 +308,18 @@ class _WhyRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Color color = met ? AppColors.success : Colors.orange;
+
+    // The POINT text: for an unmet criterion the model's reason is the
+    // honest sentence ("Profession does not match preference: Teacher") —
+    // much more useful than repeating the criterion's name. For a met one
+    // the label already reads like the reference ("Religion"), and the
+    // reason adds detail on tap.
+    final String point = met
+        ? criterion.label
+        : (criterion.reason?.trim().isNotEmpty ?? false)
+            ? _shorten(criterion.reason!.trim())
+            : criterion.label;
+
     final Widget row = Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: Row(
@@ -270,7 +336,7 @@ class _WhyRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              criterion.label,
+              point,
               style: AppTextStyles.caption.copyWith(
                 fontSize: 13.5,
                 height: 1.4,
@@ -282,14 +348,27 @@ class _WhyRow extends StatelessWidget {
       ),
     );
 
-    final String? reason = criterion.reason;
-    if (reason == null || reason.trim().isEmpty) return row;
+    // For met criteria the detail sentence rides on a tap tooltip.
+    final String? reason = met ? criterion.reason : null;
+    if (reason == null || reason.trim().isEmpty || reason.trim() == point) {
+      return row;
+    }
     return Tooltip(
       message: reason,
       triggerMode: TooltipTriggerMode.tap,
       showDuration: const Duration(seconds: 4),
       child: row,
     );
+  }
+
+  /// Backend reasons arrive as full sentences; the "Why?" list wants tight
+  /// points. Drops the trailing period and keeps it to one readable line.
+  static String _shorten(String reason) {
+    String s = reason.endsWith('.') ? reason.substring(0, reason.length - 1) : reason;
+    // "Profession does not match preference: Teacher" → "Profession does not
+    // match preference: Teacher" — already fine. Only collapse excessive
+    // whitespace; the sentence itself is the information.
+    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 }
 

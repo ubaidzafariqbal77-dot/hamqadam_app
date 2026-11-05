@@ -22,10 +22,21 @@ class NotificationController extends GetxController {
   final RxBool isLoadingMore = false.obs;
   final RxInt unreadCount = 0.obs;
 
+  /// Which feed the notifications screen is showing. `false` = All (activity
+  /// feed, server-side), `true` = Unread (server-side `unread_only=1`).
+  final RxBool showUnreadOnly = false.obs;
+
+  /// Rows already known read on the server in this session. Keeps a mark-read
+  /// answer from an Unread feed consistent with the All feed without refetching.
+  final Set<int> _readIds = <int>{};
+
   dynamic _pushTokenRecordId;
 
   int _currentPage = 1;
   int _lastPage = 1;
+
+  int _unreadPage = 1;
+  int _unreadLastPage = 1;
 
   /// Notification rows already announced in the tray.
   ///
@@ -135,8 +146,12 @@ class NotificationController extends GetxController {
   void reset() {
     notifications.clear();
     unreadCount.value = 0;
+    showUnreadOnly.value = false;
+    _readIds.clear();
     _currentPage = 1;
     _lastPage = 1;
+    _unreadPage = 1;
+    _unreadLastPage = 1;
     _pushTokenRecordId = null;
     _seen.clear();
     _seenLoaded = false;
@@ -173,11 +188,16 @@ class NotificationController extends GetxController {
   Future<void> deletePushToken() async {
     if (_pushTokenRecordId == null) return;
     try {
-      await _repository.deletePushToken(_pushTokenRecordId);
-      _pushTokenRecordId = null;
+      await _repository
+          .deletePushToken(_pushTokenRecordId)
+          .timeout(const Duration(seconds: 5));
       AppLogger.i('FCM Push Token deleted from backend successfully');
     } catch (e) {
       AppLogger.w('Failed to delete push token from backend: $e');
+    } finally {
+      // Never retried: after sign-out the session is gone, so a second attempt
+      // could only fail slowly.
+      _pushTokenRecordId = null;
     }
   }
 
@@ -292,32 +312,71 @@ class NotificationController extends GetxController {
     if (t.contains('profile_view') || t.contains('view')) return 'Someone viewed your profile';
     if (t.contains('coin') || t.contains('payment')) return 'Coin activity on your account';
     if (t.contains('call')) return 'Missed call';
+    if (t.contains('match')) return 'A new match or suggestion';
+    if (t.contains('reward') || t.contains('achievement')) return 'A reward or achievement unlocked';
+    if (t.contains('referral')) return 'A referral update';
+    if (t.contains('verification') || t.contains('identity')) return 'Verification update';
+    if (t.contains('support') || t.contains('ticket')) return 'Support update';
+    if (t.contains('family') || t.contains('guardian')) return 'Family update';
+    if (t.contains('security') || t.contains('login') || t.contains('device')) return 'Security alert';
     return 'You have a new notification';
   }
 
   // ── Fetch / Pagination ──────────────────────────────────────────────────
 
+  /// Switches the notifications screen between the All and Unread feeds.
+  /// Each feed keeps its own pagination cursor; switching always refetches
+  /// page 1 so a stale mix of the two never shows.
+  void setUnreadOnly(bool value) {
+    if (showUnreadOnly.value == value) return;
+    showUnreadOnly.value = value;
+    fetchNotifications(refresh: true);
+  }
+
+  /// Whether more pages remain for the feed currently on screen.
+  bool get hasMorePages =>
+      showUnreadOnly.value ? _unreadPage <= _unreadLastPage : _currentPage <= _lastPage;
+
   Future<void> fetchNotifications({bool refresh = false}) async {
     if (!_hasToken) return;
 
+    final bool unreadOnly = showUnreadOnly.value;
+
     if (refresh) {
-      _currentPage = 1;
+      if (unreadOnly) {
+        _unreadPage = 1;
+      } else {
+        _currentPage = 1;
+      }
       isLoading.value = true;
     } else {
-      if (_currentPage > _lastPage) return;
-      isLoadingMore.value = true;
+      if (unreadOnly) {
+        if (_unreadPage > _unreadLastPage) return;
+        isLoadingMore.value = true;
+      } else {
+        if (_currentPage > _lastPage) return;
+        isLoadingMore.value = true;
+      }
     }
 
     try {
-      final pageData = await _repository.getNotifications(page: _currentPage);
+      final int page = unreadOnly ? _unreadPage : _currentPage;
+      final pageData = await _repository.getNotifications(page: page, unreadOnly: unreadOnly);
       if (refresh) {
         notifications.assignAll(pageData.notifications);
       } else {
         notifications.addAll(pageData.notifications);
       }
-      unreadCount.value = pageData.unreadCount;
-      _lastPage = pageData.lastPage;
-      _currentPage++;
+      if (pageData.unreadCount > 0 || !unreadOnly) {
+        unreadCount.value = pageData.unreadCount;
+      }
+      if (unreadOnly) {
+        _unreadLastPage = pageData.lastPage;
+        _unreadPage++;
+      } else {
+        _lastPage = pageData.lastPage;
+        _currentPage++;
+      }
     } catch (e) {
       AppLogger.w('Failed to fetch notifications: $e');
     } finally {
@@ -326,56 +385,86 @@ class NotificationController extends GetxController {
     }
   }
 
+  /// Marks everything read on the server, then refreshes whatever feed is on
+  /// screen so the list shows the server's truth. The refresh happens even if
+  /// the current feed is All — rows the member has already scrolled past keep
+  /// their old state otherwise.
   Future<void> markAllAsRead() async {
     try {
-      final success = await _repository.markAllAsRead();
-      if (success) {
-        for (var i = 0; i < notifications.length; i++) {
-          notifications[i] = NotificationModel(
-            id: notifications[i].id,
-            type: notifications[i].type,
-            title: notifications[i].title,
-            message: notifications[i].message,
-            deepLink: notifications[i].deepLink,
-            notifyBy: notifications[i].notifyBy,
-            infoId: notifications[i].infoId,
-            payload: notifications[i].payload,
-            readAt: DateTime.now(),
-            createdAt: notifications[i].createdAt,
-          );
-        }
-        unreadCount.value = 0;
+      final bool success = await _repository.markAllAsRead();
+      if (!success) {
+        Get.snackbar('Error', 'Could not mark notifications as read. Please try again.');
+        return;
       }
+      unreadCount.value = 0;
+      final List<int> nowRead = notifications
+          .where((NotificationModel n) => !n.isRead)
+          .map((NotificationModel n) => n.id)
+          .toList();
+      _readIds.addAll(nowRead);
+      notifications.assignAll(
+        notifications
+            .map((NotificationModel n) => n.copyWith(readAt: n.readAt ?? DateTime.now()))
+            .toList(),
+      );
+      await fetchNotifications(refresh: true);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to mark all as read');
+      AppLogger.w('markAllAsRead failed: $e');
+      Get.snackbar('Error', 'Could not mark notifications as read. Please try again.');
     }
   }
 
-  Future<void> markAsRead(int id) async {
+  /// Marks a single notification read on the server. The UI flips immediately
+  /// (optimistic) and is corrected by the server's row + unread count when
+  /// they arrive.
+  Future<void> markAsRead(int id, {bool silent = false}) async {
+    final int index = notifications.indexWhere((NotificationModel element) => element.id == id);
+    final bool alreadyRead = (index != -1 && notifications[index].isRead) || _readIds.contains(id);
+    final NotificationModel? original = index != -1 ? notifications[index] : null;
+
+    if (!alreadyRead) {
+      _readIds.add(id);
+      if (index != -1) {
+        notifications[index] = notifications[index].copyWith(readAt: DateTime.now());
+      }
+      if (unreadCount.value > 0) unreadCount.value--;
+    }
+
     try {
-      final index = notifications.indexWhere((element) => element.id == id);
-      if (index != -1 && !notifications[index].isRead) {
-        final success = await _repository.markAsRead(id);
-        if (success) {
-          notifications[index] = NotificationModel(
-            id: notifications[index].id,
-            type: notifications[index].type,
-            title: notifications[index].title,
-            message: notifications[index].message,
-            deepLink: notifications[index].deepLink,
-            notifyBy: notifications[index].notifyBy,
-            infoId: notifications[index].infoId,
-            payload: notifications[index].payload,
-            readAt: DateTime.now(),
-            createdAt: notifications[index].createdAt,
-          );
-          if (unreadCount.value > 0) {
-            unreadCount.value--;
-          }
-        }
+      final MarkReadResult result = await _repository.markAsRead(id);
+      if (result.unreadCount > 0 || (result.notification?.isRead ?? false)) {
+        unreadCount.value = result.unreadCount;
+      }
+      final int fresh = notifications.indexWhere((NotificationModel element) => element.id == id);
+      if (fresh != -1 && !notifications[fresh].isRead) {
+        notifications[fresh] = notifications[fresh].copyWith(
+          readAt: result.notification?.readAt ?? DateTime.now(),
+        );
       }
     } catch (e) {
-      // Background operation, silently fail
+      // Roll the optimistic flip back so the badge and dots stay honest.
+      if (!alreadyRead) {
+        _readIds.remove(id);
+        final int idx = notifications.indexWhere((NotificationModel element) => element.id == id);
+        if (idx != -1 && original != null) notifications[idx] = original;
+        unreadCount.value++;
+      }
+      if (!silent) {
+        Get.snackbar('Error', 'Could not mark notification as read. Please try again.');
+      }
+    }
+  }
+
+  /// Records that the member tapped this notification (`POST /notifications/{id}/click`).
+  ///
+  /// Telemetry only: it does not mark the row read. The UI still calls [markAsRead]
+  /// when it actually opens the row, so the backend can distinguish a visible read
+  /// from a tray tap that the member never looked at.
+  Future<void> recordClick(int id) async {
+    try {
+      await _repository.recordClick(id);
+    } catch (_) {
+      // Best-effort; a failed click record must not block the app from opening the row.
     }
   }
 }

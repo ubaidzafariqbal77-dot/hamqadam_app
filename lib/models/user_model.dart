@@ -8,6 +8,7 @@ class UserModel {
     this.email,
     this.phone,
     this.gender,
+    this.photo,
     this.raw = const <String, dynamic>{},
   });
 
@@ -17,6 +18,10 @@ class UserModel {
   final String? email;
   final String? phone;
   final String? gender;
+
+  /// Profile photo as sent by the backend — may be absolute or server-relative.
+  final String? photo;
+
   final Map<String, dynamic> raw;
 
   /// True once the backend has stamped `email_verified_at`.
@@ -27,6 +32,16 @@ class UserModel {
   String get fullName =>
       <String?>[firstName, lastName].where((String? s) => (s ?? '').isNotEmpty).join(' ').trim();
 
+  /// Absolute URL for [photo]; null when no photo or the value is blank.
+  String? get photoUrl {
+    final String p = (photo ?? '').trim();
+    if (p.isEmpty) return null;
+    if (p.startsWith('http://') || p.startsWith('https://')) return p;
+    final String base = raw['app_url']?.toString() ?? '';
+    if (base.isNotEmpty) return '$base/${p.replaceFirst(RegExp(r'^/+'), '')}';
+    return p;
+  }
+
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: _asInt(json['id']),
@@ -35,6 +50,7 @@ class UserModel {
       email: json['email']?.toString(),
       phone: json['phone']?.toString(),
       gender: json['gender']?.toString(),
+      photo: json['photo']?.toString(),
       raw: json,
     );
   }
@@ -46,6 +62,7 @@ class UserModel {
     'email': email,
     'phone': phone,
     'gender': gender,
+    'photo': photo,
   };
 
   static int _asInt(dynamic v) => v is int ? v : int.tryParse('$v') ?? 0;

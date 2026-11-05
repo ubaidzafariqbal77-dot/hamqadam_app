@@ -52,3 +52,6 @@ pubspec_overrides.yaml
 android/key.properties
 android/app/*.jks
 android/app/*.keystore
+
+# Bio AI app key (passed with --dart-define-from-file); never commit.
+bio_ai.env.json

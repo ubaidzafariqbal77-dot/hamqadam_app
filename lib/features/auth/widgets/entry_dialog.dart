@@ -85,7 +85,7 @@ class EntryDialog extends StatelessWidget {
                   'Login to View Full Profile',
                   textAlign: TextAlign.center,
                   style: AppTextStyles.display.copyWith(
-                    fontSize: 26,
+                    fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF1B1B1B),
                     letterSpacing: -0.3,

@@ -26,6 +26,7 @@ class AiVerificationView extends StatelessWidget {
   Widget build(BuildContext context) {
     final AiVerificationController c = Get.find<AiVerificationController>();
     return Scaffold(
+      backgroundColor: AppColors.roseCanvas,
       appBar: const PremiumAppBar(
         title: 'Identity Verification',
         subtitle: 'Confirm your identity to build trust',
@@ -68,7 +69,7 @@ class _Body extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      color: AppColors.primary,
+      color: AppColors.regAccent,
       onRefresh: controller.reload,
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.md),
@@ -203,7 +204,7 @@ class _ExplainerCard extends StatelessWidget {
                 children: <Widget>[
                   const Padding(
                     padding: EdgeInsets.only(top: 3, right: 8),
-                    child: Icon(Icons.circle, size: 6, color: AppColors.primary),
+                    child: Icon(Icons.circle, size: 6, color: AppColors.regAccent),
                   ),
                   Expanded(child: Text(p, style: AppTextStyles.body)),
                 ],
@@ -258,7 +259,7 @@ class _HistorySection extends StatelessWidget {
           if (s.isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-              child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              child: Center(child: CircularProgressIndicator(color: AppColors.regAccent)),
             )
           else if (s.status == ApiStatus.empty)
             Text(s.message ?? 'No attempts yet.', style: AppTextStyles.caption)

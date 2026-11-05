@@ -8,6 +8,7 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/search_extra_controller.dart';
 import '../../../controllers/search_profiles_controller.dart';
+import '../../../controllers/payment_controller.dart';
 import '../../../models/lookup_item_model.dart';
 import '../../../models/search_filter_profile_model.dart';
 import '../../../widgets/app_button.dart';
@@ -56,6 +57,17 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late bool _newProfiles;
   late bool _mutualMatch;
   late bool _onlineNow;
+  // More filters the API already validates (height, income, sub-caste, sect,
+  // education, profession, lifestyle, language, international, recently_active,
+  // new_this_week) but the sheet never sent. Same reason as the four above:
+  // without a control here the parameters were unreachable from the app.
+  late bool _recentlyActive;
+  late bool _newThisWeek;
+  late bool _international;
+  late RangeValues _heightRange;
+  late RangeValues _incomeRange;
+  late final TextEditingController _educationInput;
+  late final TextEditingController _professionInput;
   late String? _selectedSort;
   /// Carried through untouched so applying the sheet cannot drop the
   /// opposite-gender rule. There is no control that edits it.
@@ -68,8 +80,18 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
   late int? _cityId;
 
   @override
+  void dispose() {
+    _educationInput.dispose();
+    _professionInput.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    // Text controllers must exist before any `.text` assignment below.
+    _educationInput = TextEditingController();
+    _professionInput = TextEditingController();
     final SearchFilterModel f = _controller.draftFilter.value;
     _ageRange = RangeValues(
       (f.ageMin ?? 18).toDouble().clamp(18, 70),
@@ -83,6 +105,19 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
     _newProfiles = f.newProfiles;
     _mutualMatch = f.mutualMatch;
     _onlineNow = f.onlineNow;
+    _recentlyActive = f.recentlyActive;
+    _newThisWeek = f.newThisWeek;
+    _international = f.international;
+    _heightRange = RangeValues(
+      (f.heightMin ?? 48).toDouble(),
+      (f.heightMax ?? 78).toDouble(),
+    );
+    _incomeRange = RangeValues(
+      (f.incomeMin ?? 0).toDouble(),
+      (f.incomeMax ?? 100000).toDouble(),
+    );
+    _educationInput.text = f.education ?? '';
+    _professionInput.text = f.profession ?? '';
     _selectedSort = f.sort;
     _selectedGender = f.gender;
     _maritalStatusId = f.maritalStatusId;
@@ -116,6 +151,13 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       _newProfiles = false;
       _mutualMatch = false;
       _onlineNow = false;
+      _recentlyActive = false;
+      _newThisWeek = false;
+      _international = false;
+      _heightRange = const RangeValues(48, 78);
+      _incomeRange = const RangeValues(0, 100000);
+      _educationInput.clear();
+      _professionInput.clear();
       _selectedSort = null;
       // `_selectedGender` deliberately survives a reset — it is the
       // opposite-gender rule, not one of the filters being cleared.
@@ -145,6 +187,18 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
       newProfiles: _newProfiles,
       mutualMatch: _mutualMatch,
       onlineNow: _onlineNow,
+      recentlyActive: _recentlyActive,
+      newThisWeek: _newThisWeek,
+      international: _international,
+      // The sliders span their full range, so a bound sitting at an extreme is
+      // treated as "unset" and not sent — same rule the age slider uses, so the
+      // chip count can actually return to zero.
+      heightMin: _heightRange.start <= 48 ? null : _heightRange.start.round(),
+      heightMax: _heightRange.end >= 78 ? null : _heightRange.end.round(),
+      incomeMin: _incomeRange.start <= 0 ? null : _incomeRange.start.round(),
+      incomeMax: _incomeRange.end >= 100000 ? null : _incomeRange.end.round(),
+      education: _educationInput.text,
+      profession: _professionInput.text,
       // Only sorts the API validates: newest | compatibility | recently_active.
       // `latest`/`age_asc`/`age_desc` used to 422 the whole request, killing
       // the search the moment one of them was applied.
@@ -404,6 +458,86 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
                     value: _onlineNow,
                     onChanged: (bool v) => setState(() => _onlineNow = v),
                   ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Recently Active',
+                    subtitle: 'Prioritise members active in the last few days',
+                    icon: Icons.history_rounded,
+                    iconColor: AppColors.primary,
+                    value: _recentlyActive,
+                    onChanged: (bool v) => setState(() => _recentlyActive = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Joined This Week',
+                    subtitle: 'Only members who joined in the last 7 days',
+                    icon: Icons.fiber_new_rounded,
+                    iconColor: AppColors.regAccent,
+                    value: _newThisWeek,
+                    onChanged: (bool v) => setState(() => _newThisWeek = v),
+                  ),
+                  const SizedBox(height: 8),
+                  _toggleTile(
+                    title: 'Include International',
+                    subtitle: 'Also show members living outside this country',
+                    icon: Icons.public_rounded,
+                    iconColor: AppColors.success,
+                    value: _international,
+                    onChanged: (bool v) => setState(() => _international = v),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // ---- Height ----
+                  _sectionTitle('Height', '${_heightRange.start.round()} – ${_heightRange.end.round()} in'),
+                  RangeSlider(
+                    values: _heightRange,
+                    min: 48,
+                    max: 78,
+                    divisions: 30,
+                    labels: RangeLabels(
+                      '${_heightRange.start.round()}',
+                      '${_heightRange.end.round()}',
+                    ),
+                    onChanged: (RangeValues v) => setState(() => _heightRange = v),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ---- Annual income ----
+                  _sectionTitle('Annual Income', _incomeLabel),
+                  RangeSlider(
+                    values: _incomeRange,
+                    min: 0,
+                    max: 100000,
+                    divisions: 20,
+                    labels: RangeLabels(
+                      _incomeRange.start.round().toString(),
+                      _incomeRange.end.round().toString(),
+                    ),
+                    onChanged: (RangeValues v) => setState(() => _incomeRange = v),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // ---- Education / profession ----
+                  _sectionTitle('Education', null),
+                  TextField(
+                    controller: _educationInput,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Masters, MBBS, PhD',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  _sectionTitle('Profession', null),
+                  TextField(
+                    controller: _professionInput,
+                    decoration: const InputDecoration(
+                      hintText: 'e.g. Engineer, Doctor, Teacher',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
 
                   // ---- Sort By ----
@@ -534,6 +668,27 @@ class _SearchFilterBottomSheetState extends State<SearchFilterBottomSheet> {
         ),
       ),
     );
+  }
+
+  /// The admin's currency for the income label. Read from
+  /// `GET /payments/coins/pricing` via PaymentController, with a PKR fallback
+  /// when it is not registered or has not loaded yet.
+  String get _currencyCode {
+    if (!Get.isRegistered<PaymentController>()) return 'PKR';
+    return Get.find<PaymentController>().currency;
+  }
+
+  /// Compact label for the income window, in the admin's currency.
+  String get _incomeLabel {
+    final num lo = _incomeRange.start;
+    final num hi = _incomeRange.end;
+    String fmt(num v) {
+      if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+      if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
+      return v.round().toString();
+    }
+
+    return '$_currencyCode ${fmt(lo)} – ${fmt(hi)}';
   }
 
   Widget _sectionTitle(String title, String? highlight) {
@@ -922,19 +1077,22 @@ class _SearchablePickerState extends State<_SearchablePicker> {
                         itemBuilder: (BuildContext ctx, int i) {
                           final LookupItem item = _filtered[i];
                           final bool isSelected = item.id == widget.selectedId;
-                          return ListTile(
-                            dense: true,
-                            leading: isSelected
-                                ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
-                                : Icon(Icons.circle_outlined, size: 22, color: theme.hintColor),
-                            title: Text(
-                              item.name,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? AppColors.primary : theme.textTheme.bodyMedium?.color,
+                          return Material(
+                            color: Colors.transparent,
+                            child: ListTile(
+                              dense: true,
+                              leading: isSelected
+                                  ? const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
+                                  : Icon(Icons.circle_outlined, size: 22, color: theme.hintColor),
+                              title: Text(
+                                item.name,
+                                style: TextStyle(
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? AppColors.primary : theme.textTheme.bodyMedium?.color,
+                                ),
                               ),
+                              onTap: () => Navigator.of(ctx).pop<int?>(item.id),
                             ),
-                            onTap: () => Navigator.of(ctx).pop<int?>(item.id),
                           );
                         },
                       ),

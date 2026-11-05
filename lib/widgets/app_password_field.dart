@@ -9,6 +9,7 @@ class AppPasswordField extends StatefulWidget {
     super.key,
     required this.label,
     required this.controller,
+    this.revalidateWhenControllerChanges,
     this.validator,
     this.focusNode,
     this.textInputAction,
@@ -20,6 +21,7 @@ class AppPasswordField extends StatefulWidget {
 
   final String label;
   final TextEditingController controller;
+  final TextEditingController? revalidateWhenControllerChanges;
   final String? Function(String?)? validator;
   final FocusNode? focusNode;
   final TextInputAction? textInputAction;
@@ -34,10 +36,41 @@ class AppPasswordField extends StatefulWidget {
 
 class _AppPasswordFieldState extends State<AppPasswordField> {
   bool _obscure = true;
+  final GlobalKey<FormFieldState<String>> _fieldKey =
+      GlobalKey<FormFieldState<String>>();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.revalidateWhenControllerChanges?.addListener(_revalidate);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppPasswordField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.revalidateWhenControllerChanges !=
+        widget.revalidateWhenControllerChanges) {
+      oldWidget.revalidateWhenControllerChanges?.removeListener(_revalidate);
+      widget.revalidateWhenControllerChanges?.addListener(_revalidate);
+    }
+  }
+
+  void _revalidate() {
+    if (widget.controller.text.isNotEmpty) {
+      _fieldKey.currentState?.validate();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.revalidateWhenControllerChanges?.removeListener(_revalidate);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppTextFormField(
+      fieldKey: _fieldKey,
       label: widget.label,
       controller: widget.controller,
       validator: widget.validator,

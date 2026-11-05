@@ -139,7 +139,9 @@ class RegIcons {
   /// option's wording so a renamed or reordered list still draws the right
   /// picture (the reference draws a book + heart for "Any", then steps up
   /// through caps, stacked books and, for Masters, a rolled degree).
-  static const String educationBookHeart = '${_p}6832.jpg'; // open book + heart
+  // Was 6832 — that file is a SALAD bowl photo, not education art. 6720 is
+  // the actual pink open-book + heart 3D render the reference draws for "Any".
+  static const String educationBookHeart = '${_p}6720.jpg'; // open book + heart
   static const String educationCap = '${_p}5246.jpg'; // graduation cap
   static const String educationBooks = '${_p}6385.jpg'; // stacked books
   static const String educationCapBook = '${_p}4334.jpg'; // cap + open book

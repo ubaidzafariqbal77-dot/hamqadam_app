@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -134,6 +135,22 @@ class LookupRepository {
   Future<List<LookupItem>> fetch(String key, {int? parentId, bool forceRefresh = false}) async {
     final String ck = _cacheKey(key, parentId);
     if (!forceRefresh && _cache.containsKey(ck)) return _cache[ck]!;
+
+    // PERF: the live dropdown-reference-data endpoint is a multi-megabyte,
+    // multi-second download. Blocking every lookup on it made the Discover
+    // cards (city/religion/education/profession labels) hang on a spinner.
+    // Serve from the bundled asset immediately — it carries the server's real
+    // ids — and let the network refresh happen in the background.
+    if (!forceRefresh && _reference == null) {
+      final Map<String, LookupList> asset = await _loadAssetLists();
+      if (asset.containsKey(key)) {
+        final List<LookupItem> quick = asset[key]!.forParent(parentId);
+        _cache[ck] = quick;
+        // Kick the live refresh off without awaiting it.
+        unawaited(_loadReference().then((_) => _cache.remove(ck)));
+        return quick;
+      }
+    }
 
     final Map<String, LookupList> reference = await _loadReference(force: forceRefresh);
 

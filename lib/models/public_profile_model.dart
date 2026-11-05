@@ -39,6 +39,8 @@ class PublicProfileModel {
     this.approved = false,
     this.age,
     this.gender,
+    this.aboutMe,
+    this.aiGeneratedBio,
     this.maritalStatusId,
     this.height,
     this.religionId,
@@ -62,6 +64,15 @@ class PublicProfileModel {
   final bool approved;
   final int? age;
   final String? gender;
+
+  /// The member's self-written bio — `about_me` from the public profile
+  /// payload (the server maps members.introduction). Rendered as the
+  /// "About me" card on the profile detail page; null hides the card.
+  final String? aboutMe;
+
+  /// The AI-written bio, public to every member.
+  final String? aiGeneratedBio;
+
   final int? maritalStatusId;
   final String? height;
   final int? religionId;
@@ -117,6 +128,15 @@ class PublicProfileModel {
       approved: _asBool(json['approved']),
       age: _asIntOrNull(json['age']),
       gender: json['gender']?.toString(),
+      aiGeneratedBio: () {
+        final String bio = json['ai_generated_bio']?.toString() ?? '';
+        return bio.trim().isEmpty ? null : bio.trim();
+      }(),
+      aboutMe: () {
+        final dynamic raw = json['about_me'];
+        final String bio = raw?.toString() ?? '';
+        return bio.trim().isEmpty ? null : bio.trim();
+      }(),
       maritalStatusId: _asIntOrNull(json['marital_status_id']),
       height: json['height']?.toString(),
       religionId: _asIntOrNull(json['religion_id']),
@@ -229,6 +249,39 @@ class CompatibilityModel {
 
   final int profileId;
   final int percentage;
+
+  /// The model's explanation, softened for display.
+  ///
+  /// The AI model writes its audit reasoning into this field and some of it
+  /// reads as a list of complaints about the candidate ("mandatory criteria
+  /// not met (…)", "Compatibility is limited because several key preferences
+  /// are missing"). Members should only ever read encouragement here, so a
+  /// negative explanation is replaced with a neutral, positive line.
+  String? get displayExplanation {
+    final String? raw = explanation?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    const List<String> negativeMarkers = <String>[
+      'not met',
+      'not provided',
+      'limited',
+      'missing',
+      'unmatched',
+      'expected',
+      'got ',
+      'failed',
+      'violated',
+    ];
+    final String lower = raw.toLowerCase();
+    final bool negative = negativeMarkers.any(lower.contains);
+    if (negative) {
+      return percentage >= 70
+          ? 'Strong overall compatibility across the criteria that matter.'
+          : percentage >= 45
+              ? 'Good overall compatibility with room to explore further.'
+              : 'Some shared values — worth a conversation to learn more.';
+    }
+    return raw;
+  }
   final String? explanation;
   final List<String> reasons;
 
@@ -262,7 +315,14 @@ class CompatibilityModel {
   List<CompatibilityCriterion> get matched =>
       breakdown.where((CompatibilityCriterion c) => c.isMatch).toList(growable: false);
 
-  /// Criteria that were not met — the honest half of the score.
+  /// Criteria that were not met — the honest half of the "Why?" list.
+  ///
+  /// The reference format shows BOTH halves, each as a plain point:
+  ///   ✓ Similar marriage timeline
+  ///   ⚠ Different relocation preference
+  /// The backend now sends softened human sentences for unmet criteria
+  /// ("Profession does not match preference: Teacher"), so the model's
+  /// audit-trail wording no longer reaches the member raw.
   List<CompatibilityCriterion> get unmatched => breakdown
       .where((CompatibilityCriterion c) => c.isApplicable && !c.isMatch && !c.isUnknown)
       .toList(growable: false);

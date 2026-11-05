@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
+import '../../constants/api_endpoints.dart';
 import '../../constants/app_constants.dart';
 import '../../exceptions/app_exceptions.dart';
 
@@ -123,7 +124,13 @@ class ApiClient {
           handler.next(response);
         },
         onError: (DioException error, ErrorInterceptorHandler handler) async {
-          AppLogger.w('✖️ ${error.response?.statusCode} ${error.requestOptions.uri}');
+          // A bare "null" here meant "no HTTP response at all" — i.e. the
+          // request died before the server answered (DNS, TLS handshake,
+          // connection refused). Naming the real reason makes these failures
+          // diagnosable from the log instead of guessing.
+          final int? status = error.response?.statusCode;
+          final String reason = status?.toString() ?? error.error?.runtimeType.toString() ?? 'no response';
+          AppLogger.w('✖️ $reason ${error.requestOptions.uri}');
           // Log the server error body (validation messages / field errors) so
           // 4xx/5xx failures are debuggable. Sensitive keys stay redacted.
           if (error.response?.data != null) {
@@ -131,7 +138,8 @@ class ApiClient {
           }
           if (error.response?.statusCode == 401) {
             await _fireUnauthorized();
-          } else if (error.response?.statusCode == 423) {
+          } else if (error.response?.statusCode == 423 &&
+              !_isEmailVerificationCall(error.requestOptions.path)) {
             await _fireManualReview(error.response);
           }
           handler.next(error);
@@ -139,6 +147,15 @@ class ApiClient {
       ),
     );
   }
+
+  /// Email verification is part of finishing registration. The review screen
+  /// only comes after the code is verified, so a 423 on these calls must not
+  /// pull the member out of the OTP step — the caller shows the error instead.
+  static bool _isEmailVerificationCall(String path) =>
+      path.endsWith(ApiEndpoints.registerRequestOtp) ||
+      path.endsWith(ApiEndpoints.registerVerifyOtp) ||
+      path.endsWith(ApiEndpoints.authEmailVerificationCode) ||
+      path.endsWith(ApiEndpoints.authEmailVerify);
 
   Future<void> _fireUnauthorized() async {
     // A 401 on a request that carried no token (e.g. the dropdown reference

@@ -88,12 +88,18 @@ class VideoCallScreen extends StatefulWidget {
   State<VideoCallScreen> createState() => _VideoCallScreenState();
 }
 
-class _VideoCallScreenState extends State<VideoCallScreen> {
+class _VideoCallScreenState extends State<VideoCallScreen>
+    with WidgetsBindingObserver {
   RtcEngine? _engine;
   int? _remoteUid;
   bool _localUserJoined = false;
   bool _isMuted = false;
   bool _isVideoDisabled = false;
+
+  /// True while the camera is off only because the app is in the
+  /// background — distinct from [_isVideoDisabled], which is the
+  /// member's own choice and must survive coming back.
+  bool _cameraPausedForBackground = false;
   bool _isSpeakerOn = true;
   bool _engineReady = false;
   Timer? _callTimer;
@@ -158,9 +164,65 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
       if (!mounted) return;
       setState(() => _isPipMode = inPip);
     });
+    WidgetsBinding.instance.addObserver(this);
     _listenForDeclineSignals();
     _watchForCallEnd();
     _initAgora();
+  }
+
+  // ─── Camera while the app is away ────────────────────────────────────────
+
+  /// The call holds the microphone in the background through
+  /// CallForegroundService, but NOT the camera: the service is microphone-typed
+  /// only, so the app must let the camera go when it stops being visible.
+  /// Android would cut the feed off anyway — doing it deliberately means the
+  /// other side sees the picture stop cleanly and get restored on return,
+  /// instead of a frozen last frame.
+  ///
+  /// Picture-in-picture is the exception: the call window is still on screen,
+  /// so the camera stays live.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (!widget.isVideoCall || _engine == null || !_engineReady) return;
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        _resumeCameraAfterBackground();
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        if (!_isPipMode) _pauseCameraForBackground();
+      case AppLifecycleState.inactive:
+        // A transient state (notification shade, incoming system dialog); the
+        // window is still up, so the camera stays.
+        break;
+    }
+  }
+
+  Future<void> _pauseCameraForBackground() async {
+    // Nothing to pause if the member already turned their video off.
+    if (_isVideoDisabled || _cameraPausedForBackground) return;
+    _cameraPausedForBackground = true;
+    try {
+      await _engine!.muteLocalVideoStream(true);
+      await _engine!.stopPreview();
+    } catch (e) {
+      debugPrint('📞 Camera background-pause error: $e');
+    }
+  }
+
+  Future<void> _resumeCameraAfterBackground() async {
+    if (!_cameraPausedForBackground) return;
+    _cameraPausedForBackground = false;
+    // The member may have turned video off while away; respect that.
+    if (_isVideoDisabled) return;
+    try {
+      await _engine!.startPreview();
+      await _engine!.muteLocalVideoStream(false);
+    } catch (e) {
+      debugPrint('📞 Camera background-resume error: $e');
+    }
   }
 
   // ─── Minimising ──────────────────────────────────────────────────────────
@@ -669,6 +731,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _isEndingCall = true;
     _reconnectTimer?.cancel();
     _callTimer?.cancel();

@@ -6,22 +6,14 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../constants/api_endpoints.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
+import '../../../constants/app_lookups.dart';
 import '../../../constants/app_text_styles.dart';
+import '../../../controllers/lookup_controller.dart';
 import '../../../core/api/api_client.dart';
+import '../../../models/lookup_item_model.dart';
 import '../widgets/entry_dialog.dart';
+import '../../help_center/views/guest_help_view.dart';
 
-/// First-look marketing screen shown right after onboarding (reference:
-/// "Proposals for you"). It previews what members see after signing in —
-/// real handpicked profiles straight from the guest discover feed, with every
-/// interactive element opening the shared Create Account / Login dialog.
-///
-/// The feed loads WITHOUT login (`GET /public/discover` returns only the
-/// public marketing slice of each profile). If the network is down the sample
-/// cards below keep the screen presentable instead of showing an empty state
-/// to someone who has not signed up yet.
-///
-/// The WhatsApp banner at the bottom dials the owner directly: talking to a
-/// human is often what convinces a hesitant visitor to sign up.
 class WelcomePreviewView extends StatefulWidget {
   const WelcomePreviewView({super.key});
 
@@ -34,32 +26,9 @@ class WelcomePreviewView extends StatefulWidget {
 }
 
 class _WelcomePreviewViewState extends State<WelcomePreviewView> {
-  /// Shown while the live feed loads and kept as the fallback if it fails —
-  /// a first-time visitor must never land on a blank marketing screen.
-  static const List<_PreviewProfile> _fallbackProfiles = <_PreviewProfile>[
-    _PreviewProfile(
-      name: 'Eleanor Rowe',
-      meta: 'Age 27 · San Francisco · Product Designer',
-      about:
-          'Creative strategist passionate about design systems and user-centered solutions.',
-      badge: 'VERIFIED',
-    ),
-    _PreviewProfile(
-      name: 'Marcus Chen',
-      meta: 'Age 30 · New York · Software Engineer',
-      about: 'Builder at heart, loves scalable systems and clean code.',
-      badge: 'VERIFIED',
-    ),
-    _PreviewProfile(
-      name: 'Isabella Martinez',
-      meta: 'Age 26 · Austin · UX Researcher',
-      about: 'Empathy-driven, exploring behavioral patterns and user insights.',
-      badge: 'VERIFIED',
-    ),
-  ];
-
-  List<_PreviewProfile> _profiles = _fallbackProfiles;
+  List<_PreviewProfile> _profiles = const <_PreviewProfile>[];
   bool _loading = true;
+  bool _loadFailed = false;
   int _memberCount = 0;
 
   @override
@@ -68,31 +37,83 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
     _loadFeed();
   }
 
-  /// Guest feed — no token needed. Any failure keeps the sample cards.
+  /// Guest feed — no token needed. Any failure keeps the sample cards and
+  /// shows a retry chip so a transient network drop doesn't look like the
+  /// whole directory is 3 demo people.
   Future<void> _loadFeed() async {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     try {
       final ApiClient client = Get.find<ApiClient>();
-      final res = await client.get(ApiEndpoints.publicDiscover);
-      final List<dynamic> raw = (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
+      // Ask for the whole directory — the backend caps at 200; without this
+      // the preview truncated a 47-member pool to the default 6 cards.
+      final res = await client.get(
+        ApiEndpoints.publicDiscover,
+        query: <String, dynamic>{'per_page': 100},
+      );
+      final List<dynamic> raw =
+          (res.dataMap['profiles'] as List<dynamic>?) ?? <dynamic>[];
+      // Lookup names (religion/sect/education) resolve client-side from the
+      // dropdown reference cache — the guest payload carries ids only.
       final List<_PreviewProfile> fetched = raw
-          .map(_PreviewProfile.fromJson)
+          .map((dynamic e) => _PreviewProfile.fromJson(_withLookupNames(e)))
           .whereType<_PreviewProfile>()
           .toList(growable: false);
       if (!mounted) return;
       setState(() {
-        if (fetched.isNotEmpty) _profiles = fetched;
+        _profiles = fetched;
         _memberCount = (res.dataMap['total_members'] as num?)?.toInt() ?? 0;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loadFailed = true;
+        _loading = false;
+      });
     }
+  }
+
+  /// Adds human-readable names for the id-only lookup fields (religion, sect,
+  /// education) the guest feed sends, using the bundled dropdown reference.
+  /// A failed lookup leaves the field empty — the card simply drops that row.
+  Map<String, dynamic> _withLookupNames(dynamic raw) {
+    final Map<String, dynamic> map = <String, dynamic>{
+      if (raw is Map<String, dynamic>) ...raw,
+    };
+    try {
+      final LookupController lookup = Get.find<LookupController>();
+      String? nameOf(String key, dynamic id) {
+        final int? i = id is num ? id.toInt() : int.tryParse('$id');
+        if (i == null) return null;
+        for (final LookupItem item in lookup.itemsOf(key)) {
+          if (item.id == i) return item.name;
+        }
+        return null;
+      }
+
+      map['religion'] =
+          map['religion'] ?? nameOf(LookupKeys.religions, map['religion_id']);
+      map['sect'] =
+          map['sect'] ??
+          nameOf(LookupKeys.sectMain, map['sect_main_id']) ??
+          nameOf(LookupKeys.schoolOfThought, map['school_of_thought_id']);
+      map['education'] =
+          map['education'] ??
+          nameOf(LookupKeys.educationLevels, map['education_level_id']) ??
+          nameOf(LookupKeys.degrees, map['degree_id']);
+    } catch (_) {
+      // Lookups unavailable (very first launch) — the card shows what it has.
+    }
+    return map;
   }
 
   Future<void> _openWhatsApp() async {
     final Uri url = Uri.parse(
-        'https://wa.me/${WelcomePreviewView._whatsappNumber}');
+      'https://wa.me/${WelcomePreviewView._whatsappNumber}',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -102,210 +123,331 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark,
-      child: Scaffold(
-        // The reference's soft pink canvas; content scrolls so the WhatsApp
-        // banner is always reachable on small phones.
-        body: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: <Color>[
-                Color(0xFFF9D3E0), // soft rose
-                Color(0xFFF6C3D4), // mid rose
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.lg,
-                      AppSpacing.md,
-                      AppSpacing.lg,
-                      AppSpacing.sm,
+    final MediaQueryData mq = MediaQuery.of(context);
+    return MediaQuery(
+      data: mq.copyWith(
+        textScaler: mq.textScaler.clamp(
+          minScaleFactor: 0.9,
+          maxScaleFactor: 1.1,
+        ),
+      ),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark,
+        child: Scaffold(
+          // The reference's soft pink canvas; content scrolls and the help /
+          // WhatsApp buttons float above the bottom-right corner.
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              // Help Centre — neat white circle with the agent glyph, no
+              // banner screaming for attention.
+              Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                elevation: 3,
+                shadowColor: Colors.black.withValues(alpha: 0.18),
+                child: InkWell(
+                  onTap: GuestHelpView.open,
+                  customBorder: const CircleBorder(),
+                  child: const SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      color: AppColors.primary,
+                      size: 22,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        // ---- Brand row (tappable too) -------------------
-                        GestureDetector(
-                          onTap: () => _openEntryDialog(context),
-                          child: Row(
-                            children: <Widget>[
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(14),
-                                child: Image.asset(
-                                  'assets/icons/logo.png',
-                                  width: 34,
-                                  height: 34,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                    Icons.favorite_rounded,
-                                    color: AppColors.primary,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'HamQadam',
-                                style: AppTextStyles.title.copyWith(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.lightTextPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // ---- Headline -----------------------------------
-                        Text(
-                          'Proposals for you',
-                          style: AppTextStyles.display.copyWith(
-                            fontSize: 38,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.lightTextPrimary,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          _memberCount > 0
-                              ? 'Handpicked matches from $_memberCount verified members'
-                              : 'Handpicked matches aligned with your preferences',
-                          style: AppTextStyles.bodyStrong.copyWith(
-                            color: AppColors.lightTextSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-
-                        // ---- Search preview (tappable) ------------------
-                        GestureDetector(
-                          onTap: () => _openEntryDialog(context),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: 14,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.lg),
-                            ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // WhatsApp — the single floating green button, icon only.
+              Material(
+                color: const Color(0xFF25D366),
+                borderRadius: BorderRadius.circular(999),
+                elevation: 4,
+                shadowColor: Colors.black.withValues(alpha: 0.22),
+                child: InkWell(
+                  onTap: _openWhatsApp,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Image.asset(
+                      'assets/icons/whatsapp.png',
+                      width: 22,
+                      height: 22,
+                      fit: BoxFit.contain,
+                    ),
+                    // Icon(Icons.chat_rounded, color: Colors.white, size: 28),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          body: DecoratedBox(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: <Color>[
+                  Color(0xFFF9D3E0), // soft rose
+                  Color(0xFFF6C3D4), // mid rose
+                ],
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                children: <Widget>[
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.xl,
+                        AppSpacing.lg,
+                        AppSpacing.xl,
+                        AppSpacing.sm,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          // ---- Brand row — centred serif wordmark + sparkle
+                          GestureDetector(
+                            onTap: () => _openEntryDialog(context),
                             child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: <Widget>[
-                                const Icon(
-                                  Icons.search_rounded,
-                                  color: AppColors.lightTextSecondary,
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    'Search by location, profession...',
-                                    style: AppTextStyles.bodyStrong.copyWith(
-                                      color: AppColors.lightTextSecondary,
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.asset(
+                                    'assets/icons/logo.png',
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.favorite_rounded,
+                                      color: AppColors.primary,
+                                      size: 36,
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Serif wordmark with the sparkle accent from
+                                // the reference design.
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Text(
+                                      'HamQadam',
+                                      style: AppTextStyles.displaySerif
+                                          .copyWith(
+                                            fontSize: 34,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.lightTextPrimary,
+                                          ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(
+                                      Icons.auto_awesome_rounded,
+                                      size: 14,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
+                          const SizedBox(height: AppSpacing.xl + 4),
 
-                        // ---- Match cards (live feed) --------------------
-                        if (_loading)
-                          ...List<Widget>.filled(
-                            3,
-                            const Padding(
-                              padding: EdgeInsets.only(bottom: AppSpacing.md),
-                              child: _SkeletonCard(),
+                          // ---- Headline -----------------------------------
+                          Text(
+                            'HamQadam - Proposals for you',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.displaySerif.copyWith(
+                              fontSize: 25,
+                              color: AppColors.lightTextPrimary,
                             ),
-                          )
-                        else
-                          ..._profiles.map(
-                            (_PreviewProfile p) => Padding(
-                              padding:
-                                  const EdgeInsets.only(bottom: AppSpacing.md),
-                              child: _PreviewCard(
-                                profile: p,
-                                onTap: () => _openEntryDialog(context),
+                          ),
+                          const SizedBox(height: AppSpacing.sm + 2),
+                          Text(
+                            _memberCount > 0
+                                ? '$_memberCount curated matches, all verified · Updated today'
+                                : 'Curated matches, all verified · Updated today',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.bodyStrong.copyWith(
+                              fontSize: 14,
+                              height: 1.45,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xl - 4),
+
+                          // ---- Search preview (tappable) ------------------
+                          GestureDetector(
+                            onTap: () => _openEntryDialog(context),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.lg + 4,
+                                ),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFB4487B,
+                                    ).withValues(alpha: 0.08),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  const Icon(
+                                    Icons.search_rounded,
+                                    color: AppColors.lightTextSecondary,
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      'Search by location, profession...',
+                                      style: AppTextStyles.bodyStrong.copyWith(
+                                        color: AppColors.lightTextSecondary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
+                          const SizedBox(height: AppSpacing.lg + 4),
 
-                        // ---- Bottom action row --------------------------
-                        Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: () => _openEntryDialog(context),
+                          // ---- Retry banner (only when the live feed
+                          // ---- failed and demo fallback is showing) --------
+                          if (_loadFailed)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.lg,
+                              ),
+                              child: OutlinedButton.icon(
+                                onPressed: _loadFeed,
+                                icon: const Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text(
+                                  'Could not load live profiles — tap to retry',
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: AppColors.primaryDark,
                                   backgroundColor: Colors.white,
                                   side: const BorderSide(
                                     color: AppColors.primary,
-                                    width: 1.4,
+                                    width: 1.2,
                                   ),
                                   padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
+                                    vertical: 12,
                                   ),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Log in',
-                                  style: AppTextStyles.button.copyWith(
-                                    color: AppColors.primaryDark,
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () => _openEntryDialog(context),
-                                style: ElevatedButton.styleFrom(
-                                  foregroundColor: Colors.white,
-                                  backgroundColor: AppColors.primary,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
+
+                          // ---- Match cards (live feed) --------------------
+                          if (_loading)
+                            ...List<Widget>.filled(
+                              3,
+                              const Padding(
+                                padding: EdgeInsets.only(bottom: AppSpacing.lg),
+                                child: _SkeletonCard(),
+                              ),
+                            )
+                          else
+                            ..._profiles.map(
+                              (_PreviewProfile p) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.lg,
                                 ),
-                                child: Text(
-                                  'Create Account',
-                                  style: AppTextStyles.button.copyWith(
-                                    color: Colors.white,
-                                  ),
+                                child: _PreviewCard(
+                                  profile: p,
+                                  onTap: () => _openEntryDialog(context),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                      ],
+
+                          // ---- Bottom action row --------------------------
+                          Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _openEntryDialog(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primaryDark,
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(
+                                      color: AppColors.primary,
+                                      width: 1.4,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Log in',
+                                    style: AppTextStyles.button.copyWith(
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.md),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => _openEntryDialog(context),
+                                  style: ElevatedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    backgroundColor: AppColors.primary,
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Create Account',
+                                    style: AppTextStyles.button.copyWith(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          // Clearance so the Log in / Create Account row is
+                          // never covered by the floating buttons.
+                          const SizedBox(height: 72),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-
-                // ---- WhatsApp banner (always visible) -----------------
-                _WhatsAppBanner(onTap: _openWhatsApp),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -315,6 +457,10 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 }
 
 /// One preview profile card — a taste of the real feed behind login.
+/// The guest preview card — the SAME design as the signed-in Discover card:
+/// portrait photo left (Verified chip top-left, heart bottom-right), content
+/// right (name, age/height/faith chips, location, education+job row, family
+/// line). Tapping anywhere opens the Create Account / Login dialog.
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({required this.profile, required this.onTap});
 
@@ -323,14 +469,16 @@ class _PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String heightLabel = profile.heightLabel ?? '';
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: <BoxShadow>[
             BoxShadow(
               color: const Color(0xFFB4487B).withValues(alpha: 0.08),
@@ -341,93 +489,317 @@ class _PreviewCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            // ---- TOP: photo left · facts right · heart far right --------
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.lightSurfaceAlt,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: (profile.photoUrl?.isNotEmpty ?? false)
-                      ? Image.network(
-                          profile.photoUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                            Icons.person_rounded,
-                            color: AppColors.lightTextSecondary,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: <Widget>[
+                    Container(
+                      width: 104,
+                      height: 122,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: AppColors.lightSurfaceAlt,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: (profile.photoUrl?.isNotEmpty ?? false)
+                          ? Image.network(
+                              profile.photoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.person_rounded,
+                                color: AppColors.lightTextSecondary,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.person_rounded,
+                              color: AppColors.lightTextSecondary,
+                              size: 40,
+                            ),
+                    ),
+                    // Verified pill — white, pink tick, overlapping the
+                    // photo's top-left edge like the reference.
+                    if (profile.verified)
+                      Positioned(
+                        top: -6,
+                        left: -6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        )
-                      : const Icon(
-                          Icons.person_rounded,
-                          color: AppColors.lightTextSecondary,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                Icons.check_circle_rounded,
+                                size: 12,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Verified',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ),
+                  ],
                 ),
-                const SizedBox(width: AppSpacing.md),
+                const SizedBox(width: 14),
+
+                // ---- FACTS ------------------------------------------------
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
+                      // Serif name, as drawn in the reference.
                       Text(
                         profile.name,
-                        style: AppTextStyles.subtitle.copyWith(
-                          fontWeight: FontWeight.w800,
+                        style: AppTextStyles.displaySerif.copyWith(
+                          fontSize: 19,
                           color: AppColors.lightTextPrimary,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        profile.meta,
-                        style: AppTextStyles.caption.copyWith(
-                          color: AppColors.lightTextSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 7),
+
+                      // "26 Years · 5'4\" · Islam" — plain dark line with
+                      // quiet dots between the parts.
+                      if (profile.age != null ||
+                          heightLabel.isNotEmpty ||
+                          profile.religion != null)
+                        _PlainFactsLine(
+                          parts: <String?>[
+                            if (profile.age != null) '${profile.age} Years',
+                            if (heightLabel.isNotEmpty) heightLabel,
+                            if (profile.religion != null) profile.religion,
+                          ],
+                        ),
+                      const SizedBox(height: 6),
+
+                      // "📍 Rawalpindi · Marketing Professional".
+                      if (profile.city != null || profile.profession != null)
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.location_on_outlined,
+                              size: 13,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                <String?>[
+                                  profile.city,
+                                  profile.profession,
+                                ].whereType<String>().join(' · '),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.lightTextSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      const SizedBox(height: 6),
+
+                      // "🎓 MBA, LUMS".
+                      if (profile.education != null)
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.school_outlined,
+                              size: 13,
+                              color: AppColors.lightTextSecondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                profile.education!,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.lightTextPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                     ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    profile.badge,
-                    style: AppTextStyles.badge.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
+
+                // Heart — the reference's floating circle at the right,
+                // vertically centred on the facts block.
+                Padding(
+                  padding: const EdgeInsets.only(left: 6, top: 26),
+                  child: GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            blurRadius: 6,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite_border_rounded,
+                        size: 18,
+                        color: AppColors.lightTextSecondary,
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            if (profile.about.isNotEmpty) ...<Widget>[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                profile.about,
-                style: AppTextStyles.caption.copyWith(
-                  height: 1.45,
-                  color: AppColors.lightInputText,
+
+            // ---- BOTTOM: age/profession pill + Send Proposal ------------
+            const SizedBox(height: 14),
+            Row(
+              children: <Widget>[
+                Flexible(
+                  flex: 5,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      _badgeText(profile),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryInk,
+                      ),
+                    ),
+                  ),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 6,
+                  child: GestureDetector(
+                    onTap: onTap,
+                    child: Container(
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.send_rounded,
+                              size: 14,
+                              color: AppColors.primaryInk,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Send Proposal',
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryInk,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  /// The reference's left pill — "26 · Marketing"-style: age and the
+  /// profession's leading word, degrading to what exists.
+  String _badgeText(_PreviewProfile p) {
+    final String? job = p.profession;
+    final String short = (job != null && job.trim().isNotEmpty)
+        ? job.trim().split(RegExp(r'\\s+')).first
+        : (p.verified ? 'Verified' : 'Profile');
+    return p.age != null ? '${p.age} · $short' : short;
+  }
+}
+
+/// One dark-text fact line with quiet "·" separators — the reference's
+/// "26 Years · 5'4\" · Islam" row.
+class _PlainFactsLine extends StatelessWidget {
+  const _PlainFactsLine({required this.parts});
+
+  final List<String?> parts;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> clean = parts
+        .whereType<String>()
+        .where((String s) => s.trim().isNotEmpty)
+        .toList();
+    if (clean.isEmpty) return const SizedBox.shrink();
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(
+            clean.join('  ·  '),
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.lightTextPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -440,23 +812,23 @@ class _SkeletonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 118,
-      padding: const EdgeInsets.all(AppSpacing.md),
+      height: 138,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: <Widget>[
           Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
+            width: 96,
+            height: 116,
+            decoration: BoxDecoration(
               color: AppColors.lightSurfaceAlt,
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -501,151 +873,73 @@ class _SkeletonCard extends StatelessWidget {
 class _PreviewProfile {
   const _PreviewProfile({
     required this.name,
-    required this.meta,
     required this.about,
-    required this.badge,
+    required this.verified,
     this.photoUrl,
+    this.age,
+    this.heightLabel,
+    this.city,
+    this.religion,
+    this.sect,
+    this.education,
+    this.profession,
+    this.family,
   });
 
   final String name;
-  final String meta;
   final String about;
-  final String badge;
+  final bool verified;
   final String? photoUrl;
+  final int? age;
+  final String? heightLabel;
+  final String? city;
+  final String? religion;
+  final String? sect;
+  final String? education;
+  final String? profession;
+  final String? family;
 
   static _PreviewProfile? fromJson(dynamic raw) {
     if (raw is! Map) return null;
     final String name = (raw['name'] ?? '').toString().trim();
     if (name.isEmpty) return null;
 
-    final String city = (raw['city'] ?? '').toString().trim();
-    final String profession = (raw['profession'] ?? '').toString().trim();
-    final List<String> metaParts = <String>[
-      // Backend computes age from the birthday; test rows without a real one
-      // come through as 0 — hiding those keeps the card line clean.
-      if ((raw['age'] as num?)?.toInt() case final int age? when age > 0)
-        'Age $age',
-      if (city.isNotEmpty) city,
-      if (profession.isNotEmpty) profession,
-    ];
-
     return _PreviewProfile(
       name: name,
-      meta: metaParts.join(' · '),
       about: (raw['introduction'] ?? '').toString().trim(),
-      badge: raw['verified'] == true ? 'VERIFIED' : 'NEW',
+      verified: raw['verified'] == true,
       photoUrl: (raw['photo'] ?? '').toString().trim().isEmpty
           ? null
           : (raw['photo'] ?? '').toString(),
+      // Backend computes age from the birthday; test rows without a real one
+      // come through as 0 — hiding those keeps the card line clean.
+      age: switch (raw['age']) {
+        final num n when n.toInt() > 0 => n.toInt(),
+        _ => null,
+      },
+      heightLabel: _heightFromRaw(raw['height']),
+      city: _clean(raw['city']),
+      religion: _clean(raw['religion']),
+      sect: _clean(raw['sect']),
+      education: _clean(raw['education']),
+      profession: _clean(raw['profession']),
+      family: _clean(raw['family']),
     );
   }
-}
 
-/// Green WhatsApp strip pinned above the bottom safe area, matching the
-/// reference. Tap opens the owner's chat.
-class _WhatsAppBanner extends StatelessWidget {
-  const _WhatsAppBanner({required this.onTap});
+  static String? _clean(dynamic v) {
+    final String s = (v ?? '').toString().trim();
+    return s.isEmpty ? null : s;
+  }
 
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        AppSpacing.md,
-      ),
-      child: Material(
-        color: const Color(0xFF25D366),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 12,
-            ),
-            child: Row(
-              children: <Widget>[
-                // The real WhatsApp glyph — same artwork as the reference.
-                Image.asset(
-                  'assets/icons/whatsapp.png',
-                  width: 26,
-                  height: 26,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.chat_rounded,
-                    color: Colors.white,
-                    size: 26,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Need help? Talk to owner directly',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        '+92 300 1234567',
-                        style: AppTextStyles.caption.copyWith(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Image.asset(
-                        'assets/icons/whatsapp.png',
-                        width: 14,
-                        height: 14,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.chat_rounded,
-                          color: Color(0xFF25D366),
-                          size: 14,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'WhatsApp',
-                        style: AppTextStyles.badge.copyWith(
-                          color: const Color(0xFF25D366),
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  static String? _heightFromRaw(dynamic v) {
+    final String s = (v ?? '').toString().trim();
+    if (s.isEmpty || s == 'null') return null;
+    final double? h = double.tryParse(s);
+    if (h == null || h <= 0) return null;
+    final int feet = h.floor();
+    final int inches = ((h - feet) * 12).round();
+    if (inches > 11) return "${feet + 1}' 0\"";
+    return "$feet' $inches\"";
   }
 }

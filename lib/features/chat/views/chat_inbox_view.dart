@@ -10,6 +10,7 @@ import '../../../core/api/api_response.dart';
 import '../../../core/storage/call_log_service.dart';
 import '../../../models/chat_model.dart';
 import '../../../widgets/premium_app_bar.dart';
+import '../../payments/views/membership_plans_view.dart';
 import '../../../widgets/skeleton.dart';
 import '../../../widgets/state_widgets.dart';
 import 'call_history_view.dart';
@@ -65,7 +66,7 @@ Future<void> showChatThreadActions(
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
-                    thread.participant.name,
+                    thread.participant.displayName,
                     style: AppTextStyles.bodyStrong.copyWith(
                       fontSize: 16,
                       color: AppColors.roseTitleInk,
@@ -113,6 +114,56 @@ Future<void> showChatThreadActions(
             onTap: () {
               Navigator.pop(sheet);
               controller.toggleMuteThread(thread);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+            title: const Text(
+              'Delete conversation',
+              style: TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: Text(
+              'Removes this chat from your list only. '
+              'Their next message brings it back.',
+              style: AppTextStyles.caption.copyWith(fontSize: 12),
+            ),
+            onTap: () async {
+              Navigator.pop(sheet);
+              final bool? confirmed = await showDialog<bool>(
+                context: context,
+                builder: (BuildContext dialog) => AlertDialog(
+                  backgroundColor: AppColors.chatCanvasTop,
+                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+                  title: const Text('Delete conversation?'),
+                  content: Text(
+                    'This removes your chat with ${thread.participant.name} '
+                    'from your list. The other person still has their copy, '
+                    'and their next message starts the thread again.',
+                  ),
+                  actions: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialog, false),
+                      child: const Text('Cancel', style: TextStyle(color: AppColors.primary)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialog, true),
+                      child: const Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmed == true) {
+                await controller.deleteThreadConversation(thread);
+              }
             },
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -231,7 +282,7 @@ class InboxHeader extends StatelessWidget {
                 textAlign: TextAlign.center,
                 // Playfair, like every other reference heading in the app.
                 style: AppTextStyles.displaySerif.copyWith(
-                  fontSize: 28,
+                  fontSize: 21,
                   color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
                 ),
               ),
@@ -744,7 +795,7 @@ class ChatThreadCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          thread.participant.name,
+                          thread.participant.displayName,
                           style: AppTextStyles.bodyStrong.copyWith(
                             fontSize: 16.5,
                             fontWeight:
@@ -777,18 +828,40 @@ class ChatThreadCard extends StatelessWidget {
                               const SizedBox(width: 8),
                             ],
                             Expanded(
-                              child: Text(
-                                thread.previewText,
-                                style: AppTextStyles.body.copyWith(
-                                  fontSize: 14,
-                                  color: previewInk,
-                                  fontWeight: hasUnread
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              // Coin paywall (Task4): with a zero balance the
+                              // incoming preview blurs and taps lead to the
+                              // packages screen.
+                              child: thread.blurIncoming && hasUnread
+                                  ? GestureDetector(
+                                      onTap: () => Get.to<void>(
+                                          () => const MembershipPlansView()),
+                                      child: ShaderMask(
+                                        shaderCallback: (Rect r) => const LinearGradient(
+                                          colors: <Color>[Color(0x884B5563), Color(0x884B5563)],
+                                        ).createShader(r),
+                                        child: Text(
+                                          thread.previewText,
+                                          style: AppTextStyles.body.copyWith(
+                                            fontSize: 14,
+                                            color: Colors.transparent,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                  : Text(
+                                      thread.previewText,
+                                      style: AppTextStyles.body.copyWith(
+                                        fontSize: 14,
+                                        color: previewInk,
+                                        fontWeight: hasUnread
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                             ),
                           ],
                         ),

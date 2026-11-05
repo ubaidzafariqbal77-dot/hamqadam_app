@@ -126,8 +126,13 @@ void main() {
       expect(find.text('Why?'), findsOneWidget);
 
       // Both sides of the verdict are on screen, not just the flattering half.
+      // A met criterion shows its label; an unmet one shows the model's own
+      // softened sentence, reference style:
+      //   ✓ Religion
+      //   ⚠ Teacher is not among the preferred professions
       expect(find.text('Religion'), findsOneWidget);
-      expect(find.text('Profession'), findsOneWidget);
+      expect(find.textContaining('not among the preferred professions'),
+          findsOneWidget);
     });
 
     testWidgets('renders a stored rule-based score', (WidgetTester tester) async {

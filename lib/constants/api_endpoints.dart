@@ -9,12 +9,24 @@ class ApiEndpoints {
   static const String loginEmail = '/auth/login/email';
   static const String requestMobileOtp = '/auth/otp/mobile';
   static const String loginMobile = '/auth/login/mobile';
+  /// QA: email OTP login / account recovery (backend replaces mobile-OTP).
+  static const String requestEmailOtp = '/auth/otp/email';
+  static const String loginEmailOtp = '/auth/login/email-otp';
   static const String loginGoogle = '/auth/login/google';
   static const String me = '/auth/me';
   static const String logout = '/auth/logout';
   static const String logoutAll = '/auth/logout-all';
   static const String forgotPassword = '/auth/forgot-password';
   static const String resetPassword = '/auth/reset-password';
+
+  /// Registration-time availability check (email / phone / CNIC).
+  /// Public + throttled: `{ type, value } → { available, message }`.
+  static const String accountCheck = '/auth/check';
+
+  /// In-app password change (drawer). `{ current_password, password,
+  /// password_confirmation }` — 422 with field errors when the current
+  /// password is wrong.
+  static const String changePassword = '/auth/change-password';
   static const String deleteAccount = '/auth/account';
   static const String authDevices = '/auth/devices';
   static const String authEmailVerificationCode = '/auth/email/verification-code';
@@ -119,10 +131,25 @@ class ApiEndpoints {
   /// public marketing slice of each profile.
   static const String publicDiscover = '/public/discover';
 
+  /// Guest (no-auth) Help Center form submission — name / email / description.
+  /// Saves into the admin panel's Contact Us Queries list.
+  static const String publicHelp = '/public/help';
+
   /// Deactivates the signed-in account.
   static const String profileDeactivate = '/profile/deactivate';
 
   // ---- Shortlists ------------------------------------------------------------
+  // ---- Like / Super Like (Profile Activity) ---------------------------------
+  /// `GET ?direction=received|sent&type=like|super_like&page` — newest first.
+  static const String appreciationActivity = '/appreciations/activity';
+  /// `GET` → `{liked, super_liked, liked_me, super_liked_me, super_like_cost, coin_balance}`.
+  static String appreciationStatus(int userId) => '/appreciations/members/$userId';
+  /// `POST` toggles the free Like → `{liked, mutual}`.
+  static String appreciationLike(int userId) => '/appreciations/members/$userId/like';
+  /// `POST {quoted_cost}` → `{super_liked, created, balance, cost}`; 422 on
+  /// price change / insufficient coins (no charge in either case).
+  static String appreciationSuperLike(int userId) => '/appreciations/members/$userId/super-like';
+
   /// Shortlisted proposals list (`GET /proposals/shortlists`) and create (`POST /proposals/shortlists`).
   static const String shortlists = '/proposals/shortlists';
 
@@ -148,6 +175,44 @@ class ApiEndpoints {
 
   /// Cancel proposal (`POST /proposals/{id}/cancel`).
   static String proposalCancel(int id) => '/proposals/$id/cancel';
+
+  // ---- Message templates (Admin Dashboard managed) --------------------------
+  /// `GET /message-templates?type=interest|proposal&language=en` — the active
+  /// Send Interest / Send Proposal library, ordered by `display_order`.
+  static const String messageTemplates = '/message-templates';
+
+  // ---- Connection workflow (managed templates → interest / proposal) --------
+  /// `GET /connection-workflow/templates?kind=interest|proposal&language=en`.
+  static const String connectionTemplates = '/connection-workflow/templates';
+
+  /// `POST /connection-workflow/members/{id}/interest` `{template_id, approved}`.
+  /// The legacy `POST /interests` now answers 409 — an interest must carry an
+  /// approved, managed template.
+  static String connectionInterest(int memberId) =>
+      '/connection-workflow/members/$memberId/interest';
+
+  /// `POST /connection-workflow/members/{id}/proposal`
+  /// `{template_id?, language, source: static|ai, message, approved, send}`.
+  /// Needs an ACCEPTED interest between the pair; the legacy `POST /proposals`
+  /// answers 409.
+  static String connectionProposal(int memberId) =>
+      '/connection-workflow/members/$memberId/proposal';
+
+  /// `GET /connection-workflow/proposals?direction=` — reviewed proposals in the
+  /// legacy list shape. Their ids are offset by [workflowProposalIdOffset].
+  static const String connectionProposals = '/connection-workflow/proposals';
+
+  /// Added to a workflow proposal id so it can never collide with a legacy one.
+  static const int workflowProposalIdOffset = 1000000000;
+
+  /// `POST /connection-workflow/proposals/{id}/respond` `{decision: accept|decline}`.
+  static String connectionProposalRespond(int workflowId) =>
+      '/connection-workflow/proposals/$workflowId/respond';
+
+  /// `POST /connection-workflow/members/{id}/proposal/generate`
+  /// `{language, intention}` → `data.draft`.
+  static String connectionAiDraft(int memberId) =>
+      '/connection-workflow/members/$memberId/proposal/generate';
 
   // ---- Proposal Favourites ---------------------------------------------------
   static const String proposalFavourites = '/proposals/favourites';
@@ -271,12 +336,36 @@ class ApiEndpoints {
   /// Per side: silences push/tray notifications for me only.
   static String chatMute(int threadId) => '/chat/threads/$threadId/mute';
 
+  /// `POST /chat/threads/{thread}/delete` — hides the conversation from MY
+  /// list only (per-side delete stamp). The other side is untouched, and the
+  /// next message they send brings the thread back like a new chat.
+  static String chatDeleteThread(int threadId) => '/chat/threads/$threadId/delete';
+
   /// `GET /chat/threads/{thread}/export` — full JSON backup of the chat.
   static String chatExport(int threadId) => '/chat/threads/$threadId/export';
 
   /// `POST /chat/messages/{message}/reaction` — body `{emoji: '❤️'}`.
   /// Sending the same emoji again (or null) clears the reaction.
   static String chatMessageReaction(int messageId) => '/chat/messages/$messageId/reaction';
+
+  // ---- Referral (bridge) --------------------------------------------------
+  /// Code, link, coin totals and reward rules (`GET /bridge/referrals/summary`).
+  static const String referralSummary = '/bridge/referrals/summary';
+
+  /// Members this one referred (`GET /bridge/referrals/members`).
+  static const String referralMembers = '/bridge/referrals/members';
+
+  /// Coin reward ledger (`GET /bridge/referrals/rewards`).
+  static const String referralRewards = '/bridge/referrals/rewards';
+
+  // ---- Rewards -----------------------------------------------------------------
+  /// Welcome-bonus state (`GET /rewards/welcome`): eligibility, claimed flag,
+  /// coins and balance — the Redeem section renders from this.
+  static const String rewardsWelcome = '/rewards/welcome';
+
+  /// Claims the 25-coin welcome bonus (`POST /rewards/welcome/claim`).
+  /// Verified members only, once per account.
+  static const String rewardsWelcomeClaim = '/rewards/welcome/claim';
 
   // ---- Payments & Subscriptions ---------------------------------------------
   /// List of available membership plans (`GET /payments/plans`).
@@ -325,6 +414,9 @@ class ApiEndpoints {
   /// Mark single notification as read (`POST /notifications/{id}/read`).
   static String notificationRead(int id) => '/notifications/$id/read';
 
+  /// Record a notification tap for backend telemetry (`POST /notifications/{id}/click`).
+  static String notificationClick(int id) => '/notifications/$id/click';
+
   /// Register FCM push token (`POST /notifications/push-tokens`).
   static const String pushTokens = '/notifications/push-tokens';
 
@@ -341,6 +433,10 @@ class ApiEndpoints {
 
   // ---- AI Helpers -----------------------------------------------------------
   static const String aiBio = '/ai/bio';
+
+  /// `POST /ai/proposal` — drafts a marriage proposal for the sender to review.
+  /// Never sends anything itself.
+  static const String aiProposal = '/ai/proposal';
   static const String aiConversationStarters = '/ai/conversation-starters';
   static const String aiProfileQuality = '/ai/profile-quality';
   static const String aiScamCheck = '/ai/scam-check';
@@ -389,6 +485,10 @@ class ApiEndpoints {
   /// The member's Help Center conversation (created on first use).
   static const String helpChatThread = '/help-chat/thread';
 
+  /// "Start New chat" after a locked ticket — creates a fresh conversation
+  /// (optionally posting the first message with it).
+  static const String helpChatNew = '/help-chat/new';
+
   /// Messages of that conversation (`GET` list / `POST` send).
   static const String helpChatMessages = '/help-chat/messages';
 
@@ -417,6 +517,53 @@ class ApiEndpoints {
   static const String familyConversations = '/family/conversations';
   static String familyConversationMessages(int conversationId) => '/family/conversations/$conversationId/messages';
   static const String familyDigestPreview = '/family/digest/preview';
+
+  // ---- Guardian Mode (spec §5–§25) -----------------------------------------
+  static const String guardianModeStatus = '/family/guardian-mode/status';
+  static const String guardianModeToggle = '/family/guardian-mode';
+  static const String guardianInvitations = '/family/guardian-invitations';
+  static const String guardianInvitationsAccept = '/family/guardian-invitations/accept';
+  static String familyGuardianPause(int guardianId) => '/family/guardians/$guardianId/pause';
+  static String familyGuardianResume(int guardianId) => '/family/guardians/$guardianId/resume';
+  static String familyGuardianPermissions(int guardianId) => '/family/guardians/$guardianId/permissions';
+  static String familyGuardianActivity(int profileUserId) => '/family/$profileUserId/activity';
+  static const String guardianMatches = '/guardian/matches';
+  static const String guardianMatchShortlist = '/guardian/matches/shortlist';
+  static const String guardianMatchFeedback = '/guardian/matches/feedback';
+  static const String guardianMatchNote = '/guardian/matches/note';
+  static const String familyIntroductions = '/family/introductions';
+  static String familyIntroductionRespond(int introductionId) => '/family/introductions/$introductionId/respond';
+  static String familyIntroductionCancel(int introductionId) => '/family/introductions/$introductionId/cancel';
+
+  // ---- Gifts (backend is the source of truth for catalog and prices) -------
+  static const String gifts = '/gifts';
+  static String giftDetail(int giftId) => '/gifts/$giftId';
+  static const String giftsSend = '/gifts/send';
+  static const String giftsReceived = '/gifts/received';
+  static const String giftsSent = '/gifts/sent';
+  static String giftTransaction(int transactionId) => '/gifts/transactions/$transactionId';
+
+  // ---- Completion Center (rewards ledger, NPS, sponsored, share link) -----
+  /// Records an analytics event (`POST /completion/events`).
+  static const String completionEvent = '/completion/events';
+
+  /// Net-Promoter-Score survey submission (`POST /completion/nps`).
+  static const String completionNps = '/completion/nps';
+
+  /// Member confirms they found a match (`POST /completion/got-match`).
+  static const String completionGotMatch = '/completion/got-match';
+
+  /// Sponsored listings — empty for `ad_free` plans (`GET /completion/sponsored`).
+  static const String completionSponsored = '/completion/sponsored';
+
+  /// Paginated reward ledger for the signed-in member (`GET /completion/rewards`).
+  static const String completionRewards = '/completion/rewards';
+
+  /// Shareable public profile link (`GET /completion/profile-link`).
+  static const String completionProfileLink = '/completion/profile-link';
+
+  /// App home ads banner (`?placement=top|bottom`), Admin → Member Ad Sliders.
+  static const String adsBanner = '/ads-banner';
 }
 
 

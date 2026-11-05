@@ -4,7 +4,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 import '../../../constants/app_colors.dart';
+import '../../../core/api/api_client.dart';
+import '../../../models/ad_slide_model.dart';
+import '../../../repositories/ad_repository.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../models/public_profile_model.dart';
 import '../../../repositories/profile_repository.dart';
@@ -643,31 +648,54 @@ class _HeroBanner extends StatefulWidget {
 }
 
 class _HeroBannerState extends State<_HeroBanner> {
-  static const List<String> _images = <String>[
-    'assets/images/onboard.png',
-    'assets/images/onboard2.png',
-    'assets/images/onboard3.png',
+  /// Shown until (or if) the admin's slides arrive from `GET /ads-banner`.
+  static const List<AdSlideModel> _fallback = <AdSlideModel>[
+    AdSlideModel(
+      eyebrow: 'AI Matches',
+      title: 'Thoughtful proposals',
+      highlight: 'for your journey.',
+      subtitle: 'Our AI finds compatible, verified profiles\nbased on your preferences.',
+      assetImage: 'assets/images/onboard.png',
+    ),
+    AdSlideModel(
+      eyebrow: 'Curated Profiles',
+      title: 'Handpicked for you',
+      highlight: 'from day one.',
+      subtitle: 'Real rishtas aligned with your values\nand partner preferences.',
+      assetImage: 'assets/images/onboard2.png',
+    ),
+    AdSlideModel(
+      eyebrow: 'Verified Members',
+      title: 'Trust built in',
+      highlight: 'at every step.',
+      subtitle: 'Every profile passes verification —\nconnect with confidence.',
+      assetImage: 'assets/images/onboard3.png',
+    ),
   ];
-  static const List<String> _badges = <String>[
-    'AI Matches',
-    'Curated Profiles',
-    'Verified Members',
-  ];
-  static const List<String> _titles = <String>[
-    'Thoughtful proposals',
-    'Handpicked for you',
-    'Trust built in',
-  ];
-  static const List<String> _accents = <String>[
-    'for your journey.',
-    'from day one.',
-    'at every step.',
-  ];
-  static const List<String> _bodies = <String>[
-    'Our AI finds compatible, verified profiles\nbased on your preferences.',
-    'Real rishtas aligned with your values\nand partner preferences.',
-    'Every profile passes verification —\nconnect with confidence.',
-  ];
+
+  List<AdSlideModel> _slides = _fallback;
+
+  Future<void> _loadSlides() async {
+    try {
+      final List<AdSlideModel> slides =
+          await AdRepository(Get.find<ApiClient>()).fetchSlides();
+      if (mounted && slides.isNotEmpty) {
+        setState(() {
+          _slides = slides;
+          _current = 0;
+        });
+        if (_pageController.hasClients) _pageController.jumpToPage(0);
+      }
+    } catch (_) {
+      // Keep the bundled slides — the banner must never go blank.
+    }
+  }
+
+  Future<void> _openSlide(AdSlideModel slide) async {
+    final Uri? uri = slide.buttonUrl == null ? null : Uri.tryParse(slide.buttonUrl!);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
 
   final PageController _pageController = PageController();
   Timer? _timer;
@@ -676,10 +704,11 @@ class _HeroBannerState extends State<_HeroBanner> {
   @override
   void initState() {
     super.initState();
+    _loadSlides();
     // Auto-advance every 3.5s, looping back to 0 after the last slide.
     _timer = Timer.periodic(const Duration(milliseconds: 3500), (Timer t) {
-      if (!mounted) return;
-      final int next = (_current + 1) % _images.length;
+      if (!mounted || _slides.length < 2 || !_pageController.hasClients) return;
+      final int next = (_current + 1) % _slides.length;
       _pageController.animateToPage(
         next,
         duration: const Duration(milliseconds: 450),
@@ -717,9 +746,12 @@ class _HeroBannerState extends State<_HeroBanner> {
           borderRadius: BorderRadius.circular(18),
           child: PageView.builder(
             controller: _pageController,
-            itemCount: _images.length,
+            itemCount: _slides.length,
             onPageChanged: (int i) => setState(() => _current = i),
-            itemBuilder: (BuildContext _, int i) => _buildSlide(i),
+            itemBuilder: (BuildContext _, int i) => GestureDetector(
+              onTap: () => _openSlide(_slides[i]),
+              child: _buildSlide(i),
+            ),
           ),
         ),
       ),
@@ -727,6 +759,7 @@ class _HeroBannerState extends State<_HeroBanner> {
   }
 
   Widget _buildSlide(int i) {
+    final AdSlideModel slide = _slides[i];
     return Stack(
       children: <Widget>[
         // Right-side artwork, faded into the gradient.
@@ -736,16 +769,24 @@ class _HeroBannerState extends State<_HeroBanner> {
           bottom: 0,
           child: Opacity(
             opacity: 0.9,
-            child: Image.asset(
-              _images[i],
-              height: 190,
-              // The artwork files are ~2.4 MB full-size PNGs; decoding them
-              // at native size exhausted memory on low-RAM phones and blanked
-              // the whole screen. Decode at the displayed size only.
-              cacheHeight: 380,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-            ),
+            child: slide.imageUrl != null
+                ? CachedNetworkImage(
+                    imageUrl: slide.imageUrl!,
+                    height: 190,
+                    memCacheHeight: 380,
+                    fit: BoxFit.contain,
+                    errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                  )
+                : Image.asset(
+                    slide.assetImage!,
+                    height: 190,
+                    // The artwork files are ~2.4 MB full-size PNGs; decoding
+                    // them at native size exhausted memory on low-RAM phones.
+                    // Decode at the displayed size only.
+                    cacheHeight: 380,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
           ),
         ),
         Padding(
@@ -763,7 +804,7 @@ class _HeroBannerState extends State<_HeroBanner> {
                   ),
                   const SizedBox(width: 5),
                   Text(
-                    _badges[i],
+                    slide.eyebrow,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -775,7 +816,7 @@ class _HeroBannerState extends State<_HeroBanner> {
               const Spacer(),
               // Serif headline — dark first line, pink accent second.
               Text(
-                _titles[i],
+                slide.title,
                 style: TextStyle(
                   fontFamily: AppTextStyles.displayFont,
                   fontSize: 24,
@@ -785,7 +826,7 @@ class _HeroBannerState extends State<_HeroBanner> {
                 ),
               ),
               Text(
-                _accents[i],
+                slide.highlight,
                 style: TextStyle(
                   fontFamily: AppTextStyles.displayFont,
                   fontSize: 24,
@@ -796,7 +837,7 @@ class _HeroBannerState extends State<_HeroBanner> {
               ),
               const SizedBox(height: 6),
               Text(
-                _bodies[i],
+                slide.subtitle,
                 style: const TextStyle(
                   fontSize: 11,
                   height: 1.4,
@@ -807,7 +848,7 @@ class _HeroBannerState extends State<_HeroBanner> {
               // Page dots — active one wide.
               Row(
                 mainAxisSize: MainAxisSize.min,
-                children: List<Widget>.generate(_images.length, (int d) {
+                children: List<Widget>.generate(_slides.length, (int d) {
                   final bool active = d == _current;
                   return Container(
                     margin: const EdgeInsets.only(right: 4),

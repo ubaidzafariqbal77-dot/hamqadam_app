@@ -116,8 +116,18 @@ class FinalizingController extends GetxController {
     // An account created by an earlier attempt must not be created twice — the
     // email would already be taken.
     if (buffer.awaitingEmailOtp) {
-      await reg.ensureRegistrationSession();
-      return;
+      try {
+        await reg.ensureRegistrationSession();
+        return;
+      } catch (_) {
+        // The "awaiting OTP" flag is left over from an earlier signup on this
+        // device whose session is gone and whose credentials no longer sign
+        // in (different email/password this time). Forget it and submit the
+        // current answers; if that email really is taken the server says so
+        // and the user is sent to the contact step to change it.
+        buffer.awaitingEmailOtp = false;
+        buffer.accountCreated = false;
+      }
     }
     final bool ok = await reg.submitRegistration();
     if (!ok) {

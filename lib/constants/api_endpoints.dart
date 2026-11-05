@@ -561,6 +561,9 @@ class ApiEndpoints {
 
   /// Shareable public profile link (`GET /completion/profile-link`).
   static const String completionProfileLink = '/completion/profile-link';
+
+  /// App home ads banner (`?placement=top|bottom`), Admin → Member Ad Sliders.
+  static const String adsBanner = '/ads-banner';
 }
 
 

@@ -204,6 +204,12 @@ class Step14Controller extends StepController {
       error.value = 'Enter the 13-digit CNIC number as XXXXX-XXXXXXX-X.';
       return false;
     }
+    // Same rule as email/phone: a CNIC already on another account must stop
+    // the user here, not at the final submit.
+    if (cnicAvailable.value == false) {
+      error.value = 'This CNIC is already registered with another account.';
+      return false;
+    }
     return true;
   }
 

@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../constants/reg_icons.dart';
+import 'reg_icon_badge.dart';
 import 'bilingual_text.dart';
 
 /// A single selectable card. [image] points at an asset shown inside the soft
@@ -149,9 +150,6 @@ class AppCardSelector extends StatelessWidget {
     // rose as the canvas furniture, not in ink — and the chosen card's glyph
     // goes white against its darker disc. Drawing them in `fieldIconGlyph`
     // made the grid read as a row of brown stickers.
-    final Color discGlyph = isSelected
-        ? Colors.white
-        : (dark ? AppColors.primary : AppColors.primaryDark);
 
     return Material(
       color: Colors.transparent,
@@ -291,44 +289,11 @@ class AppCardSelector extends StatelessWidget {
                 // Icon disc: the option's artwork floating in a soft pink circle.
                 // Options without artwork (e.g. diet) render as label-only cards.
                 if (o.image != null || o.icon != null) ...<Widget>[
-                  Container(
-                    width: discSize,
-                    height: discSize,
-                    decoration: BoxDecoration(
-                      color: isSelected ? null : discColor,
-                      gradient: isSelected
-                          ? const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: <Color>[AppColors.primary, AppColors.primaryDark],
-                            )
-                          : null,
-                      borderRadius: BorderRadius.circular(discSize * 0.32),
-                      boxShadow: isSelected
-                          ? <BoxShadow>[
-                              BoxShadow(
-                                color: AppColors.primaryDark.withValues(alpha: 0.28),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
-                                spreadRadius: -4,
-                              ),
-                            ]
-                          : null,
-                    ),
-                    // The glyph scales with the disc; the padding keeps its
-                    // share of the circle constant across sizes.
-                    padding: EdgeInsets.all(discSize * 0.20),
-                    child: o.image != null
-                        ? Icon(
-                            RegIcons.iconFor(o.image!),
-                            size: discSize * 0.44,
-                            color: discGlyph,
-                          )
-                        : Icon(
-                            o.icon!,
-                            size: discSize * 0.44,
-                            color: discGlyph,
-                          ),
+                  RegIconBadge(
+                    icon: o.image != null ? RegIcons.iconFor(o.image!) : o.icon!,
+                    size: discSize,
+                    soft: true,
+                    selected: isSelected,
                   ),
                   const SizedBox(height: 12),
                 ],

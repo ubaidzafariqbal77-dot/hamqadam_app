@@ -546,10 +546,7 @@ class _OptionRow extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: <Color>[
-                            AppColors.primary,
-                            AppColors.primaryDark,
-                          ],
+                          colors: _numberColors[(index - 1) % _numberColors.length],
                         ),
                       ),
                       child: Text(
@@ -868,3 +865,12 @@ class _AccountForCard extends StatelessWidget {
   }
 }
 
+
+const List<List<Color>> _numberColors = <List<Color>>[
+  <Color>[Color(0xFFFF8FB1), Color(0xFFE5487A)],
+  <Color>[Color(0xFF7CC6FF), Color(0xFF3B82F6)],
+  <Color>[Color(0xFF6EE7B7), Color(0xFF059669)],
+  <Color>[Color(0xFFC4B5FD), Color(0xFF7C3AED)],
+  <Color>[Color(0xFFFCD34D), Color(0xFFF59E0B)],
+  <Color>[Color(0xFF5EEAD4), Color(0xFF0D9488)],
+];

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
+import '../../../constants/reg_icons.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../controllers/registration_payload.dart';
@@ -96,6 +97,7 @@ class _Step02ViewState extends State<Step02View> {
   Widget build(BuildContext context) {
     final DateTime now = DateTime.now();
     return StepScaffold(
+      art: RegIcons.step02BasicInfo,
       stepNumber: 2,
       totalSteps: 18,
       title: 'Basic information',

@@ -93,7 +93,7 @@ class RegIcons {
       return Icons.hourglass_bottom_rounded;
     }
     if (n.contains('divorc')) return Icons.heart_broken_rounded;
-    if (n.contains('widow')) return Icons.favorite_rounded;
+    if (n.contains('widow')) return Icons.volunteer_activism_rounded;
     if (n.contains('annul')) return Icons.add_rounded;
     if (n.contains('separat')) return Icons.people_outline_rounded;
     return Icons.person_outline_rounded;

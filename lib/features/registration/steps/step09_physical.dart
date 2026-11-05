@@ -95,7 +95,7 @@ class _Step09ViewState extends State<Step09View> {
       title: 'Physical information',
       // Reference has no illustration slot here — an empty art string renders
       // nothing above the title.
-      art: '',
+      art: RegIcons.heightRuler,
       subtitle: 'Your height and dietary preference.',
       busy: c.busy,
       error: c.error,

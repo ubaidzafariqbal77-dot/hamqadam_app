@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/reg_icons.dart';
 import '../../../constants/api_options.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_lookups.dart';
@@ -106,6 +107,7 @@ class _Step17ViewState extends State<Step17View> {
     // The Family-details reference draws its questions on the blush canvas
     // itself — no floating white card — with serif rose section headings.
     return StepScaffold(
+      art: RegIcons.step17FamilyDetails,
       stepNumber: 17,
       totalSteps: 18,
       title: 'Family details',

@@ -12,6 +12,7 @@ import '../../../widgets/app_pill_grid.dart';
 import '../../../widgets/app_dropdown_field.dart';
 import '../../../widgets/app_text_form_field.dart';
 import '../../../widgets/bilingual_text.dart';
+import '../../../widgets/field_icon_assets.dart';
 import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 import '../../../constants/app_dimensions.dart';
@@ -128,7 +129,10 @@ class _Step17ViewState extends State<Step17View> {
           hint: 'e.g. Lahore, Pakistan',
           textInputAction: TextInputAction.done,
           // The reference marks this row with a location pin.
-          prefixIcon: const Icon(Icons.location_on_rounded),
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 14, right: 8),
+            child: AssetOrIconDisc(icon: Icons.location_on_rounded),
+          ),
         ),
         Obx(
           () => AppPillGrid(
@@ -214,7 +218,7 @@ class _Step17ViewState extends State<Step17View> {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
     return AppTextStyles.displaySerif.copyWith(
       fontSize: 21,
-      color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleRose,
+      color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
     );
   }
 

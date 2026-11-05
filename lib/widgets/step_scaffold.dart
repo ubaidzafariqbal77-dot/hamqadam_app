@@ -8,6 +8,7 @@ import '../controllers/registration_controller.dart';
 import 'bilingual_text.dart';
 import 'dismiss_keyboard.dart';
 import 'reveal.dart';
+import 'reg_icon_badge.dart';
 import 'step_art.dart';
 
 /// Clean, professional step scaffold matching the product design references:
@@ -136,45 +137,48 @@ class StepScaffold extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-        if (compactHeader)
-          _compactHeader(context, reg, ink, dark)
-        else ...<Widget>[
-        // An empty string means "this reference screen has no image slot"
-        // (e.g. Physical information) — render nothing at all.
-        if (art != null && art!.isNotEmpty) ...<Widget>[
-          StepArt(asset: art!, icon: artIcon),
-          const SizedBox(height: AppSpacing.sm),
-        ],
-        if (title.isNotEmpty)
-          BiText(
-            title,
-            textAlign: TextAlign.center,
-            // Playfair Display, the way every step heading is drawn in the
-            // design references. Only the English line takes the serif — the
-            // Urdu companion stays Nastaliq, which has no serif counterpart.
-            style: AppTextStyles.displaySerif.copyWith(
-              fontSize: 22,
-              color: titleColor ?? (dark ? ink : AppColors.roseTitleInk),
-            ),
+          if (compactHeader)
+            _compactHeader(context, reg, ink, dark)
+          else ...<Widget>[
+            // An empty string means "this reference screen has no image slot"
+            // (e.g. Physical information) — render nothing at all.
+            if (art != null && art!.isNotEmpty) ...<Widget>[
+              StepArt(asset: art!, icon: artIcon),
+              const SizedBox(height: AppSpacing.md),
+            ],
+            if (title.isNotEmpty)
+              BiText(
+                title,
+                textAlign: TextAlign.center,
+                // Playfair Display, the way every step heading is drawn in the
+                // design references. Only the English line takes the serif — the
+                // Urdu companion stays Nastaliq, which has no serif counterpart.
+                style: AppTextStyles.displaySerif.copyWith(
+                  fontSize: 22,
+                  color: dark ? ink : AppColors.roseTitleInk,
+                ),
+              ),
+            if (subtitle.isNotEmpty) ...<Widget>[
+              if (title.isNotEmpty) const SizedBox(height: AppSpacing.sm),
+              BiText(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 13.5,
+                  color: muted,
+                ),
+              ),
+            ],
+          ],
+          if (note != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.lg),
+            _TipBanner(text: note!),
+          ],
+          SizedBox(
+            height: (title.isNotEmpty || subtitle.isNotEmpty || note != null)
+                ? AppSpacing.xl
+                : AppSpacing.xs,
           ),
-        if (subtitle.isNotEmpty) ...<Widget>[
-          if (title.isNotEmpty) const SizedBox(height: AppSpacing.sm),
-          BiText(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: AppTextStyles.body.copyWith(fontSize: 13.5, color: muted),
-          ),
-        ],
-        ],
-        if (note != null) ...<Widget>[
-          const SizedBox(height: AppSpacing.lg),
-          _TipBanner(text: note!),
-        ],
-        SizedBox(
-          height: (title.isNotEmpty || subtitle.isNotEmpty || note != null)
-              ? AppSpacing.xl
-              : AppSpacing.xs,
-        ),
           if (error != null) Obx(() => _ErrorBanner(message: error!.value)),
           ..._spaced(children),
         ],
@@ -190,11 +194,20 @@ class StepScaffold extends StatelessWidget {
     return Theme(
       data: base.copyWith(
         colorScheme: base.colorScheme.copyWith(
-          primary: dark ? AppColors.primary : AppColors.regAccent,
+          primary: dark ? AppColors.primary : AppColors.primaryDark,
         ),
       ),
-      child: _build(context, list, reg, backAction, skipAction, skipVisible,
-          editing, fixing, dark),
+      child: _build(
+        context,
+        list,
+        reg,
+        backAction,
+        skipAction,
+        skipVisible,
+        editing,
+        fixing,
+        dark,
+      ),
     );
   }
 
@@ -230,7 +243,9 @@ class StepScaffold extends StatelessWidget {
                 : const LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
+                    stops: <double>[0, 0.35, 1],
                     colors: <Color>[
+                      Color(0xFFFFF1F6),
                       AppColors.roseCanvas,
                       AppColors.roseCanvasDeep,
                     ],
@@ -298,10 +313,15 @@ class StepScaffold extends StatelessWidget {
   /// percentage at the right, the thin progress bar underneath, then a
   /// left-aligned rose question line. Reads the same live progress the top
   /// bar does (step fraction, or profile progress while editing a section).
-  Widget _compactHeader(BuildContext context, RegistrationController? reg,
-      Color ink, bool dark) {
-    final double fraction =
-        reg == null ? stepNumber / totalSteps : reg.progressFraction;
+  Widget _compactHeader(
+    BuildContext context,
+    RegistrationController? reg,
+    Color ink,
+    bool dark,
+  ) {
+    final double fraction = reg == null
+        ? stepNumber / totalSteps
+        : reg.progressFraction;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -354,9 +374,7 @@ class StepScaffold extends StatelessWidget {
             textAlign: TextAlign.left,
             style: AppTextStyles.body.copyWith(
               fontSize: 15.5,
-              color: dark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.regAccent.withValues(alpha: 0.9),
+              color: dark ? AppColors.darkTextSecondary : AppColors.primaryDark,
             ),
           ),
         ],
@@ -373,6 +391,9 @@ class StepScaffold extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: AppColors.primaryLight.withValues(alpha: 0.9),
+        ),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: const Color(0xFFB4487B).withValues(alpha: 0.10),
@@ -450,41 +471,56 @@ class _TopBar extends StatelessWidget {
           _RoundIcon(icon: Icons.arrow_back_ios_new_rounded, onTap: onBack),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: TweenAnimationBuilder<double>(
-                tween: Tween<double>(begin: 0, end: fraction.clamp(0.0, 1.0)),
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeOutCubic,
-                // The references fill the bar with a left-to-right rose
-                // gradient rather than one flat pink, which is why this is a
-                // sized box over a FractionallySizedBox instead of a plain
-                // LinearProgressIndicator.
-                builder: (BuildContext c, double v, _) => Container(
-                  height: 8,
-                  color: dark ? track : const Color(0xFFF6D9E2),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: v,
-                      child: const DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: AppColors.regPrimaryGradient,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(
+                      begin: 0,
+                      end: fraction.clamp(0.0, 1.0),
+                    ),
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOutCubic,
+                    // The references fill the bar with a left-to-right rose
+                    // gradient rather than one flat pink, which is why this is a
+                    // sized box over a FractionallySizedBox instead of a plain
+                    // LinearProgressIndicator.
+                    builder: (BuildContext c, double v, _) => Container(
+                      height: 7,
+                      color: dark ? track : AppColors.primaryLight,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FractionallySizedBox(
+                          widthFactor: v,
+                          child: const DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  AppColors.primary,
+                                  AppColors.primaryDark,
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
           // Abandon signup: only in the forward flow — editing one section or
           // correcting a rejected field has its own back-out.
           if (_showClose) ...<Widget>[
             const SizedBox(width: AppSpacing.sm),
-            _RoundIcon(icon: Icons.close_rounded, onTap: () => _confirmDiscard(context)),
+            _RoundIcon(
+              icon: Icons.close_rounded,
+              onTap: () => _confirmDiscard(context),
+            ),
           ],
         ],
       ),
@@ -508,16 +544,23 @@ class _TopBar extends StatelessWidget {
           'entered will be removed and you will return to the login screen.',
         ),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Yes, clear all'),
           ),
         ],
       ),
     );
-    if (yes == true) await Get.find<RegistrationController>().discardRegistration();
+    if (yes == true)
+      await Get.find<RegistrationController>().discardRegistration();
   }
 }
 
@@ -631,7 +674,7 @@ class _BottomBar extends StatelessWidget {
                   child: BiText.inline(
                     'Skip',
                     style: AppTextStyles.bodyStrong.copyWith(
-                      color: AppColors.primary,
+                      color: AppColors.primaryDark,
                     ),
                   ),
                 ),
@@ -730,7 +773,9 @@ class _PillButton extends StatelessWidget {
                       child: BiText.inline(
                         label,
                         style: AppTextStyles.button.copyWith(
-                          color: isBackPill ? AppColors.primaryDark : AppColors.primaryInk,
+                          color: isBackPill
+                              ? AppColors.primaryDark
+                              : AppColors.primaryInk,
                           fontSize: 14,
                         ),
                         urduColor: AppColors.primaryInk.withValues(alpha: 0.95),
@@ -787,29 +832,20 @@ class _TipBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark
             ? AppColors.primary.withValues(alpha: 0.10)
-            : AppColors.tipBg,
+            : const Color(0xFFFFF5F8),
         borderRadius: BorderRadius.circular(16),
-        border: (!dark && splitTitle)
-            ? Border.all(color: AppColors.tipGoldBorder, width: 1)
-            : null,
+        border: dark
+            ? null
+            : Border.all(color: AppColors.primaryLight, width: 1.2),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: dark
-                  ? AppColors.primary.withValues(alpha: 0.18)
-                  : AppColors.tipDisc,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.lightbulb_outline_rounded,
-              size: 24,
-              color: dark ? AppColors.primary : AppColors.tipGlyph,
-            ),
+          RegIconBadge(
+            icon: splitTitle
+                ? Icons.tips_and_updates_rounded
+                : Icons.lightbulb_rounded,
+            size: 40,
           ),
           const SizedBox(width: 12),
           Expanded(

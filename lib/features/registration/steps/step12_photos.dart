@@ -182,7 +182,7 @@ class _PhotoCell extends StatelessWidget {
                       child: Icon(
                         Icons.add_rounded,
                         size: 30,
-                        color: AppColors.regAccent,
+                        color: AppColors.primaryDark,
                       ),
                     ),
             ),

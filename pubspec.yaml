@@ -71,6 +71,7 @@ dependencies:
   video_player: ^2.14.1
   flutter_svga: ^0.0.13
   flutter_cache_manager: ^3.4.8
+  flutter_svg: ^2.3.2
 
 
 dev_dependencies:
@@ -109,20 +110,12 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+    - assets/images/login/
     - assets/icons/
-    - assets/animated_gifts/
-    - assets/gift_thumbnail/
     # Offline copy of `GET /profile/dropdown-reference-data`. The endpoint is
     # bearer-only and registration has no token until its final submit, so this
     # is what every signup dropdown reads from. Ids are the server's, verbatim.
     - assets/lookups/
-    - assets/registration/
-    - assets/registration/physical-info/
-    # Flutter does not recurse into asset folders: without this line the
-    # Education field icons were in the repo but not in the bundle, so every
-    # dropdown disc on that step rendered empty.
-    - assets/registration/EDUCATION/
-    - assets/latest_reg_icons/
     # The incoming-call ringtone, for both audio and video calls. The same file
     # is also at android/app/src/main/res/raw/ringtone.mp3, which is what
     # the `calls` notification channel rings with when the app is not open —

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../constants/reg_icons.dart';
 import '../../../constants/app_lookups.dart';
 import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
@@ -113,7 +114,7 @@ class _Step04ViewState extends State<Step04View> {
       stepNumber: 4,
       totalSteps: 18,
       title: 'Location',
-      // art: RegIcons.step04Location,
+      art: RegIcons.step04Location,
       // artIcon: Icons.location_on_rounded,
       subtitle: 'Where do you currently live?',
       busy: c.busy,

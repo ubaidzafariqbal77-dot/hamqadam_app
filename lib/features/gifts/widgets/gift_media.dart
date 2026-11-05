@@ -8,8 +8,8 @@ import '../../../constants/app_colors.dart';
 import '../../../core/services/gift_asset_cache.dart';
 import '../../../models/gift_model.dart';
 
-/// Gift thumbnail: the admin-uploaded URL when there is one, otherwise the
-/// image bundled in the app (seeded gifts).
+/// Gift thumbnail from the admin-uploaded URL. Gifts are served by the
+/// backend only; without a URL a gift glyph stands in.
 class GiftThumbnail extends StatelessWidget {
   const GiftThumbnail({super.key, required this.gift, this.size, this.fit = BoxFit.contain});
 
@@ -32,8 +32,7 @@ class GiftThumbnail extends StatelessWidget {
         errorWidget: (_, _, _) => fallback,
       );
     }
-    return Image.asset(gift.thumbnail,
-        width: size, height: size, fit: fit, errorBuilder: (_, _, _) => fallback);
+    return SizedBox(width: size, height: size, child: Center(child: fallback));
   }
 }
 
@@ -52,9 +51,8 @@ class GiftAnimation extends StatelessWidget {
     final String? url = gift.animationUrl;
 
     if (url == null) {
-      // App-bundled seeded gift — always a Lottie asset.
-      return Lottie.asset(gift.animatedAsset,
-          width: size, height: size, fit: BoxFit.contain, errorBuilder: (_, _, _) => thumb);
+      // No backend animation: show the thumbnail.
+      return thumb;
     }
 
     switch (gift.mediaType) {

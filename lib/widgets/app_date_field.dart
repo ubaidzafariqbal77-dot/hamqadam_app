@@ -222,7 +222,7 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                     child: Text(
                       'Cancel',
                       style: AppTextStyles.bodyStrong.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: AppColors.chatTimeInk,
                       ),
                     ),
                   ),
@@ -242,7 +242,8 @@ class _WheelDateSheetState extends State<_WheelDateSheet> {
                     child: Text(
                       'Confirm',
                       style: AppTextStyles.bodyStrong.copyWith(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: AppColors.primaryDark,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import '../constants/app_colors.dart';
+import 'reg_icon_badge.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import '../core/utils/media_picker_helper.dart';
@@ -45,7 +45,9 @@ class MediaUploadCard extends StatelessWidget {
             height: height,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: FieldStyle.background(context, requirement),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? FieldStyle.background(context, requirement)
+                  : const Color(0xFFFFF7FA),
               borderRadius: AppRadius.mdAll,
               border: Border.all(color: FieldStyle.border(context, requirement), width: 1.2),
             ),
@@ -79,7 +81,7 @@ class MediaUploadCard extends StatelessWidget {
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      Icon(icon, size: 34, color: AppColors.regAccent),
+                      RegIconBadge(icon: icon, size: 52, soft: true),
                       const SizedBox(height: 6),
                       BiText(
                         'Tap to upload',
@@ -109,7 +111,7 @@ class _FileBadge extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(icon, size: 34, color: AppColors.regAccent),
+          RegIconBadge(icon: icon, size: 52, soft: true),
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),

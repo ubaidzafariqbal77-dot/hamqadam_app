@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import '../constants/reg_icons.dart';
 import '../constants/app_text_styles.dart';
 import 'bilingual_text.dart';
 
@@ -203,15 +204,7 @@ class _FaithDisc extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: art != null
-                        ? Image.asset(
-                            art!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, Object __, StackTrace? ___) => const Icon(
-                              Icons.auto_awesome_outlined,
-                              size: 40,
-                              color: AppColors.primary,
-                            ),
-                          )
+                        ? Icon(RegIcons.iconFor(art!), size: 40, color: AppColors.primaryDark)
                         : const Icon(
                             Icons.auto_awesome_outlined,
                             size: 40,

@@ -125,7 +125,7 @@ class _Step09ViewState extends State<Step09View> {
               style: AppTextStyles.display.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: AppColors.regAccent,
+                color: AppColors.primaryDark,
               ),
             ),
             const SizedBox(height: 4),
@@ -144,15 +144,13 @@ class _Step09ViewState extends State<Step09View> {
               CardOption(
                 'Vegetarian',
                 'Vegetarian',
-                photo: 'assets/registration/physical-info/file_3.png',
-                photoIcon: Icons.eco_outlined,
+                icon: Icons.eco_outlined,
                 description: 'Plant-based diet',
               ),
               CardOption(
                 'Non-Vegetarian',
                 'Non-Vegetarian',
-                photo: 'assets/registration/physical-info/file_4.png',
-                photoIcon: Icons.kebab_dining_rounded,
+                icon: Icons.kebab_dining_rounded,
                 description: 'Meat & poultry',
               ),
             ],

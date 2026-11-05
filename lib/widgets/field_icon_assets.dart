@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../constants/reg_icons.dart';
+import 'reg_icon_badge.dart';
 import '../constants/app_colors.dart';
 
 /// An [IconData]-compatible image glyph.
@@ -17,14 +19,15 @@ class AssetGlyph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (RegIcons.isIcon(asset)) {
+      return Icon(RegIcons.iconFor(asset), size: size, color: AppColors.primaryDark);
+    }
     return SizedBox(
       width: size,
       height: size,
       child: Image.asset(
         asset,
         fit: BoxFit.contain,
-        // A missing asset shows an empty slot rather than red error squares —
-        // the artwork is decorative, never load-bearing.
         errorBuilder: (_, _, _) => const SizedBox.shrink(),
       ),
     );
@@ -161,6 +164,13 @@ class AssetOrIconDisc extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
+    if (child == null) {
+      return RegIconBadge(
+        icon: image != null ? RegIcons.iconFor(image!) : (icon ?? Icons.edit_note_rounded),
+        size: size,
+        soft: true,
+      );
+    }
     return Container(
       width: size,
       height: size,

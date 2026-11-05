@@ -12,9 +12,9 @@ import '../../../controllers/lookup_controller.dart';
 import '../../../controllers/step_controller.dart';
 import '../../../core/api/api_response.dart';
 import '../../../models/lookup_item_model.dart';
+import '../../../widgets/reg_icon_badge.dart';
 import '../../../widgets/bilingual_text.dart';
 import '../../../widgets/step_scaffold.dart';
-import '../../../constants/reg_icons.dart';
 
 /// Step 1 — the opening questions of the local 18-step flow.
 ///
@@ -308,7 +308,7 @@ class _Step01ViewState extends State<Step01View> {
               label: BiText.inline(
                 'Retry',
                 style: AppTextStyles.bodyStrong.copyWith(
-                  color: AppColors.regAccent,
+                  color: AppColors.primaryDark,
                 ),
               ),
             ),
@@ -493,16 +493,6 @@ class _OptionRow extends StatelessWidget {
 
   String get _num => index.toString().padLeft(2, '0');
 
-  /// The painted badge artwork for rows 01–04 (reference discs). Extra rows
-  /// fall back to the gradient text inside the widget above.
-  String _badgeFor(int i) => switch (i) {
-    1 => RegIcons.badge01,
-    2 => RegIcons.badge02,
-    3 => RegIcons.badge03,
-    4 => RegIcons.badge04,
-    _ => '',
-  };
-
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
@@ -549,10 +539,7 @@ class _OptionRow extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(shape: BoxShape.circle),
                   clipBehavior: Clip.antiAlias,
-                  child: Image.asset(
-                    _badgeFor(index),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                  child: Container(
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
@@ -560,8 +547,8 @@ class _OptionRow extends StatelessWidget {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: <Color>[
-                            AppColors.regAccent.withValues(alpha: 0.75),
-                            AppColors.regAccentSoft.withValues(alpha: 0.65),
+                            AppColors.primary,
+                            AppColors.primaryDark,
                           ],
                         ),
                       ),
@@ -574,7 +561,6 @@ class _OptionRow extends StatelessWidget {
                         ),
                       ),
                     ),
-                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -597,7 +583,7 @@ class _OptionRow extends StatelessWidget {
                     child: Icon(
                       Icons.check_circle_rounded,
                       size: 20,
-                      color: AppColors.regAccent,
+                      color: AppColors.primaryDark,
                     ),
                   ),
               ],
@@ -624,9 +610,6 @@ class _GenderCard extends StatelessWidget {
 
   /// "Female" also contains "male", so check the longer word first.
   bool get _isFemale => name.toLowerCase().contains('female') || id == 2;
-
-  String get _asset =>
-      _isFemale ? 'assets/images/female.png' : 'assets/images/male.png';
 
   IconData get _symbol => _isFemale ? Icons.female_rounded : Icons.male_rounded;
 
@@ -662,7 +645,7 @@ class _GenderCard extends StatelessWidget {
             Icon(
               _symbol,
               size: 38,
-              color: AppColors.regAccent.withValues(alpha: 0.9),
+              color: AppColors.primaryDark,
             ),
             const SizedBox(height: 16),
             // Floral-wreath portrait inside a soft pink disc.
@@ -674,15 +657,12 @@ class _GenderCard extends StatelessWidget {
                   color: AppColors.regAccent.withValues(alpha: 0.08),
                 ),
                 padding: const EdgeInsets.all(8),
-                child: ClipOval(
-                  child: Image.asset(
-                    _asset,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Icon(
-                      _isFemale ? Icons.woman_rounded : Icons.man_rounded,
-                      size: 56,
-                      color: AppColors.regAccent.withValues(alpha: 0.6),
-                    ),
+                child: Center(
+                  child: RegIconBadge(
+                    icon: _isFemale ? Icons.woman_rounded : Icons.man_rounded,
+                    size: 72,
+                    soft: true,
+                    selected: isSelected,
                   ),
                 ),
               ),
@@ -738,33 +718,17 @@ class _AccountForImageGrid extends StatelessWidget {
   final int? selected;
   final ValueChanged<int> onSelect;
 
-  static const List<String> _artNames = <String>[
-    'self',
-    'son',
-    'daughter',
-    'brother',
-    'sister',
-    'friend',
-    'relative',
-    'guardian',
-  ];
-
-  String? _artFor(String name) {
-    final String n = name.toLowerCase().trim();
-    for (int i = 0; i < _artNames.length; i++) {
-      if (n.contains(_artNames[i]))
-        return 'assets/images/accountfor${i == 0 ? '' : i + 1}.png';
-    }
-    return null;
-  }
 
   IconData _fallbackIcon(String name) {
     final String n = name.toLowerCase();
-    if (n.contains('son') || n.contains('brother')) return Icons.man_rounded;
-    if (n.contains('daughter') || n.contains('sister'))
-      return Icons.woman_rounded;
-    if (n.contains('relative') || n.contains('family'))
-      return Icons.family_restroom_rounded;
+    if (n.contains('self') || n.contains('myself')) return Icons.person_rounded;
+    if (n.contains('son')) return Icons.boy_rounded;
+    if (n.contains('daughter')) return Icons.girl_rounded;
+    if (n.contains('brother')) return Icons.man_rounded;
+    if (n.contains('sister')) return Icons.woman_rounded;
+    if (n.contains('friend')) return Icons.people_alt_rounded;
+    if (n.contains('relative') || n.contains('family')) return Icons.family_restroom_rounded;
+    if (n.contains('guardian')) return Icons.shield_rounded;
     if (n.contains('counselor')) return Icons.support_agent_rounded;
     return Icons.person_rounded;
   }
@@ -784,7 +748,7 @@ class _AccountForImageGrid extends StatelessWidget {
           spacing: gap,
           runSpacing: gap,
           children: options.map((LookupItem o) {
-            final String art = _artFor(o.name) ?? '';
+            const String art = '';
             return SizedBox(
               width: tileWidth,
               height: tileHeight,
@@ -848,49 +812,35 @@ class _AccountForCard extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: <Widget>[
-              if (asset != null)
-                Image.asset(asset!, fit: BoxFit.cover)
-              else
-                Container(
-                  color: AppColors.regAccent.withValues(alpha: 0.08),
-                  child: Icon(
-                    fallbackIcon,
-                    size: 40,
-                    color: AppColors.regAccent.withValues(alpha: 0.6),
-                  ),
-                ),
-              // Frosted label strip: FULL width, pinned to the bottom edge —
-              // the photo shows through a real blur (reference close-up).
-              // The parent ClipRRect gives it the matching bottom corners.
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-                    child: Container(
-                      width: double.infinity,
-                      // Slim strip: the photo stays the hero, the label is
-                      // just a caption over its bottom edge.
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.30),
-                      ),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        // Playfair serif, white — the reference's elegant
-                        // photo-card label treatment.
-                        style: AppTextStyles.displaySerif.copyWith(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.3,
-                          color: Colors.white,
-                        ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                color: isSelected
+                    ? AppColors.roseSelectedFill
+                    : (dark ? AppColors.darkSurfaceAlt : Colors.white),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    RegIconBadge(
+                      icon: fallbackIcon,
+                      size: 60,
+                      soft: true,
+                      selected: isSelected,
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.displaySerif.copyWith(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? AppColors.primaryInk
+                            : (dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
               if (isSelected)
@@ -917,3 +867,4 @@ class _AccountForCard extends StatelessWidget {
     );
   }
 }
+

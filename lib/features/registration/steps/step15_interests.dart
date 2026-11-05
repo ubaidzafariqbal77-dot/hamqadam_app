@@ -224,7 +224,7 @@ class _Step15ViewState extends State<Step15View> {
                         () => Text(
                           '${c.selected.length}/${RegOptions.maxInterests}',
                           style: AppTextStyles.bodyStrong.copyWith(
-                            color: AppColors.regAccent,
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ),
@@ -234,7 +234,7 @@ class _Step15ViewState extends State<Step15View> {
                         child: BiText.inline(
                           'Done',
                           style: AppTextStyles.button.copyWith(
-                            color: AppColors.regAccent,
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ),
@@ -366,7 +366,7 @@ class _InterestsField extends StatelessWidget {
                     : Text(
                         '$count selected',
                         style: AppTextStyles.body.copyWith(
-                          color: AppColors.regAccent,
+                          color: AppColors.primaryDark,
                         ),
                       ),
               ),
@@ -408,7 +408,7 @@ class _SuggestionChip extends StatelessWidget {
             RegOptions.plain(label),
             style: AppTextStyles.caption.copyWith(
               fontWeight: FontWeight.w600,
-              color: AppColors.regAccent,
+              color: AppColors.primaryDark,
             ),
           ),
         ),

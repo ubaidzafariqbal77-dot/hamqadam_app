@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
+import 'reg_icon_badge.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
 import 'bilingual_text.dart';
@@ -40,12 +41,6 @@ class FinancialOptionCard extends StatelessWidget {
     final Color ink =
         Theme.of(context).textTheme.bodyLarge?.color ??
         AppColors.lightTextPrimary;
-    final Color glyph = selected
-        ? (dark ? AppColors.darkTextPrimary : AppColors.regAccent)
-        : dark
-        ? AppColors.darkTextSecondary
-        : AppColors.regAccent.withValues(alpha: 0.85);
-
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -79,7 +74,7 @@ class FinancialOptionCard extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Icon(financialGlyph(label), size: 34, color: glyph),
+              RegIconBadge(icon: financialGlyph(label), size: 48, soft: true, selected: selected),
               const SizedBox(height: 10),
               BiText(
                 label,

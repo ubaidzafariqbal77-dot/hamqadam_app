@@ -375,7 +375,7 @@ class _Step05ViewState extends State<Step05View> {
                 // Reference style: rose handset glyph in the field's leading disc.
                 prefixIcon: const Padding(
                   padding: EdgeInsets.only(left: 14, right: 8),
-                  child: AssetOrIconDisc(child: PhoneGlyph(size: 22)),
+                  child: AssetOrIconDisc(icon: Icons.smartphone_rounded),
                 ),
               ),
               Obx(() => _AvailabilityText(
@@ -386,7 +386,7 @@ class _Step05ViewState extends State<Step05View> {
             ],
           ),
         ),
-        const SizedBox(height: 42),
+        const SizedBox(height: 18),
         Reveal(
           delayMs: 120,
           child: Column(
@@ -405,7 +405,7 @@ class _Step05ViewState extends State<Step05View> {
                 // phone field above.
                 prefixIcon: const Padding(
                   padding: EdgeInsets.only(left: 14, right: 8),
-                  child: AssetOrIconDisc(child: MailGlyph(size: 22)),
+                  child: AssetOrIconDisc(icon: Icons.mail_rounded),
                 ),
               ),
               Obx(() => _AvailabilityText(

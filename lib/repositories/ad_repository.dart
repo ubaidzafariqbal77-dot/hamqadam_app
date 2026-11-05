@@ -1,6 +1,5 @@
 import '../constants/api_endpoints.dart';
 import '../core/api/api_client.dart';
-import '../core/api/api_response.dart';
 import '../models/ad_slide_model.dart';
 
 /// App home ads banner from `GET /ads-banner` — managed in

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
 import '../constants/app_text_styles.dart';
+import '../constants/reg_icons.dart';
 import 'bilingual_text.dart';
 
 /// A single selectable card. [image] points at an asset shown inside the soft
@@ -138,7 +139,7 @@ class AppCardSelector extends StatelessWidget {
               : AppColors.roseSelectedDisc)
         : dark
         ? AppColors.primary.withValues(alpha: 0.14)
-        : AppColors.roseUnselectedDisc;
+        : AppColors.primaryLight;
 
     final Color selectedInk = dark
         ? AppColors.darkTextPrimary
@@ -150,7 +151,7 @@ class AppCardSelector extends StatelessWidget {
     // made the grid read as a row of brown stickers.
     final Color discGlyph = isSelected
         ? Colors.white
-        : (dark ? AppColors.primary : AppColors.regAccent);
+        : (dark ? AppColors.primary : AppColors.primaryDark);
 
     return Material(
       color: Colors.transparent,
@@ -223,7 +224,7 @@ class AppCardSelector extends StatelessWidget {
                                         o.icon ??
                                         Icons.restaurant_rounded,
                                     size: 32,
-                                    color: AppColors.primary,
+                                    color: AppColors.primaryDark,
                                   ),
                                 ),
                           ),
@@ -263,7 +264,7 @@ class AppCardSelector extends StatelessWidget {
                   child: Icon(
                     o.photoIcon ?? Icons.restaurant_rounded,
                     size: 22,
-                    color: AppColors.primary,
+                    color: AppColors.primaryDark,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -294,22 +295,34 @@ class AppCardSelector extends StatelessWidget {
                     width: discSize,
                     height: discSize,
                     decoration: BoxDecoration(
-                      color: discColor,
-                      shape: BoxShape.circle,
+                      color: isSelected ? null : discColor,
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: <Color>[AppColors.primary, AppColors.primaryDark],
+                            )
+                          : null,
+                      borderRadius: BorderRadius.circular(discSize * 0.32),
+                      boxShadow: isSelected
+                          ? <BoxShadow>[
+                              BoxShadow(
+                                color: AppColors.primaryDark.withValues(alpha: 0.28),
+                                blurRadius: 14,
+                                offset: const Offset(0, 6),
+                                spreadRadius: -4,
+                              ),
+                            ]
+                          : null,
                     ),
                     // The glyph scales with the disc; the padding keeps its
                     // share of the circle constant across sizes.
                     padding: EdgeInsets.all(discSize * 0.20),
                     child: o.image != null
-                        ? Image.asset(
-                            o.image!,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, Object __, StackTrace? ___) =>
-                                Icon(
-                                  o.icon ?? Icons.person_rounded,
-                                  size: discSize * 0.42,
-                                  color: AppColors.primary,
-                                ),
+                        ? Icon(
+                            RegIcons.iconFor(o.image!),
+                            size: discSize * 0.44,
+                            color: discGlyph,
                           )
                         : Icon(
                             o.icon!,

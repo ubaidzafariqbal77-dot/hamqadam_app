@@ -16,6 +16,7 @@ import '../../../widgets/form_field_container.dart';
 import '../../../widgets/step_scaffold.dart';
 import '../../../widgets/faith_disc_grid.dart';
 import '../../../constants/reg_icons.dart';
+import '../../../widgets/reg_icon_badge.dart';
 import '../../../constants/app_colors.dart';
 
 /// Screen 18 — Partner preferences, the API's step 17
@@ -662,11 +663,11 @@ class _Step18ViewState extends State<Step18View> {
             child: Stack(
               fit: StackFit.expand,
               children: <Widget>[
-                Image.asset(
-                  RegIcons.partnerQuestionArt['height']!,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, Object __, StackTrace? ___) =>
-                      const SizedBox.shrink(),
+                Center(
+                  child: RegHeroIcon(
+                    icon: RegIcons.iconFor(RegIcons.partnerQuestionArt['height']!),
+                    size: 84,
+                  ),
                 ),
                 if (hMin != null)
                   Align(
@@ -848,14 +849,9 @@ class _Step18ViewState extends State<Step18View> {
             ],
           ),
           const SizedBox(height: 16),
-          AspectRatio(
-            aspectRatio: 1,
-            child: Image.asset(
-              RegIcons.partnerQuestionArt['age']!,
-              fit: BoxFit.contain,
-              errorBuilder: (_, Object __, StackTrace? ___) =>
-                  const SizedBox.shrink(),
-            ),
+          RegHeroIcon(
+            icon: RegIcons.iconFor(RegIcons.partnerQuestionArt['age']!),
+            size: 84,
           ),
           const SizedBox(height: 8),
           BiText(
@@ -939,7 +935,7 @@ class _Step18ViewState extends State<Step18View> {
             'Popular',
             style: AppTextStyles.bodyStrong.copyWith(
               fontSize: 13.5,
-              color: AppColors.regAccent,
+              color: AppColors.primaryDark,
             ),
           ),
           const SizedBox(height: 10),

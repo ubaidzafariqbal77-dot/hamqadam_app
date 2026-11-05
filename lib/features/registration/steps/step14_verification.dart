@@ -172,7 +172,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_camera_rounded,
-                  color: AppColors.regAccent,
+                  color: AppColors.primaryDark,
                 ),
                 title: Text('Take a photo', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: true),
@@ -180,7 +180,7 @@ class Step14Controller extends StepController {
               ListTile(
                 leading: const Icon(
                   Icons.photo_library_rounded,
-                  color: AppColors.regAccent,
+                  color: AppColors.primaryDark,
                 ),
                 title: Text('Choose from gallery', style: AppTextStyles.body),
                 onTap: () => Get.back<bool>(result: false),

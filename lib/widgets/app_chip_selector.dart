@@ -169,7 +169,19 @@ class _Chip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
           constraints: BoxConstraints(minHeight: 48, maxWidth: maxWidth),
           decoration: BoxDecoration(
-            gradient: selected ? const LinearGradient(colors: AppColors.regPrimaryGradient) : null,
+            gradient: selected
+                ? LinearGradient(colors: <Color>[Color.lerp(AppColors.primary, AppColors.primaryDark, 0.45)!, AppColors.primaryDark])
+                : null,
+            boxShadow: selected
+                ? <BoxShadow>[
+                    BoxShadow(
+                      color: AppColors.primaryDark.withValues(alpha: 0.28),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                      spreadRadius: -3,
+                    ),
+                  ]
+                : null,
             color: selected
                 ? null
                 : (dark
@@ -177,7 +189,7 @@ class _Chip extends StatelessWidget {
                       : AppColors.requiredFieldBackgroundLight),
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected ? Colors.transparent : Theme.of(context).dividerColor,
+              color: selected ? Colors.transparent : const Color(0xFFF1E4EA),
               width: 1.2,
             ),
           ),

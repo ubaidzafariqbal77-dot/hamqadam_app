@@ -510,12 +510,12 @@ class _OptionRow extends StatelessWidget {
               // Frosted white wash — the rose petals behind blur through it.
               color: dark
                   ? AppColors.darkSurface.withValues(alpha: 0.85)
-                  : Colors.white.withValues(alpha: 0.55),
+                  : (isSelected ? AppColors.roseSelectedFill : Colors.white),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(
                 color: isSelected
-                    ? AppColors.regAccent
-                    : Colors.white.withValues(alpha: 0.8),
+                    ? AppColors.primary
+                    : const Color(0xFFF1E4EA),
                 width: isSelected ? 1.8 : 1.2,
               ),
               boxShadow: <BoxShadow>[

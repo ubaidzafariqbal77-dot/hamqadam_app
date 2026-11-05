@@ -712,7 +712,9 @@ class _PillButton extends StatelessWidget {
     final bool isBackPill =
         gradient == null &&
         color == Color.lerp(AppColors.primary, Colors.white, 0.42);
-    return DecoratedBox(
+    return _Pressable(
+      enabled: !disabled,
+      child: DecoratedBox(
       decoration: BoxDecoration(
         gradient: useGradient
             ? LinearGradient(
@@ -784,6 +786,35 @@ class _PillButton extends StatelessWidget {
                   ),
           ),
         ),
+      ),
+    ),
+    );
+  }
+}
+
+/// Subtle press-down scale for the bottom-bar buttons.
+class _Pressable extends StatefulWidget {
+  const _Pressable({required this.child, required this.enabled});
+  final Widget child;
+  final bool enabled;
+
+  @override
+  State<_Pressable> createState() => _PressableState();
+}
+
+class _PressableState extends State<_Pressable> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) { if (widget.enabled) setState(() => _down = true); },
+      onPointerUp: (_) => setState(() => _down = false),
+      onPointerCancel: (_) => setState(() => _down = false),
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: const Duration(milliseconds: 120),
+        child: widget.child,
       ),
     );
   }

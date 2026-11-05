@@ -276,7 +276,7 @@ class _Step18ViewState extends State<Step18View> {
       // tiles are already white. Keeping the card would stack white on white
       // and box the grid in. The same treatment runs across the whole step so
       // the canvas does not change shape between sub-questions.
-      art: '',
+      art: RegIcons.step18Partner,
       flat: true,
       titleColor: AppColors.accent,
       subtitle: 'Describe your ideal match.',

@@ -66,7 +66,7 @@ class FieldStyle {
 
 /// Renders a labelled field wrapper: label + required/optional badge, the field
 /// content on the correctly-tinted background, and an error line.
-class FormFieldContainer extends StatelessWidget {
+class FormFieldContainer extends StatefulWidget {
   const FormFieldContainer({
     super.key,
     required this.label,
@@ -94,6 +94,20 @@ class FormFieldContainer extends StatelessWidget {
   /// (the Education reference style). An asset [image] or a Material [icon].
   final Widget? leading;
 
+  @override
+  State<FormFieldContainer> createState() => _FormFieldContainerState();
+}
+
+class _FormFieldContainerState extends State<FormFieldContainer> {
+  bool _focused = false;
+
+  String get label => widget.label;
+  Widget get child => widget.child;
+  String? get errorText => widget.errorText;
+  String? get helperText => widget.helperText;
+  bool get disabled => widget.disabled;
+  Widget? get leading => widget.leading;
+
   bool get _hasError => (errorText ?? '').isNotEmpty;
 
   @override
@@ -112,7 +126,9 @@ class FormFieldContainer extends StatelessWidget {
     // Reference style: crisp white fields with a soft pink hairline.
     final Color borderColor = dark
         ? AppColors.requiredFieldBorderDark
-        : (_hasError ? AppColors.error : AppColors.roseFieldBorder);
+        : (_hasError
+              ? AppColors.error
+              : (_focused ? AppColors.primaryDark : const Color(0xFFF1E4EA)));
     // Reference layout (Education screen): the label lives INSIDE the field
     // card, in rose, directly above the value — with the icon disc to its left
     // and the chevron on the right. Putting the label outside made every field
@@ -128,7 +144,9 @@ class FormFieldContainer extends StatelessWidget {
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
             height: 1.1,
-            color: dark ? AppColors.darkTextSecondary : AppColors.fieldLabelRose,
+            color: dark
+                ? AppColors.darkTextSecondary
+                : (_focused ? AppColors.primaryDark : AppColors.fieldLabelRose),
           ),
         ),
         const SizedBox(height: 2),
@@ -139,26 +157,43 @@ class FormFieldContainer extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: _hasError ? AppColors.error : borderColor,
-              width: 1.3,
+        Focus(
+          canRequestFocus: false,
+          skipTraversal: true,
+          onFocusChange: (bool f) => setState(() => _focused = f),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: fill,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: _hasError ? AppColors.error : borderColor,
+                width: _focused ? 1.6 : 1.2,
+              ),
+              boxShadow: dark
+                  ? null
+                  : <BoxShadow>[
+                      BoxShadow(
+                        color: (_focused ? AppColors.primary : AppColors.primaryDark)
+                            .withValues(alpha: _focused ? 0.30 : 0.06),
+                        blurRadius: _focused ? 18 : 12,
+                        offset: const Offset(0, 4),
+                        spreadRadius: _focused ? 1 : 0,
+                      ),
+                    ],
             ),
+            padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
+            child: leading == null
+                ? labelled
+                : Row(
+                    children: <Widget>[
+                      leading!,
+                      const SizedBox(width: 12),
+                      Expanded(child: labelled),
+                    ],
+                  ),
           ),
-          padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-          child: leading == null
-              ? labelled
-              : Row(
-                  children: <Widget>[
-                    leading!,
-                    const SizedBox(width: 12),
-                    Expanded(child: labelled),
-                  ],
-                ),
         ),
         if (_hasError)
           Padding(

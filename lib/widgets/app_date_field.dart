@@ -44,23 +44,32 @@ class AppDateField extends StatelessWidget {
         ? AppColors.error
         : dark
         ? AppColors.requiredFieldBorderDark
-        : Theme.of(context).colorScheme.primary;
+        : const Color(0xFFF1E4EA);
     // Label inside the card above the date, like every other field in the
     // registration flow (the references' Education field card).
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(18),
           onTap: () => _pick(context),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 9, 14, 9),
+            padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
             decoration: BoxDecoration(
               color: dark
                   ? AppColors.requiredFieldBackgroundDark
                   : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.4),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: borderColor, width: 1.2),
+              boxShadow: dark
+                  ? null
+                  : <BoxShadow>[
+                      BoxShadow(
+                        color: AppColors.primaryDark.withValues(alpha: 0.06),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: Row(
               children: <Widget>[
@@ -100,7 +109,7 @@ class AppDateField extends StatelessWidget {
                 Icon(
                   Icons.calendar_month_rounded,
                   size: AppDimensions.iconMd,
-                  color: borderColor,
+                  color: AppColors.primaryDark,
                 ),
               ],
             ),

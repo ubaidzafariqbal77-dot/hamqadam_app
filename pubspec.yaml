@@ -111,6 +111,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/login/
+    - assets/images/steps/
     - assets/icons/
     # Offline copy of `GET /profile/dropdown-reference-data`. The endpoint is
     # bearer-only and registration has no token until its final submit, so this

@@ -477,12 +477,23 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                             ),
                           ...filtered.map((String o) {
                             final bool sel = o == widget.selected;
-                            return ListTile(
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: sel ? AppColors.primary : const Color(0xFFF1E4EA),
+                                  width: sel ? 1.6 : 1,
+                                ),
+                              ),
+                              tileColor: sel ? AppColors.roseSelectedFill : Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                               onTap: () => Navigator.of(context).pop(o),
                               title: Text(
                                 o,
                                 style: AppTextStyles.body.copyWith(
-                                  color: sel ? Theme.of(context).colorScheme.primary : null,
+                                  color: sel ? AppColors.primaryDark : null,
                                   fontWeight: sel
                                       ? FontWeight.w700
                                       : FontWeight.w400,
@@ -491,10 +502,10 @@ class _StringPickerSheetState extends State<_StringPickerSheet> {
                               trailing: sel
                                   ? Icon(
                                       Icons.check_circle_rounded,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: AppColors.primaryDark,
                                     )
                                   : null,
-                            );
+                            ));
                           }),
                         ],
                       ),
@@ -720,7 +731,18 @@ class _PickerSheetState extends State<_PickerSheet> {
                           ...filtered.map((LookupItem item) {
                             final bool sel = item.id == widget.selectedId;
                             final String? img = widget.itemImage?.call(item);
-                            return ListTile(
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              child: ListTile(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(
+                                  color: sel ? AppColors.primary : const Color(0xFFF1E4EA),
+                                  width: sel ? 1.6 : 1,
+                                ),
+                              ),
+                              tileColor: sel ? AppColors.roseSelectedFill : Colors.white,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                               onTap: () => Navigator.of(context).pop(item),
                               leading: img == null
                                   ? null
@@ -728,7 +750,7 @@ class _PickerSheetState extends State<_PickerSheet> {
                               title: Text(
                                 item.name,
                                 style: AppTextStyles.body.copyWith(
-                                  color: sel ? Theme.of(context).colorScheme.primary : null,
+                                  color: sel ? AppColors.primaryDark : null,
                                   fontWeight: sel
                                       ? FontWeight.w700
                                       : FontWeight.w400,
@@ -737,10 +759,10 @@ class _PickerSheetState extends State<_PickerSheet> {
                               trailing: sel
                                   ? Icon(
                                       Icons.check_circle_rounded,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: AppColors.primaryDark,
                                     )
                                   : null,
-                            );
+                            ));
                           }),
                         ],
                       ),

@@ -256,50 +256,84 @@ class InboxHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.sm, AppSpacing.xs, AppSpacing.sm, 0),
-        child: Row(
-          children: <Widget>[
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                tooltip: 'Menu',
-                icon: const Icon(Icons.menu_rounded, size: 24),
-                color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
-                onPressed: () {
-                  final ScaffoldState? shell =
-                      Scaffold.maybeOf(context);
-                  if (shell != null && shell.hasDrawer) shell.openDrawer();
-                },
+    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk;
+    Widget chip(IconData icon, String tip, VoidCallback onTap) => Tooltip(
+          message: tip,
+          child: Material(
+            color: dark ? AppColors.darkSurfaceAlt : AppColors.primaryLight,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: Icon(icon, size: 21, color: dark ? ink : AppColors.primaryInk),
               ),
             ),
-            Expanded(
-              child: Text(
-                'Chat Conversations',
-                textAlign: TextAlign.center,
-                // Playfair, like every other reference heading in the app.
-                style: AppTextStyles.displaySerif.copyWith(
-                  fontSize: 21,
-                  color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
+          ),
+        );
+    return Container(
+      decoration: BoxDecoration(
+        gradient: dark
+            ? null
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[Colors.white, Color(0xFFFFF1F6)],
+              ),
+        color: dark ? AppColors.darkSurface : null,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.7)),
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1FB25C82),
+            blurRadius: 20,
+            offset: Offset(0, 6),
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: Row(
+            children: <Widget>[
+              chip(Icons.menu_rounded, 'Menu', () {
+                final ScaffoldState? shell = Scaffold.maybeOf(context);
+                if (shell != null && shell.hasDrawer) shell.openDrawer();
+              }),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'Chat Conversations',
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.displaySerif.copyWith(fontSize: 21, color: ink, height: 1.15),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'YOUR MESSAGES & CALLS',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primaryDark,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            // Archived chats live behind their own folder rather than a third
-            // pill, so the Chats/Calls pair of the reference stays intact.
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                tooltip: 'Archived chats',
-                icon: const Icon(Icons.inventory_2_outlined, size: 22),
-                color: dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk,
-                onPressed: () => Get.to<void>(() => const ChatArchivedView()),
-              ),
-            ),
-          ],
+              // Archived chats live behind their own folder rather than a
+              // third pill, so the Chats/Calls pair stays intact.
+              chip(Icons.inventory_2_outlined, 'Archived chats',
+                  () => Get.to<void>(() => const ChatArchivedView())),
+            ],
+          ),
         ),
       ),
     );

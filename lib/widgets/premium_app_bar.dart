@@ -31,59 +31,100 @@ class PremiumAppBar extends StatelessWidget implements PreferredSizeWidget {
   final bool centerTitle;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 6);
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight + 10);
+
+  static const Color _ink = Color(0xFF8E3D60);
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      systemOverlayStyle: SystemUiOverlayStyle.dark,
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: centerTitle,
-      leading: leading,
-      iconTheme: const IconThemeData(color: Color(0xFFB25C82)),
-      actionsIconTheme: const IconThemeData(color: Color(0xFFB25C82)),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
-      ),
-      flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
-          boxShadow: <BoxShadow>[
-            // The reference header's soft drop: a faint neutral shadow
-            // (the old rose glow read as a dirty smear under the white bar).
-            BoxShadow(
-              color: Color(0x14000000),
-              blurRadius: 14,
-              offset: Offset(0, 4),
-            ),
-          ],
+    // Soft white-to-blush sheet with rounded bottom corners, a hairline rose
+    // edge and a faint rose glow. Leading/action icons sit in blush circle
+    // chips; the title is the app's serif in near-black with a rose subtitle.
+    final ThemeData base = Theme.of(context);
+    return Theme(
+      data: base.copyWith(
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            backgroundColor: const Color(0xFFFBE3EC),
+            foregroundColor: _ink,
+            fixedSize: const Size(40, 40),
+            minimumSize: const Size(40, 40),
+            padding: EdgeInsets.zero,
+            shape: const CircleBorder(),
+          ),
         ),
       ),
-      title: Column(
-        crossAxisAlignment: centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            title,
-            style: AppTextStyles.title.copyWith(
-              color: const Color(0xFF151515),
-              fontSize: 18,
+      child: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        toolbarHeight: kToolbarHeight + 10,
+        centerTitle: centerTitle,
+        leading: leading == null
+            ? null
+            : Padding(padding: const EdgeInsets.only(left: 12), child: Center(child: leading)),
+        leadingWidth: leading == null ? null : 56,
+        iconTheme: const IconThemeData(color: _ink, size: 22),
+        actionsIconTheme: const IconThemeData(color: _ink, size: 22),
+        actionsPadding: const EdgeInsets.only(right: 12),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: <Color>[Colors.white, Color(0xFFFFF1F6)],
             ),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
+            border: Border(
+              bottom: BorderSide(color: const Color(0xFFF4BFD1).withValues(alpha: 0.7)),
+            ),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x1FB25C82),
+                blurRadius: 20,
+                offset: Offset(0, 6),
+                spreadRadius: -4,
+              ),
+            ],
           ),
-          if ((subtitle ?? '').isNotEmpty)
+        ),
+        title: Column(
+          crossAxisAlignment: centerTitle ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
             Text(
-              subtitle!,
-              style: AppTextStyles.caption.copyWith(
-                color: const Color(0xFF9CA3AF),
-                fontSize: 11,
+              title,
+              style: AppTextStyles.displaySerif.copyWith(
+                color: const Color(0xFF151515),
+                fontSize: 21,
+                height: 1.15,
               ),
             ),
-        ],
+            if ((subtitle ?? '').isNotEmpty) ...<Widget>[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!.toUpperCase(),
+                style: AppTextStyles.caption.copyWith(
+                  color: const Color(0xFFB25C82),
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.3,
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: actions == null
+            ? null
+            : <Widget>[
+                for (final Widget a in actions!)
+                  Padding(padding: const EdgeInsets.only(left: 8), child: a),
+              ],
       ),
-      actions: actions,
     );
   }
 }

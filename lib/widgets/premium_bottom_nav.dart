@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+
 import '../constants/app_colors.dart';
 import '../constants/app_dimensions.dart';
-import '../constants/app_text_styles.dart';
 
 /// One destination in [PremiumBottomNav].
 class PremiumNavItem {
@@ -38,102 +39,108 @@ class PremiumBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   final List<PremiumNavItem> items;
 
-  @override
-  Widget build(BuildContext context) {
-    // No SafeArea wrapper on purpose: SafeArea's bottom inset lifted the bar
-    // off the bottom edge on notched devices. MediaQuery padding is consumed
-    // INSIDE the bar instead, so the pink gradient stays flush with the
-    // physical bottom of the phone.
-    // Edge-to-edge: corners bhi mobile ke corners se attached — rounded
-    // TOP corners only, bottom flush with the screen edge.
-    return Container(
-      height: 66,
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 8),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.regPrimaryGradient,
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: Color(0x66B25C82),
-            blurRadius: 22,
-            offset: Offset(0, -6),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: Row(
-        children: List<Widget>.generate(items.length, (int i) {
-          return Expanded(
-            child: _NavCell(
-              item: items[i],
-              selected: i == currentIndex,
-              onTap: () => onTap(i),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-}
+  static const Color _idle = Color(0xFFB98AA0);
 
-class _NavCell extends StatelessWidget {
-  const _NavCell({required this.item, required this.selected, required this.onTap});
-
-  final PremiumNavItem item;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+  /// Selected tab: a raised brand-gradient orb with a white icon, sitting in
+  /// the bar's animated curved notch.
+  Widget _orb(PremiumNavItem item) => Transform.translate(
+        // Sit the orb lower in the notch: the package floats it high.
+        offset: const Offset(0, 12),
+        child: Container(
+        width: 54,
+        height: 54,
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withValues(alpha: 0.55) : Colors.transparent,
-          borderRadius: BorderRadius.circular(AppRadius.pill),
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[Color(0xFFE5728F), AppColors.primaryDark, AppColors.primaryInk],
+          ),
+          border: Border.all(color: Colors.white, width: 3),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.primaryInk.withValues(alpha: 0.40),
+              blurRadius: 16,
+              offset: const Offset(0, 7),
+            ),
+          ],
         ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: <Widget>[
+            Icon(item.activeIcon, color: Colors.white, size: 26),
+            if (item.badge > 0)
+              Positioned(top: 4, right: 2, child: _Badge(count: item.badge, onDark: true)),
+          ],
+        ),
+        ),
+      );
+
+  /// Resting tab: quiet rose icon with its label.
+  Widget _rest(PremiumNavItem item) => Padding(
+        padding: const EdgeInsets.only(top: 6),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Stack(
               clipBehavior: Clip.none,
               children: <Widget>[
-                Icon(
-                  selected ? item.activeIcon : item.icon,
-                  color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62),
-                  // Slightly smaller icons leave the text room to breathe —
-                  // every label is always visible under its icon.
-                  size: selected ? 21 : 20,
-                ),
+                Icon(item.icon, color: _idle, size: 23),
                 if (item.badge > 0)
-                  Positioned(top: -5, right: -7, child: _Badge(count: item.badge)),
+                  Positioned(top: -6, right: -10, child: _Badge(count: item.badge)),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 3),
             Text(
               item.label,
               maxLines: 1,
               softWrap: false,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: selected ? AppColors.primaryInk : AppColors.primaryInk.withValues(alpha: 0.62),
+              style: const TextStyle(
+                color: _idle,
                 fontSize: 10,
                 height: 1.1,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
         ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final double inset = MediaQuery.paddingOf(context).bottom;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0x26B25C82),
+            blurRadius: 24,
+            offset: Offset(0, -2),
+            spreadRadius: -10,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          CurvedNavigationBar(
+            index: currentIndex,
+            height: 64,
+            color: Colors.white,
+            buttonBackgroundColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+            animationCurve: Curves.easeOutCubic,
+            animationDuration: const Duration(milliseconds: 420),
+            onTap: onTap,
+            items: <Widget>[
+              for (int i = 0; i < items.length; i++)
+                i == currentIndex ? _orb(items[i]) : _rest(items[i]),
+            ],
+          ),
+          // Fill the home-indicator inset so the white bar reaches the edge.
+          Container(height: inset * 0.6, color: Colors.white),
+        ],
       ),
     );
   }
@@ -143,25 +150,26 @@ class _NavCell extends StatelessWidget {
 /// language: white with an ink count, so it reads as a notification, not as
 /// part of the selected pill.
 class _Badge extends StatelessWidget {
-  const _Badge({required this.count});
+  const _Badge({required this.count, this.onDark = false});
 
   final int count;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1.5),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: onDark ? Colors.white : AppColors.primaryInk,
         borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: AppColors.primary, width: 1.2),
+        border: Border.all(color: Colors.white, width: 1.4),
       ),
       constraints: const BoxConstraints(minWidth: 17),
       child: Text(
         count > 99 ? '99+' : '$count',
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: AppColors.primaryDark,
+        style: TextStyle(
+          color: onDark ? AppColors.primaryInk : Colors.white,
           fontSize: 9,
           height: 1.1,
           fontWeight: FontWeight.w800,

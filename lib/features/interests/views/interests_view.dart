@@ -64,18 +64,25 @@ class InterestsView extends StatelessWidget {
               SliverToBoxAdapter(
                 child: SizedBox(
                   height:
-                      MediaQuery.paddingOf(context).top + kToolbarHeight + 6,
+                      MediaQuery.paddingOf(context).top + kToolbarHeight + 10,
                   child: Padding(
                     padding: EdgeInsets.only(
                       top: MediaQuery.paddingOf(context).top,
                     ),
-                    child: PremiumAppBar(
-                      title: 'Matches',
-                      subtitle: 'Your matches & likes',
-                      leading: IconButton(
-                        icon: const Icon(Icons.menu_rounded),
-                        onPressed: () =>
-                            HomeView.shellKey.currentState?.openDrawer(),
+                    // The status-bar inset is already applied by the
+                    // Padding above; strip it so the AppBar doesn't push its
+                    // title down a second time (it was clipped out of view).
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: PremiumAppBar(
+                        title: 'Matches',
+                        subtitle: 'Your matches & likes',
+                        leading: IconButton(
+                          icon: const Icon(Icons.menu_rounded),
+                          onPressed: () =>
+                              HomeView.shellKey.currentState?.openDrawer(),
+                        ),
                       ),
                     ),
                   ),

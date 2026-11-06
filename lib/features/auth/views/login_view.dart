@@ -77,14 +77,14 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                   const Positioned.fill(child: _LoginBackdrop()),
                   SafeArea(
                     child: ListView(
-                      padding: const EdgeInsets.fromLTRB(21, 13, 21, 21),
+                      padding: const EdgeInsets.fromLTRB(21, 8, 21, 8),
                       children: <Widget>[
                         const _LoginHeader(),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 6),
                         const _Headline(),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         _MethodToggle(emailMode: _emailMode),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         _GlassCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -103,7 +103,7 @@ class _LoginViewState extends State<LoginView> with ViewController<LoginView> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 8),
                         const _TrustBadges(),
                         const SizedBox(height: 0),
                         const _RomanticFooterArt(),
@@ -747,7 +747,7 @@ class _RomanticFooterArt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 112,
+      height: 86,
       child: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -764,9 +764,9 @@ class _RomanticFooterArt extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text('Choose Forever',
-                    style: _Login.display(30, _Login.accent, italic: true)
+                    style: _Login.display(26, _Login.accent, italic: true)
                         .copyWith(fontWeight: FontWeight.w400, letterSpacing: 0.9, height: 1.1)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text('MORE THAN A MATCH',
                     style: _Login.text(7.5, FontWeight.w700, _Login.accent, spacing: 1.2)),
                 Text('A LIFETIME TOGETHER',

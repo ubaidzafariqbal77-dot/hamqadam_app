@@ -123,6 +123,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
 
   @override
   Widget build(BuildContext context) {
+    final double k = _k(context);
     final MediaQueryData mq = MediaQuery.of(context);
     return MediaQuery(
       data: mq.copyWith(
@@ -202,268 +203,376 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                 children: <Widget>[
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(
-                        14,
+                      padding: EdgeInsets.fromLTRB(
+                        14 * k,
                         AppSpacing.lg,
-                        14,
+                        14 * k,
                         AppSpacing.sm,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          // ---- Brand row — centred serif wordmark + sparkle
-                          GestureDetector(
-                            onTap: () => _openEntryDialog(context),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: <Widget>[
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  child: Image.asset(
-                                    'assets/icons/logo.png',
-                                    width: 44,
-                                    height: 44,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.favorite_rounded,
-                                      color: AppColors.primary,
-                                      size: 36,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                // Serif wordmark with the sparkle accent from
-                                // the reference design.
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                      // Tablets / wide screens: keep a phone-like column
+                      // centred instead of stretching cards edge to edge.
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: _kMaxContentWidth,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              // ---- Brand: logo disc + serif wordmark + swoosh --
+                              GestureDetector(
+                                onTap: () => _openEntryDialog(context),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: <Widget>[
-                                    Text(
-                                      'HamQadam',
-                                      style: AppTextStyles.displaySerif
-                                          .copyWith(
-                                            fontSize: 28,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.lightTextPrimary,
+                                    Container(
+                                      width: 62 * k,
+                                      height: 62 * k,
+                                      padding: EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                        boxShadow: <BoxShadow>[
+                                          BoxShadow(
+                                            color: AppColors.primaryInk
+                                                .withValues(alpha: 0.14),
+                                            blurRadius: 16,
+                                            offset: Offset(0, 6),
                                           ),
+                                        ],
+                                      ),
+                                      child: Image.asset(
+                                        'assets/icons/logo.png',
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.favorite_rounded,
+                                          color: AppColors.primaryDark,
+                                          size: 32 * k,
+                                        ),
+                                      ),
                                     ),
-                                    const SizedBox(width: 2),
-                                    const Icon(
-                                      Icons.auto_awesome_rounded,
-                                      size: 14,
-                                      color: AppColors.primaryDark,
+                                    SizedBox(width: 10 * k),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: <Widget>[
+                                            Text(
+                                              'HamQadam',
+                                              style: AppTextStyles.displaySerif
+                                                  .copyWith(
+                                                    fontSize: 34 * k,
+                                                    height: 1.05,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: AppColors.primaryInk,
+                                                  ),
+                                            ),
+                                            Padding(
+                                              padding: EdgeInsets.only(left: 2),
+                                              child: Icon(
+                                                Icons.auto_awesome_rounded,
+                                                size: 18 * k,
+                                                color: AppColors.primaryDark,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        // Swoosh under the wordmark.
+                                        SizedBox(
+                                          width: 170 * k,
+                                          height: 10 * k,
+                                          child: CustomPaint(
+                                            painter: _SwooshPainter(),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl + 4),
-
-                          // ---- Headline -----------------------------------
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                            'HamQadam - Proposals for you',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.displaySerif.copyWith(
-                              fontSize: 20,
-                              color: AppColors.lightTextPrimary,
-                            ),
-                          ),
-                          ),
-                          const SizedBox(height: AppSpacing.sm + 2),
-                          SizedBox(
-                            width: double.infinity,
-                            child: Text(
-                            _memberCount > 0
-                                ? '$_memberCount curated matches, all verified · Updated today'
-                                : 'Curated matches, all verified · Updated today',
-                            textAlign: TextAlign.center,
-                            style: AppTextStyles.bodyStrong.copyWith(
-                              fontSize: 12.5,
-                              height: 1.45,
-                              color: AppColors.lightTextSecondary,
-                            ),
-                          ),
-                          ),
-                          const SizedBox(height: AppSpacing.xl - 4),
-
-                          // ---- Search preview (tappable) ------------------
-                          GestureDetector(
-                            onTap: () => _openEntryDialog(context),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.lg,
-                                vertical: 12,
                               ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.lg + 4,
-                                ),
-                                boxShadow: <BoxShadow>[
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFFB4487B,
-                                    ).withValues(alpha: 0.08),
-                                    blurRadius: 14,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
+                              SizedBox(height: 14 * k),
+
+                              // ---- Headline flanked by hairlines ---------------
+                              Row(
                                 children: <Widget>[
-                                  const Icon(
-                                    Icons.search_rounded,
-                                    color: AppColors.lightTextSecondary,
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
                                   Expanded(
-                                    child: Text(
-                                      'Search by location, profession...',
-                                      style: AppTextStyles.bodyStrong.copyWith(
-                                        color: AppColors.lightTextSecondary,
+                                    child: Container(
+                                      height: 1.4,
+                                      margin: EdgeInsets.only(
+                                        right: 12,
+                                        left: 8,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      color: AppColors.primaryInk.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    'Proposals for you',
+                                    style: AppTextStyles.title.copyWith(
+                                      fontSize: 25 * k,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.3,
+                                      color: AppColors.primaryInk,
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Container(
+                                      height: 1.4,
+                                      margin: EdgeInsets.only(
+                                        left: 12,
+                                        right: 8,
+                                      ),
+                                      color: AppColors.primaryInk.withValues(
+                                        alpha: 0.35,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.lg + 4),
+                              SizedBox(height: 6 * k),
+                              SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  _memberCount > 0
+                                      ? '$_memberCount curated matches, all verified  ·  Updated today'
+                                      : 'Curated matches, all verified  ·  Updated today',
+                                  textAlign: TextAlign.center,
+                                  style: AppTextStyles.bodyStrong.copyWith(
+                                    fontSize: 12.5 * k,
+                                    height: 1.4,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.primaryInk.withValues(
+                                      alpha: 0.8,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 16 * k),
 
-                          // ---- Retry banner (only when the live feed
-                          // ---- failed and demo fallback is showing) --------
-                          if (_loadFailed)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.lg,
-                              ),
-                              child: OutlinedButton.icon(
-                                onPressed: _loadFeed,
-                                icon: const Icon(
-                                  Icons.refresh_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text(
-                                  'Could not load live profiles — tap to retry',
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppColors.primaryDark,
-                                  backgroundColor: Colors.white,
-                                  side: const BorderSide(
-                                    color: AppColors.primary,
-                                    width: 1.2,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                          // ---- Match cards (live feed) --------------------
-                          if (_loading)
-                            ...List<Widget>.filled(
-                              3,
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: AppSpacing.lg),
-                                child: _SkeletonCard(),
-                              ),
-                            )
-                          else
-                            ..._profiles.map(
-                              (_PreviewProfile p) => Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: AppSpacing.lg,
-                                ),
-                                child: _PreviewCard(
-                                  profile: p,
-                                  onTap: () => _openEntryDialog(context),
-                                ),
-                              ),
-                            ),
-
-                          // ---- Bottom action row --------------------------
-                          Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _openEntryDialog(context),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.primaryDark,
-                                    backgroundColor: Colors.white,
-                                    side: const BorderSide(
-                                      color: AppColors.primary,
-                                      width: 1.4,
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    'Log in',
-                                    style: AppTextStyles.button.copyWith(
-                                      color: AppColors.primaryDark,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.md),
-                              Expanded(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    color: const Color(0xFFE5728F),
-                                    boxShadow: <BoxShadow>[
-                                      BoxShadow(
-                                        color: const Color(0xFFE5728F).withValues(alpha: 0.30),
-                                        blurRadius: 14,
-                                        offset: const Offset(0, 6),
+                              // ---- Search pill + filter square -----------------
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => _openEntryDialog(context),
+                                      child: Container(
+                                        height: 52 * k,
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: 18,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          boxShadow: <BoxShadow>[
+                                            BoxShadow(
+                                              color: AppColors.primaryInk
+                                                  .withValues(alpha: 0.08),
+                                              blurRadius: 14,
+                                              offset: Offset(0, 5),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: <Widget>[
+                                            Icon(
+                                              Icons.search_rounded,
+                                              color:
+                                                  AppColors.lightTextSecondary,
+                                              size: 24 * k,
+                                            ),
+                                            SizedBox(width: 10 * k),
+                                            Expanded(
+                                              child: Text(
+                                                'Search by location, profession...',
+                                                style: AppTextStyles.body
+                                                    .copyWith(
+                                                      fontSize: 14.5 * k,
+                                                      color: AppColors
+                                                          .lightTextSecondary,
+                                                    ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                  child: ElevatedButton(
-                                    onPressed: () => _openEntryDialog(context),
-                                    style: ElevatedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      backgroundColor: Colors.transparent,
-                                      shadowColor: Colors.transparent,
-                                      elevation: 0,
+                                  SizedBox(width: 12 * k),
+                                  GestureDetector(
+                                    onTap: () => _openEntryDialog(context),
+                                    child: Container(
+                                      width: 52 * k,
+                                      height: 52 * k,
+                                      decoration: BoxDecoration(
+                                        color: Color(0xFFE5728F),
+                                        borderRadius: BorderRadius.circular(14),
+                                        boxShadow: <BoxShadow>[
+                                          BoxShadow(
+                                            color: Color(
+                                              0xFFE5728F,
+                                            ).withValues(alpha: 0.35),
+                                            blurRadius: 12,
+                                            offset: Offset(0, 5),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        Icons.tune_rounded,
+                                        color: Colors.white,
+                                        size: 26 * k,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 16 * k),
+
+                              // ---- Retry banner (only when the live feed
+                              // ---- failed and demo fallback is showing) --------
+                              if (_loadFailed)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.lg,
+                                  ),
+                                  child: OutlinedButton.icon(
+                                    onPressed: _loadFeed,
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text(
+                                      'Could not load live profiles — tap to retry',
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.primaryDark,
+                                      backgroundColor: Colors.white,
+                                      side: const BorderSide(
+                                        color: AppColors.primary,
+                                        width: 1.2,
+                                      ),
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
+                                        vertical: 12,
                                       ),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Create Account',
-                                      style: AppTextStyles.button.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                   ),
                                 ),
+
+                              // ---- Match cards (live feed) --------------------
+                              if (_loading)
+                                ...List<Widget>.filled(
+                                  3,
+                                  const Padding(
+                                    padding: EdgeInsets.only(
+                                      bottom: AppSpacing.lg,
+                                    ),
+                                    child: _SkeletonCard(),
+                                  ),
+                                )
+                              else
+                                ..._profiles.map(
+                                  (_PreviewProfile p) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 14),
+                                    child: _PreviewCard(
+                                      profile: p,
+                                      onTap: () => _openEntryDialog(context),
+                                    ),
+                                  ),
+                                ),
+
+                              // ---- Bottom action row --------------------------
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () =>
+                                          _openEntryDialog(context),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.primaryDark,
+                                        backgroundColor: Colors.white,
+                                        side: const BorderSide(
+                                          color: AppColors.primary,
+                                          width: 1.4,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Log in',
+                                        style: AppTextStyles.button.copyWith(
+                                          color: AppColors.primaryDark,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.md),
+                                  Expanded(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(16),
+                                        color: const Color(0xFFE5728F),
+                                        boxShadow: <BoxShadow>[
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFFE5728F,
+                                            ).withValues(alpha: 0.30),
+                                            blurRadius: 14,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: () =>
+                                            _openEntryDialog(context),
+                                        style: ElevatedButton.styleFrom(
+                                          foregroundColor: Colors.white,
+                                          backgroundColor: Colors.transparent,
+                                          shadowColor: Colors.transparent,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Create Account',
+                                          style: AppTextStyles.button.copyWith(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: AppSpacing.sm),
+                              // Clearance so the Log in / Create Account row is
+                              // never covered by the floating buttons.
+                              const SizedBox(height: 72),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.sm),
-                          // Clearance so the Log in / Create Account row is
-                          // never covered by the floating buttons.
-                          const SizedBox(height: 72),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -490,21 +599,22 @@ class _PreviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double k = _k(context);
     final String heightLabel = profile.heightLabel ?? '';
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.fromLTRB(14, 14, 14, 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: const Color(0xFFB4487B).withValues(alpha: 0.08),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: AppColors.primaryInk.withValues(alpha: 0.10),
+              blurRadius: 18,
+              offset: Offset(0, 7),
             ),
           ],
         ),
@@ -512,18 +622,18 @@ class _PreviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            // ---- TOP: photo left · facts right · heart far right --------
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
+                // ---- Photo with the Verified chip over its top-left ------
                 Stack(
                   clipBehavior: Clip.none,
                   children: <Widget>[
                     Container(
-                      width: 90,
-                      height: 106,
+                      width: 116 * k,
+                      height: 116 * k,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         color: AppColors.lightSurfaceAlt,
                       ),
                       clipBehavior: Clip.antiAlias,
@@ -531,52 +641,48 @@ class _PreviewCard extends StatelessWidget {
                           ? Image.network(
                               profile.photoUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => const Icon(
+                              errorBuilder: (_, __, ___) => Icon(
                                 Icons.person_rounded,
                                 color: AppColors.lightTextSecondary,
+                                size: 56 * k,
                               ),
                             )
-                          : const Icon(
+                          : Icon(
                               Icons.person_rounded,
                               color: AppColors.lightTextSecondary,
-                              size: 40,
+                              size: 56 * k,
                             ),
                     ),
-                    // Verified pill — white, pink tick, overlapping the
-                    // photo's top-left edge like the reference.
                     if (profile.verified)
                       Positioned(
-                        top: -6,
-                        left: -6,
+                        top: -8,
+                        left: -8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: EdgeInsets.fromLTRB(7, 5, 10, 5),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(999),
                             boxShadow: <BoxShadow>[
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                                color: Colors.black.withValues(alpha: 0.10),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
                               ),
                             ],
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: <Widget>[
                               Icon(
                                 Icons.check_circle_rounded,
-                                size: 12,
-                                color: AppColors.primary,
+                                size: 17 * k,
+                                color: Color(0xFFE5728F),
                               ),
-                              SizedBox(width: 4),
+                              SizedBox(width: 5 * k),
                               Text(
                                 'Verified',
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 12.5 * k,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.lightTextPrimary,
                                 ),
@@ -587,28 +693,25 @@ class _PreviewCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 14 * k),
 
-                // ---- FACTS ------------------------------------------------
+                // ---- Facts -------------------------------------------------
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      // Serif name, as drawn in the reference.
                       Text(
                         profile.name,
                         style: AppTextStyles.displaySerif.copyWith(
-                          fontSize: 16,
+                          fontSize: 20 * k,
+                          fontWeight: FontWeight.w700,
                           color: AppColors.lightTextPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 5),
-
-                      // "26 Years · 5'4\" · Islam" — plain dark line with
-                      // quiet dots between the parts.
+                      SizedBox(height: 6 * k),
                       if (profile.age != null ||
                           heightLabel.isNotEmpty ||
                           profile.religion != null)
@@ -619,26 +722,24 @@ class _PreviewCard extends StatelessWidget {
                             if (profile.religion != null) profile.religion,
                           ],
                         ),
-                      const SizedBox(height: 6),
-
-                      // "📍 Rawalpindi · Marketing Professional".
+                      SizedBox(height: 7 * k),
                       if (profile.city != null || profile.profession != null)
                         Row(
                           children: <Widget>[
-                            const Icon(
+                            Icon(
                               Icons.location_on_outlined,
-                              size: 13,
-                              color: AppColors.lightTextSecondary,
+                              size: 16 * k,
+                              color: AppColors.lightTextPrimary,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 5 * k),
                             Expanded(
                               child: Text(
                                 <String?>[
                                   profile.city,
                                   profile.profession,
                                 ].whereType<String>().join(' · '),
-                                style: const TextStyle(
-                                  fontSize: 11,
+                                style: TextStyle(
+                                  fontSize: 13 * k,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.lightTextSecondary,
                                 ),
@@ -648,24 +749,22 @@ class _PreviewCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                      const SizedBox(height: 6),
-
-                      // "🎓 MBA, LUMS".
+                      SizedBox(height: 7 * k),
                       if (profile.education != null)
                         Row(
                           children: <Widget>[
-                            const Icon(
+                            Icon(
                               Icons.school_outlined,
-                              size: 13,
-                              color: AppColors.lightTextSecondary,
+                              size: 16 * k,
+                              color: AppColors.lightTextPrimary,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 5 * k),
                             Expanded(
                               child: Text(
                                 profile.education!,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
+                                style: TextStyle(
+                                  fontSize: 13.5 * k,
+                                  fontWeight: FontWeight.w700,
                                   color: AppColors.lightTextPrimary,
                                 ),
                                 maxLines: 1,
@@ -678,28 +777,28 @@ class _PreviewCard extends StatelessWidget {
                   ),
                 ),
 
-                // Heart — the reference's floating circle at the right,
-                // vertically centred on the facts block.
+                // ---- Heart circle, vertically centred ----------------------
                 Padding(
-                  padding: const EdgeInsets.only(left: 6, top: 26),
+                  padding: EdgeInsets.only(left: 6),
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
+                      width: 44 * k,
+                      height: 44 * k,
+                      decoration: BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
                         boxShadow: <BoxShadow>[
                           BoxShadow(
-                            color: Color(0x26000000),
-                            blurRadius: 6,
+                            color: Color(0x22000000),
+                            blurRadius: 8,
                             offset: Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.favorite_border_rounded,
-                        size: 18,
+                        size: 22 * k,
                         color: AppColors.lightTextSecondary,
                       ),
                     ),
@@ -708,62 +807,74 @@ class _PreviewCard extends StatelessWidget {
               ],
             ),
 
-            // ---- BOTTOM: age/profession pill + Send Proposal ------------
-            const SizedBox(height: 10),
+            // ---- Bottom: "age · profession" pill + Send Proposal -----------
+            SizedBox(height: 14 * k),
             Row(
               children: <Widget>[
                 Flexible(
-                  flex: 5,
+                  flex: 4,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 9,
-                    ),
+                    height: 40 * k,
+                    alignment: Alignment.center,
+                    padding: EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.35),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       _badgeText(profile),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                      style: TextStyle(
+                        fontSize: 13 * k,
+                        fontWeight: FontWeight.w600,
                         color: AppColors.primaryInk,
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 12 * k),
                 Expanded(
                   flex: 6,
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(
-                      height: 36,
+                      height: 46 * k,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: AppColors.regPrimaryGradient,
+                        ),
                         borderRadius: BorderRadius.circular(999),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: AppColors.primaryDark.withValues(
+                              alpha: 0.22,
+                            ),
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: const FittedBox(
+                      child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
                             Icon(
                               Icons.send_rounded,
-                              size: 14,
+                              size: 19 * k,
                               color: AppColors.primaryInk,
                             ),
-                            SizedBox(width: 6),
+                            SizedBox(width: 8 * k),
                             Text(
                               'Send Proposal',
                               maxLines: 1,
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 16 * k,
+                                fontWeight: FontWeight.w800,
                                 color: AppColors.primaryInk,
                               ),
                             ),
@@ -781,15 +892,40 @@ class _PreviewCard extends StatelessWidget {
     );
   }
 
-  /// The reference's left pill — "26 · Marketing"-style: age and the
-  /// profession's leading word, degrading to what exists.
+  /// "26 · UIUX Designer": age and profession, degrading to what exists.
   String _badgeText(_PreviewProfile p) {
-    final String? job = p.profession;
-    final String short = (job != null && job.trim().isNotEmpty)
-        ? job.trim().split(RegExp(r'\\s+')).first
+    final String? job = p.profession?.trim();
+    final String short = (job != null && job.isNotEmpty)
+        ? job
         : (p.verified ? 'Verified' : 'Profile');
     return p.age != null ? '${p.age} · $short' : short;
   }
+}
+
+/// The curved underline beneath the HamQadam wordmark.
+class _SwooshPainter extends CustomPainter {
+  const _SwooshPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = AppColors.primaryInk
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    final Path path = Path()
+      ..moveTo(size.width * 0.04, size.height * 0.75)
+      ..quadraticBezierTo(
+        size.width * 0.5,
+        size.height * 0.05,
+        size.width * 0.96,
+        size.height * 0.55,
+      );
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 /// One dark-text fact line with quiet "·" separators — the reference's
@@ -801,19 +937,20 @@ class _PlainFactsLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double k = _k(context);
     final List<String> clean = parts
         .whereType<String>()
         .where((String s) => s.trim().isNotEmpty)
         .toList();
-    if (clean.isEmpty) return const SizedBox.shrink();
+    if (clean.isEmpty) return SizedBox.shrink();
     return Row(
       children: <Widget>[
         Expanded(
           child: Text(
             clean.join('  ·  '),
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
+            style: TextStyle(
+              fontSize: 14 * k,
+              fontWeight: FontWeight.w700,
               color: AppColors.lightTextPrimary,
             ),
             maxLines: 1,
@@ -963,4 +1100,16 @@ class _PreviewProfile {
     if (inches > 11) return "${feet + 1}' 0\"";
     return "$feet' $inches\"";
   }
+}
+
+/// Widest the content column grows on tablets.
+const double _kMaxContentWidth = 560;
+
+/// Scale factor for this screen: 1.0 on a 402-pt wide phone (iPhone 17 Pro),
+/// smaller on compact phones, slightly larger on big ones, capped on tablets.
+double _k(BuildContext context) {
+  final double w = MediaQuery.sizeOf(
+    context,
+  ).width.clamp(0, _kMaxContentWidth).toDouble();
+  return (w / 402).clamp(0.8, 1.15);
 }

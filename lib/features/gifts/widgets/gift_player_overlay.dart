@@ -26,7 +26,7 @@ class GiftPlayerOverlay extends StatefulWidget {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'Gift',
-      barrierColor: Colors.black.withValues(alpha: 0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.85),
       transitionDuration: const Duration(milliseconds: 220),
       pageBuilder: (_, _, _) => GiftPlayerOverlay(gift: gift, caption: caption),
       transitionBuilder: (_, Animation<double> a, _, Widget child) => FadeTransition(
@@ -68,6 +68,9 @@ class _GiftPlayerOverlayState extends State<GiftPlayerOverlay> with TickerProvid
         }).then((_) {
           if (!mounted || _video == null) return;
           setState(() {});
+          // Safety net: close right after the clip's length even if the
+          // player never reports a clean "ended" state.
+          _timer = Timer(_video!.value.duration + const Duration(milliseconds: 400), _close);
           _video!
             ..setVolume(1)
             ..addListener(_onVideoTick)
@@ -97,7 +100,11 @@ class _GiftPlayerOverlayState extends State<GiftPlayerOverlay> with TickerProvid
 
   void _onVideoTick() {
     final VideoPlayerValue v = _video!.value;
-    if (v.isInitialized && !v.isPlaying && v.position >= v.duration) _close();
+    if (v.isInitialized &&
+        v.duration > Duration.zero &&
+        v.position >= v.duration - const Duration(milliseconds: 150)) {
+      _close();
+    }
   }
 
   void _fail() {
@@ -136,10 +143,21 @@ class _GiftPlayerOverlayState extends State<GiftPlayerOverlay> with TickerProvid
 
     if (_gift.animationUrl != null && _gift.mediaType == 'mp4') {
       if (_video == null || !_video!.value.isInitialized) return const CircularProgressIndicator(color: Colors.white);
-      return AspectRatio(aspectRatio: _video!.value.aspectRatio, child: VideoPlayer(_video!));
+      // Fill the whole phone screen (cropping edges if the ratio differs).
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: _video!.value.size.width,
+            height: _video!.value.size.height,
+            child: VideoPlayer(_video!),
+          ),
+        ),
+      );
     }
     if (_svga != null) {
-      return SizedBox(width: side, height: screen.height * 0.75, child: SVGAImage(_svga!));
+      return SizedBox.expand(child: SVGAImage(_svga!, fit: BoxFit.cover));
     }
     if (_lottie != null) {
       return url == null
@@ -161,18 +179,14 @@ class _GiftPlayerOverlayState extends State<GiftPlayerOverlay> with TickerProvid
       onTap: _close,
       child: Material(
         type: MaterialType.transparency,
-        child: SafeArea(
+        child: SizedBox.expand(
           child: Stack(
             alignment: Alignment.center,
             children: <Widget>[
-              Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: screen.height * 0.8),
-                  child: _player(screen),
-                ),
-              ),
+              // Full-bleed: the gift covers the entire screen, edge to edge.
+              Positioned.fill(child: Center(child: _player(screen))),
               Positioned(
-                bottom: 32,
+                bottom: MediaQuery.paddingOf(context).bottom + 24,
                 left: 24,
                 right: 24,
                 child: Container(

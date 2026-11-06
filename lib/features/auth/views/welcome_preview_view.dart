@@ -424,14 +424,10 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: <Color>[AppColors.primaryDark, AppColors.primaryInk],
-                                    ),
+                                    color: const Color(0xFFE5728F),
                                     boxShadow: <BoxShadow>[
                                       BoxShadow(
-                                        color: AppColors.primaryInk.withValues(alpha: 0.30),
+                                        color: const Color(0xFFE5728F).withValues(alpha: 0.30),
                                         blurRadius: 14,
                                         offset: const Offset(0, 6),
                                       ),

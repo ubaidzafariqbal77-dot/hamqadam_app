@@ -203,9 +203,9 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.xl,
+                        14,
                         AppSpacing.lg,
-                        AppSpacing.xl,
+                        14,
                         AppSpacing.sm,
                       ),
                       child: Column(
@@ -242,7 +242,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                                       'HamQadam',
                                       style: AppTextStyles.displaySerif
                                           .copyWith(
-                                            fontSize: 34,
+                                            fontSize: 28,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.lightTextPrimary,
                                           ),
@@ -261,25 +261,31 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                           const SizedBox(height: AppSpacing.xl + 4),
 
                           // ---- Headline -----------------------------------
-                          Text(
+                          SizedBox(
+                            width: double.infinity,
+                            child: Text(
                             'HamQadam - Proposals for you',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.displaySerif.copyWith(
-                              fontSize: 25,
+                              fontSize: 20,
                               color: AppColors.lightTextPrimary,
                             ),
                           ),
+                          ),
                           const SizedBox(height: AppSpacing.sm + 2),
-                          Text(
+                          SizedBox(
+                            width: double.infinity,
+                            child: Text(
                             _memberCount > 0
                                 ? '$_memberCount curated matches, all verified · Updated today'
                                 : 'Curated matches, all verified · Updated today',
                             textAlign: TextAlign.center,
                             style: AppTextStyles.bodyStrong.copyWith(
-                              fontSize: 14,
+                              fontSize: 12.5,
                               height: 1.45,
                               color: AppColors.lightTextSecondary,
                             ),
+                          ),
                           ),
                           const SizedBox(height: AppSpacing.xl - 4),
 
@@ -290,7 +296,7 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: AppSpacing.lg,
-                                vertical: 16,
+                                vertical: 12,
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -475,7 +481,7 @@ class _PreviewCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -499,8 +505,8 @@ class _PreviewCard extends StatelessWidget {
                   clipBehavior: Clip.none,
                   children: <Widget>[
                     Container(
-                      width: 104,
-                      height: 122,
+                      width: 90,
+                      height: 106,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         color: AppColors.lightSurfaceAlt,
@@ -566,7 +572,7 @@ class _PreviewCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 10),
 
                 // ---- FACTS ------------------------------------------------
                 Expanded(
@@ -578,13 +584,13 @@ class _PreviewCard extends StatelessWidget {
                       Text(
                         profile.name,
                         style: AppTextStyles.displaySerif.copyWith(
-                          fontSize: 19,
+                          fontSize: 16,
                           color: AppColors.lightTextPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 7),
+                      const SizedBox(height: 5),
 
                       // "26 Years · 5'4\" · Islam" — plain dark line with
                       // quiet dots between the parts.
@@ -617,7 +623,7 @@ class _PreviewCard extends StatelessWidget {
                                   profile.profession,
                                 ].whereType<String>().join(' · '),
                                 style: const TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                   color: AppColors.lightTextSecondary,
                                 ),
@@ -643,7 +649,7 @@ class _PreviewCard extends StatelessWidget {
                               child: Text(
                                 profile.education!,
                                 style: const TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.lightTextPrimary,
                                 ),
@@ -688,7 +694,7 @@ class _PreviewCard extends StatelessWidget {
             ),
 
             // ---- BOTTOM: age/profession pill + Send Proposal ------------
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Row(
               children: <Widget>[
                 Flexible(
@@ -707,7 +713,7 @@ class _PreviewCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primaryInk,
                       ),
@@ -720,7 +726,7 @@ class _PreviewCard extends StatelessWidget {
                   child: GestureDetector(
                     onTap: onTap,
                     child: Container(
-                      height: 40,
+                      height: 36,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.primary,
@@ -741,7 +747,7 @@ class _PreviewCard extends StatelessWidget {
                               'Send Proposal',
                               maxLines: 1,
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.primaryInk,
                               ),
@@ -791,7 +797,7 @@ class _PlainFactsLine extends StatelessWidget {
           child: Text(
             clean.join('  ·  '),
             style: const TextStyle(
-              fontSize: 12.5,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
               color: AppColors.lightTextPrimary,
             ),

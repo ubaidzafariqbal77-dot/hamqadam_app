@@ -604,7 +604,7 @@ class ChatsTab extends StatelessWidget {
                     itemBuilder: (BuildContext ctx, int i) {
                       final ChatThread thread = list[i];
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.only(bottom: 6),
                         child: Column(
                           children: <Widget>[
                             ChatThreadCard(
@@ -618,7 +618,7 @@ class ChatsTab extends StatelessWidget {
                             // separates its cards.
                             if (i < list.length - 1)
                               const Padding(
-                                padding: EdgeInsets.only(top: 12),
+                                padding: EdgeInsets.only(top: 6),
                                 child: ChatDottedDivider(),
                               ),
                           ],
@@ -717,7 +717,7 @@ class ChatThreadCard extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(0, 10, 16, 10),
             child: IntrinsicHeight(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -906,16 +906,13 @@ class ChatThreadCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: AppColors.brandGradient,
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
+                            // Same dark rose as the chat composer's mic.
+                            color: AppColors.primaryInk,
                             borderRadius:
                                 const BorderRadius.all(Radius.circular(AppRadius.pill)),
                             boxShadow: <BoxShadow>[
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.32),
+                                color: AppColors.primaryInk.withValues(alpha: 0.28),
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                                 spreadRadius: -2,

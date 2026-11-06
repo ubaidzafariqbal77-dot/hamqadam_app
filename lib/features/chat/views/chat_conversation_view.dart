@@ -642,12 +642,12 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           );
         }),
         IconButton(
-          icon: const Icon(Icons.call_rounded, color: AppColors.primary, size: 22),
+          icon: const Icon(Icons.call_rounded, color: AppColors.primaryInk, size: 22),
           tooltip: 'Voice Call',
           onPressed: () => _startCall(isVideo: false),
         ),
         IconButton(
-          icon: const Icon(Icons.videocam_rounded, color: AppColors.primary, size: 24),
+          icon: const Icon(Icons.videocam_rounded, color: AppColors.primaryInk, size: 24),
           tooltip: 'Video Call',
           onPressed: () => _startCall(isVideo: true),
         ),
@@ -658,6 +658,13 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
           onSelected: (String value) {
             switch (value) {
+              case 'timer':
+                setState(() {
+                  _timerMenuOpen = true;
+                  _emojiPanelOpen = false;
+                  _gifPanelOpen = false;
+                });
+                break;
               case 'block':
                 _controller.toggleBlock();
                 break;
@@ -679,6 +686,20 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             }
           },
           itemBuilder: (BuildContext ctx) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(
+              value: 'timer',
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 18,
+                    color: _timerActive ? AppColors.success : null,
+                  ),
+                  const SizedBox(width: 10),
+                  const Text('Disappearing messages'),
+                ],
+              ),
+            ),
             PopupMenuItem<String>(
               value: 'block',
               child: Obx(() {
@@ -811,6 +832,7 @@ class _ChatConversationViewState extends State<ChatConversationView> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             // Emoji / timer panels live above the input row when open.
+            if (_emojiPanelOpen || _gifPanelOpen) _buildPickerTabs(isDark),
             if (_emojiPanelOpen) _buildEmojiPanel(isDark),
             if (_gifPanelOpen)
               ChatGifPicker(
@@ -826,30 +848,6 @@ class _ChatConversationViewState extends State<ChatConversationView> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: <Widget>[
-                // Disappearing-message timer — small chip outside the pill.
-                SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: IconButton(
-                    padding: EdgeInsets.zero,
-                    icon: Icon(
-                      Icons.timer_outlined,
-                      size: 20,
-                      color: _timerActive
-                          ? AppColors.success
-                          : AppColors.primary.withValues(alpha: 0.7),
-                    ),
-                    tooltip: 'Disappearing messages',
-                    onPressed: () {
-                      setState(() {
-                        _timerMenuOpen = !_timerMenuOpen;
-                        _emojiPanelOpen = false;
-                        _gifPanelOpen = false;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 2),
                 // THE pill: + / emoji / text field / mic-send, all inside.
                 // Every child is hard-capped at 48px so the pill can never
                 // stretch taller — the earlier versions let the theme's
@@ -872,40 +870,26 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                           tooltip: 'Attach Media or Document',
                           onTap: _showAttachmentOptions,
                           icon: const Icon(Icons.add_circle_outline_rounded,
-                              color: AppColors.primary, size: 22),
+                              color: AppColors.primaryInk, size: 22),
                         ),
+                        // One button for emoji + GIF; the sheet's tabs
+                        // switch between them.
                         _ComposerIcon(
-                          tooltip: 'Emoji',
+                          tooltip: 'Emoji & GIF',
                           onTap: () {
                             setState(() {
-                              _emojiPanelOpen = !_emojiPanelOpen;
+                              final bool open = _emojiPanelOpen || _gifPanelOpen;
+                              _emojiPanelOpen = !open;
                               _gifPanelOpen = false;
                               _timerMenuOpen = false;
                             });
                           },
                           icon: Icon(
                             Icons.emoji_emotions_outlined,
-                            color: _emojiPanelOpen
-                                ? AppColors.primary
-                                : AppColors.primary.withValues(alpha: 0.7),
-                            size: 20,
-                          ),
-                        ),
-                        _ComposerIcon(
-                          tooltip: 'GIF',
-                          onTap: () {
-                            setState(() {
-                              _gifPanelOpen = !_gifPanelOpen;
-                              _emojiPanelOpen = false;
-                              _timerMenuOpen = false;
-                            });
-                          },
-                          icon: Icon(
-                            Icons.gif_rounded,
-                            color: _gifPanelOpen
-                                ? AppColors.primary
-                                : AppColors.primary.withValues(alpha: 0.7),
-                            size: 22,
+                            color: (_emojiPanelOpen || _gifPanelOpen)
+                                ? AppColors.primaryDark
+                                : AppColors.primaryInk,
+                            size: 21,
                           ),
                         ),
                         Expanded(
@@ -1065,6 +1049,75 @@ class _ChatConversationViewState extends State<ChatConversationView> {
   ];
 
   /// Quick emoji strip — one tap inserts into the composer at the cursor.
+  /// Emoji | GIF switch shown at the top of the picker sheet.
+  Widget _buildPickerTabs(bool isDark) {
+    Widget tab(String label, IconData icon, bool active, VoidCallback onTap) {
+      return Expanded(
+        child: GestureDetector(
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active
+                  ? (isDark ? AppColors.darkSurface : Colors.white)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: active && !isDark
+                  ? <BoxShadow>[
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(icon, size: 18, color: active ? AppColors.primaryDark : AppColors.chatTimeInk),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 13,
+                    color: active ? AppColors.primaryDark : AppColors.chatTimeInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurfaceAlt,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: <Widget>[
+          tab('Emoji', Icons.emoji_emotions_outlined, _emojiPanelOpen,
+              () => setState(() {
+                    _emojiPanelOpen = true;
+                    _gifPanelOpen = false;
+                  })),
+          tab('GIF', Icons.gif_box_outlined, _gifPanelOpen,
+              () => setState(() {
+                    _gifPanelOpen = true;
+                    _emojiPanelOpen = false;
+                  })),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmojiPanel(bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -1387,14 +1440,16 @@ class _MessageBubble extends StatelessWidget {
     String avatarInitial,
   ) {
     final List<Widget> railChildren = <Widget>[
-          // Avatar — 28px disc hugging the bubble's tail corner.
-          Padding(
-            // 4px up so the disc aligns with the bubble body, not the
-            // reaction row that sits below it.
-            padding: const EdgeInsets.only(bottom: 14),
-            child: _BubbleAvatar(url: avatarUrl, initial: avatarInitial, isDark: isDark),
-          ),
-          const SizedBox(width: 6),
+          // Avatar — only on the other person's messages; my own bubbles
+          // carry no photo.
+          if (!isMine) ...<Widget>[
+            Padding(
+              // Lifts the disc to the bubble body, above the reaction row.
+              padding: const EdgeInsets.only(bottom: 14),
+              child: _BubbleAvatar(url: avatarUrl, initial: avatarInitial, isDark: isDark),
+            ),
+            const SizedBox(width: 6),
+          ],
           Flexible(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1406,7 +1461,9 @@ class _MessageBubble extends StatelessWidget {
             onTap: message.isFailed ? onRetry : null,
             child: Container(
           margin: const EdgeInsets.symmetric(vertical: 2),
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+          // Leaves a clear gutter on the far side so a long message never
+          // reaches the other person's edge.
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.70),
           decoration: BoxDecoration(
             color: bubbleBg,
             borderRadius: BorderRadius.only(
@@ -1507,7 +1564,7 @@ class _MessageBubble extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isMine ? Colors.white70 : theme.hintColor,
+                                color: isMine ? Colors.black54 : theme.hintColor,
                               ),
                             ),
                           ),
@@ -1600,9 +1657,9 @@ class _MessageBubble extends StatelessWidget {
                                   // bump plus the platform emoji font lets every
                                   // glyph draw in full.
                                   style: TextStyle(
-                                    color: isMine
-                                        ? Colors.white
-                                        : theme.textTheme.bodyLarge?.color,
+                                    color: theme.brightness == Brightness.dark && !isMine
+                                        ? theme.textTheme.bodyLarge?.color
+                                        : AppColors.roseTitleInk,
                                     fontSize: 14.5,
                                     height: 1.45,
                                     fontFamilyFallback: <String>[
@@ -1624,7 +1681,7 @@ class _MessageBubble extends StatelessWidget {
                                       style: TextStyle(
                                         fontSize: 10,
                                         color: isMine
-                                            ? Colors.white.withValues(alpha: 0.75)
+                                            ? Colors.black.withValues(alpha: 0.5)
                                             : theme.hintColor,
                                       ),
                                     ),
@@ -1632,7 +1689,7 @@ class _MessageBubble extends StatelessWidget {
                                       const SizedBox(width: 3),
                                       _DeliveryTick(
                                         message: message,
-                                        color: Colors.white.withValues(alpha: 0.85),
+                                        color: Colors.black.withValues(alpha: 0.5),
                                       ),
                                     ],
                                     if (isMine && message.isFailed) ...<Widget>[
@@ -1712,7 +1769,7 @@ class _MessageBubble extends StatelessWidget {
         ];
     // Mine: [bubble, gap, avatar] — theirs: [avatar, gap, bubble].
     final List<Widget> ordered = isMine
-        ? <Widget>[railChildren[2], railChildren[1], railChildren[0]]
+        ? railChildren.reversed.toList()
         : railChildren;
     return Row(
       mainAxisSize: MainAxisSize.min,

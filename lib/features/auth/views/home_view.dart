@@ -189,9 +189,8 @@ class _HomeViewState extends State<HomeView> {
         index: _index,
         children: List<Widget>.generate(
           _tabs.length,
-          (int i) => _built.contains(i)
-              ? _bodyFor(_tabs[i])
-              : const SizedBox.shrink(),
+          (int i) =>
+              _built.contains(i) ? _bodyFor(_tabs[i]) : const SizedBox.shrink(),
         ),
       ),
       bottomNavigationBar: Obx(() {
@@ -214,7 +213,8 @@ class _HomeViewState extends State<HomeView> {
               _index = i;
               _built.add(i);
             });
-            if (_tabs[i].label == 'Profile' && Get.isRegistered<ProfileController>()) {
+            if (_tabs[i].label == 'Profile' &&
+                Get.isRegistered<ProfileController>()) {
               Get.find<ProfileController>().refreshSilently();
               if (Get.isRegistered<VerificationController>()) {
                 Get.find<VerificationController>().refreshSilently();
@@ -332,184 +332,199 @@ class _AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Drawer(
       width: MediaQuery.of(context).size.width * 0.84,
-      backgroundColor: AppColors.roseCanvas,
+      backgroundColor: const Color(0xFFFFFBFD),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.horizontal(
-          right: Radius.circular(AppRadius.xl),
-        ),
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(32)),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          children: <Widget>[
-            _header(context),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  18,
-                  AppSpacing.md,
-                  18,
-                  AppSpacing.sm,
-                ),
-                children: <Widget>[
-                  _group(
-                    context,
-                    label: 'MEMBERSHIP & PAYMENTS',
-                    entries: <_DrawerEntry>[
-                      _DrawerEntry(
-                        Icons.account_balance_wallet_outlined,
-                        'Wallet',
-                        () => Get.to<void>(() => const WalletView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.workspace_premium_outlined,
-                        'Membership Plans',
-                        () => Get.to<void>(() => const MembershipPlansView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.receipt_long_outlined,
-                        'Payment History & Invoices',
-                        () => Get.to<void>(() => const PaymentHistoryView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.monetization_on_outlined,
-                        'Coin & Feature Usage',
-                        () => Get.to<void>(() => const CoinUsageView()),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _group(
-                    context,
-                    label: 'MY ACTIVITY',
-                    entries: <_DrawerEntry>[
-                      _DrawerEntry(
-                        Icons.mail_outline_rounded,
-                        'Proposals / Rishtay',
-                        () => Get.to<void>(() => const ProposalsView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.bookmark_added_outlined,
-                        'Shortlisted Profiles',
-                        () => Get.to<void>(() => const ShortlistView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.favorite_border_rounded,
-                        'Manage Interests',
-                        () => Get.to<void>(() => const InterestsView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.star_border_rounded,
-                        'Profile Activity (Likes / Super Likes)',
-                        () => Get.to<void>(() => const ProfileActivityView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.visibility_outlined,
-                        'Profile Views',
-                        () => Get.to<void>(() => const ProfileViewsView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.bookmarks_outlined,
-                        'Saved Searches',
-                        () => Get.toNamed<void>(AppRoutes.savedSearches),
-                      ),
-                      _DrawerEntry(
-                        Icons.notifications_none_rounded,
-                        'Notifications',
-                        () => Get.to<void>(() => const NotificationsView()),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _group(
-                    context,
-                    label: 'FAMILY & COMMUNITY',
-                    entries: <_DrawerEntry>[
-                      _DrawerEntry(
-                        Icons.family_restroom_rounded,
-                        'Family & Wali Mode',
-                        () => Get.toNamed<void>(AppRoutes.family),
-                      ),
-                      _DrawerEntry(
-                        Icons.videocam_outlined,
-                        'Webinars',
-                        () => Get.toNamed<void>(AppRoutes.webinars),
-                      ),
-                      _DrawerEntry(
-                        Icons.support_rounded,
-                        'Expert Advice',
-                        () => Get.toNamed<void>(AppRoutes.expertQuestions),
-                      ),
-                      _DrawerEntry(
-                        Icons.forum_outlined,
-                        'Community Forums',
-                        () => Get.toNamed<void>(AppRoutes.forums),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _group(
-                    context,
-                    label: 'ACCOUNT',
-                    entries: <_DrawerEntry>[
-                      _DrawerEntry(
-                        Icons.edit_outlined,
-                        'Edit Profile',
-                        () => Get.to<void>(() => const EditProfileView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.card_giftcard_rounded,
-                        'My Gifts',
-                        () => Get.toNamed<void>(AppRoutes.myGifts),
-                      ),
-                      _DrawerEntry(
-                        Icons.playlist_add_check_rounded,
-                        'Complete your profile',
-                        () => Get.toNamed<void>(AppRoutes.profileCompletion),
-                      ),
-                      _DrawerEntry(
-                        Icons.verified_user_outlined,
-                        'Verification',
-                        () => Get.to<void>(() => const AiVerificationView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.fingerprint_rounded,
-                        'Fingerprint Login',
-                        () => _fingerprintSettings(context),
-                      ),
-                      _DrawerEntry(
-                        Icons.lock_outline_rounded,
-                        'Change Password',
-                        () => Get.to<void>(() => const ChangePasswordView()),
-                      ),
-                      _DrawerEntry(
-                        Icons.support_agent_rounded,
-                        'Help Center',
-                        _helpTileTap,
-                      ),
-                      _DrawerEntry(
-                        Icons.logout_rounded,
-                        'Logout',
-                        () => _confirmLogout(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _moreRow(context),
-                ],
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: <Widget>[
+          _header(context),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                18,
+                AppSpacing.md,
+                18,
+                AppSpacing.sm,
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text(
-                '${AppStrings.appName} • v1.0.0',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.lightTextHint,
+              children: <Widget>[
+                _group(
+                  context,
+                  label: 'MEMBERSHIP & PAYMENTS',
+                  entries: <_DrawerEntry>[
+                    _DrawerEntry(
+                      Icons.account_balance_wallet_outlined,
+                      'Wallet',
+                      () => Get.to<void>(() => const WalletView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.workspace_premium_outlined,
+                      'Membership Plans',
+                      () => Get.to<void>(() => const MembershipPlansView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.receipt_long_outlined,
+                      'Payment History & Invoices',
+                      () => Get.to<void>(() => const PaymentHistoryView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.monetization_on_outlined,
+                      'Coin & Feature Usage',
+                      () => Get.to<void>(() => const CoinUsageView()),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: AppSpacing.sm),
+                _group(
+                  context,
+                  label: 'MY ACTIVITY',
+                  entries: <_DrawerEntry>[
+                    _DrawerEntry(
+                      Icons.mail_outline_rounded,
+                      'Proposals / Rishtay',
+                      () => Get.to<void>(() => const ProposalsView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.bookmark_added_outlined,
+                      'Shortlisted Profiles',
+                      () => Get.to<void>(() => const ShortlistView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.favorite_border_rounded,
+                      'Manage Interests',
+                      () => Get.to<void>(() => const InterestsView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.star_border_rounded,
+                      'Profile Activity (Likes / Super Likes)',
+                      () => Get.to<void>(() => const ProfileActivityView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.visibility_outlined,
+                      'Profile Views',
+                      () => Get.to<void>(() => const ProfileViewsView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.bookmarks_outlined,
+                      'Saved Searches',
+                      () => Get.toNamed<void>(AppRoutes.savedSearches),
+                    ),
+                    _DrawerEntry(
+                      Icons.notifications_none_rounded,
+                      'Notifications',
+                      () => Get.to<void>(() => const NotificationsView()),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _group(
+                  context,
+                  label: 'FAMILY & COMMUNITY',
+                  entries: <_DrawerEntry>[
+                    _DrawerEntry(
+                      Icons.family_restroom_rounded,
+                      'Family & Wali Mode',
+                      () => Get.toNamed<void>(AppRoutes.family),
+                    ),
+                    _DrawerEntry(
+                      Icons.videocam_outlined,
+                      'Webinars',
+                      () => Get.toNamed<void>(AppRoutes.webinars),
+                    ),
+                    _DrawerEntry(
+                      Icons.support_rounded,
+                      'Expert Advice',
+                      () => Get.toNamed<void>(AppRoutes.expertQuestions),
+                    ),
+                    _DrawerEntry(
+                      Icons.forum_outlined,
+                      'Community Forums',
+                      () => Get.toNamed<void>(AppRoutes.forums),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _group(
+                  context,
+                  label: 'ACCOUNT',
+                  entries: <_DrawerEntry>[
+                    _DrawerEntry(
+                      Icons.edit_outlined,
+                      'Edit Profile',
+                      () => Get.to<void>(() => const EditProfileView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.card_giftcard_rounded,
+                      'My Gifts',
+                      () => Get.toNamed<void>(AppRoutes.myGifts),
+                    ),
+                    _DrawerEntry(
+                      Icons.playlist_add_check_rounded,
+                      'Complete your profile',
+                      () => Get.toNamed<void>(AppRoutes.profileCompletion),
+                    ),
+                    _DrawerEntry(
+                      Icons.verified_user_outlined,
+                      'Verification',
+                      () => Get.to<void>(() => const AiVerificationView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.fingerprint_rounded,
+                      'Fingerprint Login',
+                      () => _fingerprintSettings(context),
+                    ),
+                    _DrawerEntry(
+                      Icons.lock_outline_rounded,
+                      'Change Password',
+                      () => Get.to<void>(() => const ChangePasswordView()),
+                    ),
+                    _DrawerEntry(
+                      Icons.support_agent_rounded,
+                      'Help Center',
+                      _helpTileTap,
+                    ),
+                    _DrawerEntry(
+                      Icons.logout_rounded,
+                      'Logout',
+                      () => _confirmLogout(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                _moreRow(context),
+              ],
             ),
-          ],
-        ),
+          ),
+          // Footer: brand mark + version.
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              10,
+              AppSpacing.md,
+              MediaQuery.paddingOf(context).bottom + 10,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                const Icon(
+                  Icons.favorite_rounded,
+                  size: 13,
+                  color: AppColors.primaryDark,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${AppStrings.appName}  •  v1.0.0',
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.primaryDark.withValues(alpha: 0.75),
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -517,219 +532,214 @@ class _AppDrawer extends StatelessWidget {
   // ---- Header ---------------------------------------------------------------
 
   Widget _header(BuildContext context) {
-    return Container(
+    final double top = MediaQuery.paddingOf(context).top;
+    Widget glassChip({
+      required IconData icon,
+      required String label,
+      VoidCallback? onTap,
+    }) {
+      final Widget chip = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.9)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: AppColors.primaryDark.withValues(alpha: 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(icon, color: AppColors.primaryInk, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.primaryInk,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      );
+      if (onTap == null) return chip;
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          onTap: onTap,
+          child: chip,
+        ),
+      );
+    }
+
+    return SizedBox(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-        AppSpacing.lg,
-      ),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: AppColors.regPrimaryGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(AppRadius.xl),
-          bottomRight: Radius.circular(AppRadius.xl),
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.25),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-            spreadRadius: -5,
+      child: Stack(
+        children: <Widget>[
+          const Positioned.fill(child: PremiumBarBackground()),
+          Padding(
+            padding: EdgeInsets.fromLTRB(20, top + 14, 16, 20),
+            child: Obx(() {
+              final String name =
+                  auth.user.value?.fullName.trim().isNotEmpty == true
+                  ? auth.user.value!.fullName
+                  : 'HamQadam Member';
+              final String email = auth.user.value?.email ?? '';
+              final String? photo = auth.user.value?.photoUrl;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: <Widget>[
+                      // Avatar inside a white + rose double ring.
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: <Color>[
+                              Colors.white,
+                              AppColors.primaryDark,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: <BoxShadow>[
+                            BoxShadow(
+                              color: AppColors.primaryInk.withValues(
+                                alpha: 0.25,
+                              ),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          child: CircleAvatar(
+                            radius: 30,
+                            backgroundColor: AppColors.primaryLight,
+                            backgroundImage: photo != null
+                                ? NetworkImage(photo)
+                                : null,
+                            child: photo == null
+                                ? Text(
+                                    name.isNotEmpty
+                                        ? name[0].toUpperCase()
+                                        : 'H',
+                                    style: AppTextStyles.displaySerif.copyWith(
+                                      color: AppColors.primaryInk,
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Assalam-o-Alaikum,',
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTextStyles.displaySerif.copyWith(
+                                color: AppColors.primaryInk,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                height: 1.15,
+                              ),
+                            ),
+                            if (email.isNotEmpty) ...<Widget>[
+                              const SizedBox(height: 2),
+                              Text(
+                                email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primaryInk.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Material(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        shape: CircleBorder(
+                          side: BorderSide(
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => Navigator.of(context).maybePop(),
+                          child: const SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: AppColors.primaryInk,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: <Widget>[
+                      glassChip(
+                        icon: Icons.workspace_premium_rounded,
+                        label: 'Member',
+                      ),
+                      const Spacer(),
+                      // Straight to the Profile tab; "Edit Profile" below
+                      // opens the editor instead.
+                      glassChip(
+                        icon: Icons.person_outline_rounded,
+                        label: 'View profile',
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          HomeView.goToTab(3);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),
-      child: Obx(() {
-        final String name = auth.user.value?.fullName.trim().isNotEmpty == true
-            ? auth.user.value!.fullName
-            : 'HamQadam Member';
-        final String email = auth.user.value?.email ?? '';
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.65),
-                      width: 2,
-                    ),
-                    boxShadow: <BoxShadow>[
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                        spreadRadius: -4,
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: 27,
-                    backgroundColor: Colors.white.withValues(alpha: 0.22),
-                    // The member's own photo when there is one; the initial
-                    // only as the fallback.
-                    backgroundImage: auth.user.value?.photoUrl != null
-                        ? NetworkImage(auth.user.value!.photoUrl!)
-                        : null,
-                    child: auth.user.value?.photoUrl == null
-                        ? Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : 'H',
-                            style: AppTextStyles.displaySerif.copyWith(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyles.displaySerif.copyWith(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (email.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: 2),
-                          Text(
-                            email,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white.withValues(alpha: 0.88),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    onTap: () => Navigator.of(context).maybePop(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: Colors.white.withValues(alpha: 0.9),
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Icon(
-                        Icons.workspace_premium_rounded,
-                        color: Colors.white,
-                        size: 13,
-                      ),
-                      SizedBox(width: 5),
-                      Text(
-                        'Member',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                // Straight back to the Profile tab in the bottom bar — the
-                // drawer's own "Edit Profile" tile opens the editor instead.
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      HomeView.goToTab(3);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(AppRadius.pill),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.45),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            Icons.person_outline_rounded,
-                            color: Colors.white,
-                            size: 14,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'View profile',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      }),
     );
   }
 
@@ -752,21 +762,38 @@ class _AppDrawer extends StatelessWidget {
             AppSpacing.xs,
             7,
           ),
-          child: Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: AppColors.lightTextHint,
-              fontWeight: FontWeight.w800,
-              fontSize: 10.5,
-              letterSpacing: 1.4,
-            ),
+          child: Row(
+            children: <Widget>[
+              Container(
+                width: 3,
+                height: 12,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[AppColors.primary, AppColors.primaryDark],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10.5,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
           ),
         ),
         Container(
           decoration: BoxDecoration(
             // Warm white (not plain) + hairline rose border + soft two-layer
             // shadow: the premium card recipe the reference drawer uses.
-            color: AppColors.cardWarmWhite,
+            color: Colors.white,
             borderRadius: AppRadius.xlAll,
             border: Border.all(
               color: AppColors.roseFieldBorder.withValues(alpha: 0.55),
@@ -788,7 +815,7 @@ class _AppDrawer extends StatelessWidget {
                   Divider(
                     height: 1,
                     thickness: 0.6,
-                    indent: 58,
+                    indent: 62,
                     endIndent: 14,
                     color: AppColors.roseFieldBorder.withValues(alpha: 0.4),
                   ),
@@ -802,62 +829,85 @@ class _AppDrawer extends StatelessWidget {
   }
 
   Widget _tile(BuildContext context, _DrawerEntry e) {
-    // Logout is the one destructive row: it keeps the error tint so it never
-    // reads like the daily actions above it.
+    // Logout is the one destructive row: it keeps the error tint.
     final bool danger = e.label == 'Logout';
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: AppRadius.lgAll,
+        splashColor: AppColors.primary.withValues(alpha: 0.18),
+        highlightColor: AppColors.primaryLight.withValues(alpha: 0.5),
         onTap: () {
           Navigator.of(context).pop();
           e.onTap();
         },
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: 11,
-          ),          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
             children: <Widget>[
-              // Soft-tint icon disc — a quiet pink wash with the hot-pink
-              // glyph (enterprise drawer recipe): the gradient discs shouted
-              // next to a long menu; this keeps the brand but lets the LABELS
-              // lead the hierarchy.
+              // Brand-pastel squircle with an ink glyph.
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: danger
+                      ? null
+                      : const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: AppColors.regPrimaryGradient,
+                        ),
                   color: danger
                       ? AppColors.error.withValues(alpha: 0.10)
-                      : const Color(0xFFFFF1F4),
+                      : null,
                   border: Border.all(
-                    color: danger
-                        ? AppColors.error.withValues(alpha: 0.18)
-                        : const Color(0xFFFFE0E9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
+                  boxShadow: danger
+                      ? null
+                      : <BoxShadow>[
+                          BoxShadow(
+                            color: AppColors.primaryDark.withValues(
+                              alpha: 0.18,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                            spreadRadius: -2,
+                          ),
+                        ],
                 ),
                 child: Icon(
                   e.icon,
-                  color: danger ? AppColors.error : AppColors.primary,
-                  size: AppDimensions.iconSm,
+                  color: danger ? AppColors.error : AppColors.primaryInk,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   e.label,
                   style: AppTextStyles.bodyStrong.copyWith(
-                    color: danger
-                        ? AppColors.error
-                        : AppColors.lightTextPrimary,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: danger ? AppColors.error : AppColors.roseTitleInk,
                   ),
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.lightTextHint.withValues(alpha: 0.55),
-                size: 19,
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: danger
+                      ? AppColors.error.withValues(alpha: 0.08)
+                      : AppColors.primaryLight,
+                ),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: danger ? AppColors.error : AppColors.primaryDark,
+                  size: 16,
+                ),
               ),
             ],
           ),
@@ -899,14 +949,18 @@ class _AppDrawer extends StatelessWidget {
               children: <Widget>[
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Color(0xFFFFF1F4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: AppColors.regPrimaryGradient,
+                    ),
                   ),
                   child: const Icon(
                     Icons.settings_suggest_outlined,
                     size: AppDimensions.iconSm + 2,
-                    color: AppColors.primary,
+                    color: AppColors.primaryInk,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),

@@ -163,6 +163,10 @@ abstract class _Soul {
 
 /// The search row that sits UNDER the hero banner: rounded field + trailing
 /// filter button. Same live-debounce behaviour as always.
+/// Whether the search field under the banner is open. Toggled by the search
+/// icon next to "Recommended for You".
+final RxBool _searchOpen = false.obs;
+
 class _SearchRow extends StatelessWidget {
   const _SearchRow({required this.controller});
 
@@ -171,6 +175,21 @@ class _SearchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    return Obx(() {
+      final bool hasQuery =
+          controller.filter.value.searchQuery?.isNotEmpty == true;
+      final bool open = _searchOpen.value || hasQuery;
+      return AnimatedSize(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        child: !open
+            ? const SizedBox(width: double.infinity)
+            : _field(context, isDark),
+      );
+    });
+  }
+
+  Widget _field(BuildContext context, bool isDark) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.md, 8, AppSpacing.md, 4),
       child: Row(
@@ -187,6 +206,7 @@ class _SearchRow extends StatelessWidget {
               ),
               child: TextField(
                 controller: controller.searchInputController,
+                autofocus: true,
                 onChanged: controller.onSearchChanged,
                 textInputAction: TextInputAction.search,
                 onSubmitted: controller.submitSearch,
@@ -203,20 +223,20 @@ class _SearchRow extends StatelessWidget {
                     color: _Soul.gray400,
                     size: 20,
                   ),
-                  suffixIcon: Obx(() {
-                    final bool hasText =
-                        controller.filter.value.searchQuery?.isNotEmpty == true;
-                    if (!hasText) return const SizedBox.shrink();
-                    return IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 16,
-                        color: _Soul.ink500,
-                      ),
-                      onPressed: controller.clearSearchQuery,
-                    );
-                  }),
+                  // Close: clears the query and folds the field away.
+                  suffixIcon: IconButton(
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 16,
+                      color: _Soul.ink500,
+                    ),
+                    onPressed: () {
+                      controller.clearSearchQuery();
+                      _searchOpen.value = false;
+                      FocusScope.of(context).unfocus();
+                    },
+                  ),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 13),
@@ -224,8 +244,6 @@ class _SearchRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          _FilterCircleButton(controller: controller),
         ],
       ),
     );
@@ -1085,16 +1103,46 @@ class _RecommendedHeader extends StatelessWidget {
               ),
             ],
           ),
-          GestureDetector(
-            onTap: controller.resetFilter,
-            child: const Text(
-              '',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                color: _Soul.pink600,
-              ),
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              // Search: opens / closes the search field above.
+              Obx(() {
+                final bool on = _searchOpen.value ||
+                    controller.filter.value.searchQuery?.isNotEmpty == true;
+                return Material(
+                  color: on ? AppColors.primaryLight : Colors.white,
+                  shape: CircleBorder(
+                    side: BorderSide(color: on ? AppColors.primary : _Soul.gray200),
+                  ),
+                  elevation: 0,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: () {
+                      if (on) {
+                        controller.clearSearchQuery();
+                        _searchOpen.value = false;
+                        FocusScope.of(context).unfocus();
+                      } else {
+                        _searchOpen.value = true;
+                      }
+                    },
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Icon(
+                        on ? Icons.search_off_rounded : Icons.search_rounded,
+                        size: 21,
+                        color: on ? AppColors.primaryInk : _Soul.ink900,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 8),
+              // Filter: the existing sheet + active-count badge.
+              _FilterCircleButton(controller: controller),
+            ],
           ),
         ],
       ),

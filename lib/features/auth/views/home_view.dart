@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../profile_activity/views/profile_activity_view.dart';
 import 'package:get/get.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../../controllers/gift_controller.dart';
 import '../../../controllers/profile_controller.dart';
@@ -354,22 +355,22 @@ class _AppDrawer extends StatelessWidget {
                   label: 'MEMBERSHIP & PAYMENTS',
                   entries: <_DrawerEntry>[
                     _DrawerEntry(
-                      Icons.account_balance_wallet_outlined,
+                      Iconsax.wallet_3,
                       'Wallet',
                       () => Get.to<void>(() => const WalletView()),
                     ),
                     _DrawerEntry(
-                      Icons.workspace_premium_outlined,
+                      Iconsax.crown_1,
                       'Membership Plans',
                       () => Get.to<void>(() => const MembershipPlansView()),
                     ),
                     _DrawerEntry(
-                      Icons.receipt_long_outlined,
+                      Iconsax.receipt_2,
                       'Payment History & Invoices',
                       () => Get.to<void>(() => const PaymentHistoryView()),
                     ),
                     _DrawerEntry(
-                      Icons.monetization_on_outlined,
+                      Iconsax.coin_1,
                       'Coin & Feature Usage',
                       () => Get.to<void>(() => const CoinUsageView()),
                     ),
@@ -381,37 +382,37 @@ class _AppDrawer extends StatelessWidget {
                   label: 'MY ACTIVITY',
                   entries: <_DrawerEntry>[
                     _DrawerEntry(
-                      Icons.mail_outline_rounded,
+                      Iconsax.sms,
                       'Proposals / Rishtay',
                       () => Get.to<void>(() => const ProposalsView()),
                     ),
                     _DrawerEntry(
-                      Icons.bookmark_added_outlined,
+                      Iconsax.archive_tick,
                       'Shortlisted Profiles',
                       () => Get.to<void>(() => const ShortlistView()),
                     ),
                     _DrawerEntry(
-                      Icons.favorite_border_rounded,
+                      Iconsax.heart,
                       'Manage Interests',
                       () => Get.to<void>(() => const InterestsView()),
                     ),
                     _DrawerEntry(
-                      Icons.star_border_rounded,
+                      Iconsax.star_1,
                       'Profile Activity (Likes / Super Likes)',
                       () => Get.to<void>(() => const ProfileActivityView()),
                     ),
                     _DrawerEntry(
-                      Icons.visibility_outlined,
+                      Iconsax.eye,
                       'Profile Views',
                       () => Get.to<void>(() => const ProfileViewsView()),
                     ),
                     _DrawerEntry(
-                      Icons.bookmarks_outlined,
+                      Iconsax.save_2,
                       'Saved Searches',
                       () => Get.toNamed<void>(AppRoutes.savedSearches),
                     ),
                     _DrawerEntry(
-                      Icons.notifications_none_rounded,
+                      Iconsax.notification,
                       'Notifications',
                       () => Get.to<void>(() => const NotificationsView()),
                     ),
@@ -423,22 +424,22 @@ class _AppDrawer extends StatelessWidget {
                   label: 'FAMILY & COMMUNITY',
                   entries: <_DrawerEntry>[
                     _DrawerEntry(
-                      Icons.family_restroom_rounded,
+                      Iconsax.people,
                       'Family & Wali Mode',
                       () => Get.toNamed<void>(AppRoutes.family),
                     ),
                     _DrawerEntry(
-                      Icons.videocam_outlined,
+                      Iconsax.video,
                       'Webinars',
                       () => Get.toNamed<void>(AppRoutes.webinars),
                     ),
                     _DrawerEntry(
-                      Icons.support_rounded,
+                      Iconsax.message_question,
                       'Expert Advice',
                       () => Get.toNamed<void>(AppRoutes.expertQuestions),
                     ),
                     _DrawerEntry(
-                      Icons.forum_outlined,
+                      Iconsax.messages_2,
                       'Community Forums',
                       () => Get.toNamed<void>(AppRoutes.forums),
                     ),
@@ -450,42 +451,42 @@ class _AppDrawer extends StatelessWidget {
                   label: 'ACCOUNT',
                   entries: <_DrawerEntry>[
                     _DrawerEntry(
-                      Icons.edit_outlined,
+                      Iconsax.edit_2,
                       'Edit Profile',
                       () => Get.to<void>(() => const EditProfileView()),
                     ),
                     _DrawerEntry(
-                      Icons.card_giftcard_rounded,
+                      Iconsax.gift,
                       'My Gifts',
                       () => Get.toNamed<void>(AppRoutes.myGifts),
                     ),
                     _DrawerEntry(
-                      Icons.playlist_add_check_rounded,
+                      Iconsax.task_square,
                       'Complete your profile',
                       () => Get.toNamed<void>(AppRoutes.profileCompletion),
                     ),
                     _DrawerEntry(
-                      Icons.verified_user_outlined,
+                      Iconsax.shield_tick,
                       'Verification',
                       () => Get.to<void>(() => const AiVerificationView()),
                     ),
                     _DrawerEntry(
-                      Icons.fingerprint_rounded,
+                      Iconsax.finger_scan,
                       'Fingerprint Login',
                       () => _fingerprintSettings(context),
                     ),
                     _DrawerEntry(
-                      Icons.lock_outline_rounded,
+                      Iconsax.lock_1,
                       'Change Password',
                       () => Get.to<void>(() => const ChangePasswordView()),
                     ),
                     _DrawerEntry(
-                      Icons.support_agent_rounded,
+                      Iconsax.headphone,
                       'Help Center',
                       _helpTileTap,
                     ),
                     _DrawerEntry(
-                      Icons.logout_rounded,
+                      Iconsax.logout,
                       'Logout',
                       () => _confirmLogout(context),
                     ),
@@ -655,16 +656,7 @@ class _AppDrawer extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text(
-                              'Assalam-o-Alaikum,',
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primaryDark,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 11.5,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
+Text(
                               name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -856,7 +848,7 @@ class _AppDrawer extends StatelessWidget {
                       : const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: AppColors.regPrimaryGradient,
+                          colors: <Color>[Color(0xFFFFF7FA), Color(0xFFFBE3EC)],
                         ),
                   color: danger
                       ? AppColors.error.withValues(alpha: 0.10)
@@ -879,7 +871,7 @@ class _AppDrawer extends StatelessWidget {
                 ),
                 child: Icon(
                   e.icon,
-                  color: danger ? AppColors.error : AppColors.primaryInk,
+                  color: danger ? AppColors.error : AppColors.primaryDark,
                   size: 19,
                 ),
               ),
@@ -954,13 +946,14 @@ class _AppDrawer extends StatelessWidget {
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: AppColors.regPrimaryGradient,
+                      colors: <Color>[Color(0xFFFFF7FA), Color(0xFFFBE3EC)],
                     ),
+                    border: Border.all(color: const Color(0xFFF8D3E0)),
                   ),
                   child: const Icon(
-                    Icons.settings_suggest_outlined,
+                    Iconsax.setting_2,
                     size: AppDimensions.iconSm + 2,
-                    color: AppColors.primaryInk,
+                    color: AppColors.primaryDark,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),

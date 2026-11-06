@@ -254,8 +254,12 @@ class _ActivityTile extends StatelessWidget {
                             style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                         if (!received) ...<Widget>[
                           const Text('  ·  ', style: TextStyle(fontSize: 12.5)),
-                          const Text('Successfully Sent',
-                              style: TextStyle(fontSize: 12.5, color: AppColors.success)),
+                          const Flexible(
+                            child: Text('Sent',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 12.5, color: AppColors.success)),
+                          ),
                         ],
                       ],
                     ),
@@ -266,7 +270,15 @@ class _ActivityTile extends StatelessWidget {
                   ],
                 ),
               ),
-              TextButton(onPressed: open, child: const Text('View Profile')),
+              TextButton(
+                onPressed: open,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('View', style: TextStyle(fontSize: 13.5)),
+              ),
             ],
           ),
         ),

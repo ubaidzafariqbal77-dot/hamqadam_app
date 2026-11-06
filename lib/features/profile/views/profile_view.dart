@@ -81,10 +81,6 @@ class _Ink {
   static Color strong(BuildContext c) =>
       _dark(c) ? const Color(0xFFF2F3F5) : const Color(0xFF16181D);
 
-  /// Body copy.
-  static Color body(BuildContext c) =>
-      _dark(c) ? const Color(0xFFC9CCD2) : const Color(0xFF3D4350);
-
   /// Field labels and captions.
   static Color muted(BuildContext c) =>
       _dark(c) ? const Color(0xFF8E939C) : const Color(0xFF767D8B);
@@ -260,10 +256,10 @@ class _HeroCard extends StatelessWidget {
           // carry the card, pink is only the voice, never the canvas.
           color: Colors.white,
           borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: const Color(0xFFF3F4F6)),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.45)),
           boxShadow: <BoxShadow>[
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.06),
+              color: AppColors.primaryDark.withValues(alpha: 0.14),
               blurRadius: 28,
               offset: const Offset(0, 14),
               spreadRadius: -10,
@@ -279,8 +275,54 @@ class _HeroCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(26),
           child: Stack(
             children: <Widget>[
-              // Faint pink blooms keep the white card from reading flat.
-              const Positioned(top: -50, right: -40, child: _Bloom(size: 170)),
+              // Brand-pastel cover band behind the avatar, with soft orbs.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 150,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: AppColors.regPrimaryGradient,
+                    ),
+                  ),
+                  child: Stack(
+                    children: <Widget>[
+                      Positioned(top: -40, right: -30, child: _Orb(size: 150, alpha: 0.35)),
+                      Positioned(bottom: -50, left: -30, child: _Orb(size: 120, alpha: 0.28)),
+                      Positioned(
+                        right: 60,
+                        bottom: 14,
+                        child: Icon(Icons.favorite_rounded, size: 30, color: Colors.white.withValues(alpha: 0.4)),
+                      ),
+                      Positioned(
+                        left: 50,
+                        top: 52,
+                        child: Icon(Icons.favorite_rounded, size: 14, color: Colors.white.withValues(alpha: 0.5)),
+                      ),
+                      // Large HamQadam brand mark across the whole cover,
+                      // sitting behind the ID chip, Edit and the photo.
+                      const Positioned.fill(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: 0.55,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Padding(
+                                padding: EdgeInsets.only(bottom: 30),
+                                child: _BrandMark(scale: 1.9),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const Positioned(bottom: -70, left: -50, child: _Bloom(size: 150)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -313,10 +355,10 @@ class _HeroCard extends StatelessWidget {
                           child: Text(
                             u.displayName,
                             textAlign: TextAlign.center,
-                            style: AppTextStyles.display.copyWith(
-                              color: AppColors.roseTitleInk,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
+                            style: AppTextStyles.displaySerif.copyWith(
+                              color: AppColors.primaryInk,
+                              fontSize: 23,
+                              fontWeight: FontWeight.w700,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -324,7 +366,7 @@ class _HeroCard extends StatelessWidget {
                         ),
                         if (profile.verification.identityVerified) ...<Widget>[
                           const SizedBox(width: 6),
-                          const Icon(Icons.verified_rounded, color: AppColors.primary, size: 21),
+                          const Icon(Icons.verified_rounded, color: AppColors.primaryDark, size: 21),
                         ],
                       ],
                     ),
@@ -342,7 +384,7 @@ class _HeroCard extends StatelessWidget {
                           Icon(
                             Icons.place_rounded,
                             size: 14,
-                            color: AppColors.primary.withValues(alpha: 0.75),
+                            color: AppColors.primaryDark,
                           ),
                           const SizedBox(width: 4),
                           Flexible(
@@ -427,7 +469,7 @@ class _HeroMetaLine extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Icon(facts[i].icon, size: 15, color: AppColors.primary.withValues(alpha: 0.85)),
+            Icon(facts[i].icon, size: 15, color: AppColors.primaryDark),
             const SizedBox(width: 5),
             Text(
               facts[i].text,
@@ -492,11 +534,15 @@ class _Avatar extends StatelessWidget {
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.55), width: 2),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[Colors.white, AppColors.primary, AppColors.primaryDark],
+                ),
+                border: Border.all(color: Colors.white, width: 3),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.18),
+                    color: AppColors.primaryInk.withValues(alpha: 0.28),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                     spreadRadius: -4,
@@ -544,9 +590,9 @@ class _Avatar extends StatelessWidget {
   }
 
   Widget _fallback() => Container(
-    color: Colors.white.withValues(alpha: 0.2),
+    color: AppColors.primaryLight,
     alignment: Alignment.center,
-    child: Text(initial, style: AppTextStyles.display.copyWith(color: Colors.white, fontSize: 38)),
+    child: Text(initial, style: AppTextStyles.displaySerif.copyWith(color: AppColors.primaryInk, fontSize: 40)),
   );
 }
 
@@ -641,65 +687,71 @@ class _StatStrip extends StatelessWidget {
     final int photos =
         profile.photos.galleryUrls.length + (profile.photos.profilePhotoUrl != null ? 1 : 0);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF3F4F6)),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: _StatCell(value: '$pct%', label: 'Complete')),
-          const _StatDivider(),
-          Expanded(child: _StatCell(value: verification, label: 'Identity')),
-          const _StatDivider(),
-          Expanded(child: _StatCell(value: '$photos', label: 'Photos')),
-        ],
-      ),
+    return Row(
+      children: <Widget>[
+        Expanded(child: _StatCell(value: '$pct%', label: 'Complete', icon: Icons.donut_large_rounded)),
+        const SizedBox(width: 8),
+        Expanded(child: _StatCell(value: verification, label: 'Identity', icon: Icons.verified_user_rounded)),
+        const SizedBox(width: 8),
+        Expanded(child: _StatCell(value: '$photos', label: 'Photos', icon: Icons.photo_library_rounded)),
+      ],
     );
   }
 }
 
 class _StatCell extends StatelessWidget {
-  const _StatCell({required this.value, required this.label});
+  const _StatCell({required this.value, required this.label, required this.icon});
   final String value;
   final String label;
+  final IconData icon;
   @override
-  Widget build(BuildContext context) => Column(
-    children: <Widget>[
-      Text(
-        value,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: AppTextStyles.bodyStrong.copyWith(
-          color: AppColors.primary,
-          fontSize: 17,
-          height: 1.1,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.3,
-        ),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[Color(0xFFFFF7FA), Color(0xFFFBE3EC)],
       ),
-      const SizedBox(height: 3),
-      // Sentence case, not caps. Three shouty all-caps words under three
-      // values made the strip compete with the member's own name.
-      Text(
-        label,
-        style: AppTextStyles.badge.copyWith(
-          color: AppColors.lightTextSecondary,
-          letterSpacing: 0.1,
-          fontWeight: FontWeight.w500,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.white, width: 1.2),
+      boxShadow: <BoxShadow>[
+        BoxShadow(
+          color: AppColors.primaryDark.withValues(alpha: 0.10),
+          blurRadius: 12,
+          offset: const Offset(0, 5),
+          spreadRadius: -4,
         ),
-      ),
-    ],
+      ],
+    ),
+    child: Column(
+      children: <Widget>[
+        Icon(icon, size: 18, color: AppColors.primaryDark),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AppTextStyles.bodyStrong.copyWith(
+            color: AppColors.primaryInk,
+            fontSize: 16,
+            height: 1.1,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: AppTextStyles.badge.copyWith(
+            color: AppColors.primaryDark.withValues(alpha: 0.8),
+            letterSpacing: 0.2,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
   );
-}
-
-class _StatDivider extends StatelessWidget {
-  const _StatDivider();
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: 1, height: 28, color: const Color(0xFFE5E7EB));
 }
 
 class _EditButton extends StatelessWidget {
@@ -710,7 +762,7 @@ class _EditButton extends StatelessWidget {
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: AppColors.brandGradient),
+        gradient: const LinearGradient(colors: <Color>[AppColors.primaryDark, AppColors.primaryInk]),
         borderRadius: BorderRadius.circular(AppRadius.pill),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -744,21 +796,21 @@ class _GlassChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: EdgeInsets.symmetric(horizontal: icon == null ? 11 : 9, vertical: 5),
     decoration: BoxDecoration(
-      color: const Color(0xFFFFF1F4),
+      color: Colors.white.withValues(alpha: 0.85),
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      border: Border.all(color: const Color(0xFFFFE0E9)),
+      border: Border.all(color: Colors.white),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         if (icon != null) ...<Widget>[
-          Icon(icon, size: 13, color: AppColors.primary),
+          Icon(icon, size: 13, color: AppColors.primaryInk),
           const SizedBox(width: 4),
         ],
         Text(
           text,
           style: AppTextStyles.caption.copyWith(
-            color: AppColors.primary,
+            color: AppColors.primaryInk,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -2133,8 +2185,11 @@ class _FieldGrid extends StatelessWidget {
     // they can be compared at a glance.
     return Container(
       decoration: BoxDecoration(
-        color: _Ink.wash(context),
-        borderRadius: BorderRadius.circular(14),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? _Ink.wash(context)
+            : const Color(0xFFFFF7FA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primaryLight),
       ),
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Column(
@@ -2143,7 +2198,7 @@ class _FieldGrid extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           for (int i = 0; i < shown.length; i++) ...<Widget>[
-            if (i > 0) Divider(height: 1, thickness: 1, color: _Ink.line(context)),
+            if (i > 0) Divider(height: 1, thickness: 1, color: AppColors.primaryLight.withValues(alpha: 0.9)),
             _FieldRow(field: shown[i]),
           ],
         ],
@@ -2160,14 +2215,32 @@ class _FieldRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool stacked = field.isWide || field.chips.length > 1;
 
-    final Widget label = Text(
-      field.label,
-      style: AppTextStyles.caption.copyWith(
-        color: _Ink.muted(context),
-        fontSize: 13,
-        fontWeight: FontWeight.w500,
-        height: 1.3,
-      ),
+    final Widget label = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 6, right: 7),
+          child: Container(
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ),
+        Flexible(
+          child: Text(
+            field.label,
+            style: AppTextStyles.caption.copyWith(
+              color: _Ink.muted(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ),
+      ],
     );
 
     final Widget value = field.chips.length > 1
@@ -2221,15 +2294,15 @@ class _ValueChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
-      color: Theme.of(context).cardColor,
+      gradient: const LinearGradient(colors: AppColors.regPrimaryGradient),
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      border: Border.all(color: _Ink.border(context)),
+      border: Border.all(color: Colors.white),
     ),
     child: Text(
       text,
       style: AppTextStyles.caption.copyWith(
-        color: _Ink.body(context),
-        fontWeight: FontWeight.w600,
+        color: AppColors.primaryInk,
+        fontWeight: FontWeight.w700,
       ),
     ),
   );
@@ -2280,32 +2353,54 @@ class _Surface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
+    // White card, rose hairline, soft rose lift, and a thin brand-gradient
+    // accent along the top edge.
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _Ink.border(context)),
-        // Two shadows: a tight contact shadow that seats the card, and a wide
-        // soft one for lift. A single blurred pink glow read as a smudge.
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: dark ? _Ink.border(context) : AppColors.primary.withValues(alpha: 0.45),
+        ),
         boxShadow: dark
             ? null
-            : const <BoxShadow>[
+            : <BoxShadow>[
                 BoxShadow(
-                  color: Color(0x0A101828),
-                  blurRadius: 2,
-                  offset: Offset(0, 1),
+                  color: AppColors.primaryDark.withValues(alpha: 0.10),
+                  blurRadius: 26,
+                  offset: const Offset(0, 12),
+                  spreadRadius: -10,
                 ),
-                BoxShadow(
-                  color: Color(0x0F101828),
-                  blurRadius: 24,
-                  offset: Offset(0, 10),
-                  spreadRadius: -6,
+                const BoxShadow(
+                  color: Color(0x08101828),
+                  blurRadius: 3,
+                  offset: Offset(0, 1),
                 ),
               ],
       ),
-      child: child,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(23),
+        child: Stack(
+          children: <Widget>[
+            Positioned(
+              top: 0,
+              left: 24,
+              right: 24,
+              child: Container(
+                height: 3,
+                decoration: const BoxDecoration(
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(3)),
+                  gradient: LinearGradient(
+                    colors: <Color>[AppColors.primary, AppColors.primaryDark, AppColors.primary],
+                  ),
+                ),
+              ),
+            ),
+            Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2322,38 +2417,33 @@ class _CardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: <Widget>[
-      Container(
-        height: 34,
-        width: 34,
-        decoration: BoxDecoration(
-          color: AppColors.regAccent.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.regAccent),
-      ),
-      const SizedBox(width: AppSpacing.sm),
+      _BrandIcon(icon: icon),
+      const SizedBox(width: 12),
       Expanded(
         child: Text(
           title,
-          style: AppTextStyles.subtitle.copyWith(
-            fontSize: 16.5,
+          style: AppTextStyles.displaySerif.copyWith(
+            fontSize: 18,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            color: _Ink.strong(context),
+            height: 1.2,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? _Ink.strong(context)
+                : AppColors.roseTitleInk,
           ),
         ),
       ),
       if (trailing != null)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.regAccent.withValues(alpha: 0.10),
+            gradient: const LinearGradient(colors: AppColors.regPrimaryGradient),
             borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(color: Colors.white),
           ),
           child: Text(
             trailing!,
             style: AppTextStyles.badge.copyWith(
-              color: AppColors.regAccent,
+              color: AppColors.primaryInk,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -2599,15 +2689,7 @@ class _ActionTile extends StatelessWidget {
         // Same rule as the rest of the screen: the icon and the chevron carry
         // the accent, the words are ink. A pink title over a pink subtitle gave
         // a navigation row the same urgency as a call to action.
-        leading: Container(
-          height: 34,
-          width: 34,
-          decoration: BoxDecoration(
-            color: AppColors.regAccent.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, size: AppDimensions.iconSm, color: AppColors.regAccent),
-        ),
+        leading: _BrandIcon(icon: icon, size: 36),
         title: Text(
           title,
           style: AppTextStyles.body.copyWith(
@@ -2623,7 +2705,12 @@ class _ActionTile extends StatelessWidget {
             style: AppTextStyles.caption.copyWith(color: _Ink.muted(context)),
           ),
         ),
-        trailing: Icon(Icons.chevron_right_rounded, size: 20, color: _Ink.muted(context)),
+        trailing: Container(
+          width: 24,
+          height: 24,
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primaryLight),
+          child: const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.primaryDark),
+        ),
         onTap: () => Get.toNamed(route),
       ),
     );
@@ -2674,4 +2761,116 @@ class _ReferralTile extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Brand-pastel rounded square with an ink glyph — the icon treatment shared
+/// by every card header and action row on this screen.
+class _BrandIcon extends StatelessWidget {
+  const _BrandIcon({required this.icon, this.size = 38});
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(size * 0.32),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: AppColors.regPrimaryGradient,
+      ),
+      border: Border.all(color: Colors.white, width: 1.2),
+      boxShadow: <BoxShadow>[
+        BoxShadow(
+          color: AppColors.primaryDark.withValues(alpha: 0.22),
+          blurRadius: 12,
+          offset: const Offset(0, 5),
+          spreadRadius: -3,
+        ),
+      ],
+    ),
+    child: Icon(icon, size: size * 0.52, color: AppColors.primaryInk),
+  );
+}
+
+
+class _Orb extends StatelessWidget {
+  const _Orb({required this.size, required this.alpha});
+  final double size;
+  final double alpha;
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      gradient: RadialGradient(
+        colors: <Color>[Colors.white.withValues(alpha: alpha), Colors.white.withValues(alpha: 0)],
+      ),
+    ),
+  );
+}
+
+
+/// HamQadam logo + serif wordmark + CHOOSE FOREVER, as on the Discover header.
+class _BrandMark extends StatelessWidget {
+  const _BrandMark({this.scale = 1});
+
+  final double scale;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: <Widget>[
+      ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.asset(
+          'assets/icons/logo.png',
+          width: 32 * scale,
+          height: 32 * scale,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) =>
+              Icon(Icons.favorite_rounded, color: AppColors.primaryDark, size: 26 * scale),
+        ),
+      ),
+      SizedBox(width: 8 * scale),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                'HamQadam',
+                style: TextStyle(
+                  fontFamily: AppTextStyles.displayFont,
+                  fontSize: 21 * scale,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryInk,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 2),
+              Icon(Icons.auto_awesome_rounded, color: Colors.white.withValues(alpha: 0.95), size: 12 * scale),
+            ],
+          ),
+          SizedBox(height: 2 * scale),
+          Text(
+            'C H O O S E   F O R E V E R',
+            style: TextStyle(
+              fontSize: 7 * scale,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.5,
+              color: AppColors.primaryDark,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
 }

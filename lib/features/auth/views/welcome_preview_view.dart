@@ -421,23 +421,42 @@ class _WelcomePreviewViewState extends State<WelcomePreviewView> {
                               ),
                               const SizedBox(width: AppSpacing.md),
                               Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () => _openEntryDialog(context),
-                                  style: ElevatedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    backgroundColor: AppColors.primary,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: <Color>[AppColors.primaryDark, AppColors.primaryInk],
                                     ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
+                                    boxShadow: <BoxShadow>[
+                                      BoxShadow(
+                                        color: AppColors.primaryInk.withValues(alpha: 0.30),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
                                   ),
-                                  child: Text(
-                                    'Create Account',
-                                    style: AppTextStyles.button.copyWith(
-                                      color: Colors.white,
+                                  child: ElevatedButton(
+                                    onPressed: () => _openEntryDialog(context),
+                                    style: ElevatedButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Create Account',
+                                      style: AppTextStyles.button.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ),

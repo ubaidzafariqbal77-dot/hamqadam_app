@@ -32,12 +32,15 @@ class ChatGifPicker extends StatefulWidget {
   /// close the whole conversation screen instead of the picker.
   final ValueChanged<String> onPick;
 
+  /// Shared with the full-screen giphy_picker browser.
+  static const String giphyApiKey = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65';
+
   @override
   State<ChatGifPicker> createState() => _ChatGifPickerState();
 }
 
 class _ChatGifPickerState extends State<ChatGifPicker> {
-  static const String _giphyApiKey = 'GlVGYHkr3WSBnllca54iNt0yFbjz7L65';
+  static const String _giphyApiKey = ChatGifPicker.giphyApiKey;
   static const String _searchUrl = 'https://api.giphy.com/v1/gifs/search';
   static const String _trendingUrl = 'https://api.giphy.com/v1/gifs/trending';
   static const int _pageSize = 24;

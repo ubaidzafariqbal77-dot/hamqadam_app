@@ -4,6 +4,9 @@ import 'dart:ui' show FontFeature;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:giphy_picker/giphy_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1042,13 +1045,24 @@ class _ChatConversationViewState extends State<ChatConversationView> {
     );
   }
 
-  static const List<String> _emojiChoices = <String>[
-    '😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😜', '🤗', '🤔',
-    '😐', '😴', '😢', '😭', '😡', '👍', '👎', '🙏', '👏', '💪',
-    '❤️', '💔', '🌹', '🎉', '🤲', '🕌', '⭐', '✨', '🔥', '💯',
-  ];
+  /// Full-screen GIPHY browser (giphy_picker): trending + unlimited search
+  /// with infinite scroll. Sends the chosen GIF like the inline picker does.
+  Future<void> _openGiphyFullPicker() async {
+    final GiphyGif? gif = await GiphyPicker.pickGif(
+      context: context,
+      apiKey: ChatGifPicker.giphyApiKey,
+      rating: GiphyRating.pg,
+      showPreviewPage: false,
+      searchHintText: 'Search GIFs',
+    );
+    if (gif == null || !mounted) return;
+    final String? url = gif.images.downsized?.url ??
+        gif.images.original?.url;
+    if (url == null || url.isEmpty) return;
+    setState(() => _gifPanelOpen = false);
+    _controller.sendGif(url);
+  }
 
-  /// Quick emoji strip — one tap inserts into the composer at the cursor.
   /// Emoji | GIF switch shown at the top of the picker sheet.
   Widget _buildPickerTabs(bool isDark) {
     Widget tab(String label, IconData icon, bool active, VoidCallback onTap) {
@@ -1113,46 +1127,60 @@ class _ChatConversationViewState extends State<ChatConversationView> {
                     _gifPanelOpen = true;
                     _emojiPanelOpen = false;
                   })),
+          if (_gifPanelOpen)
+            IconButton(
+              tooltip: 'Search all GIFs',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.open_in_full_rounded, size: 18, color: AppColors.primaryInk),
+              onPressed: _openGiphyFullPicker,
+            ),
         ],
       ),
     );
   }
 
+  /// Full emoji keyboard (every Unicode emoji, categories, recents, skin
+  /// tones) with built-in search via the bottom bar's search button.
   Widget _buildEmojiPanel(bool isDark) {
+    final Color bg = isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface;
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceAlt : AppColors.lightSurface,
+        color: bg,
         borderRadius: AppRadius.mdAll,
         border: Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightDivider),
       ),
-      child: SizedBox(
-        height: 220,
-        child: GridView.builder(
-          physics: const BouncingScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 8,
-            childAspectRatio: 1.1,
-            crossAxisSpacing: 2,
-            mainAxisSpacing: 2,
+      child: EmojiPicker(
+        onEmojiSelected: (Category? _, Emoji emoji) => _controller.appendEmoji(emoji.emoji),
+        config: Config(
+          height: 290,
+          checkPlatformCompatibility: true,
+          emojiViewConfig: EmojiViewConfig(
+            columns: 8,
+            emojiSizeMax: 28 * (defaultTargetPlatform == TargetPlatform.iOS ? 1.2 : 1.0),
+            backgroundColor: bg,
+            recentsLimit: 32,
           ),
-          itemCount: _emojiChoices.length,
-          // FittedBox instead of IconButton: IconButton's 48px min target in
-          // a narrower grid cell squeezed the glyph and clipped emojis.
-          itemBuilder: (BuildContext _, int i) => Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _controller.appendEmoji(_emojiChoices[i]),
-              child: Center(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(_emojiChoices[i], style: const TextStyle(fontSize: 28)),
-                ),
-              ),
-            ),
+          categoryViewConfig: CategoryViewConfig(
+            backgroundColor: bg,
+            indicatorColor: AppColors.primaryInk,
+            iconColor: AppColors.chatTimeInk,
+            iconColorSelected: AppColors.primaryInk,
+            backspaceColor: AppColors.primaryInk,
           ),
+          bottomActionBarConfig: BottomActionBarConfig(
+            backgroundColor: bg,
+            buttonColor: bg,
+            buttonIconColor: AppColors.primaryInk,
+            showBackspaceButton: false,
+          ),
+          searchViewConfig: SearchViewConfig(
+            backgroundColor: bg,
+            buttonIconColor: AppColors.primaryInk,
+            hintText: 'Search emoji',
+          ),
+          skinToneConfig: const SkinToneConfig(),
         ),
       ),
     );

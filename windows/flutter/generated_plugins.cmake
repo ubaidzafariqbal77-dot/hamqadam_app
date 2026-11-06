@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   agora_rtc_engine
   audioplayers_windows
   connectivity_plus
+  emoji_picker_flutter
   file_selector_windows
   firebase_core
   flutter_secure_storage_windows

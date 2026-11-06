@@ -80,9 +80,7 @@ Future<void> showChatThreadActions(
           ),
           ListTile(
             leading: Icon(
-              archived
-                  ? Icons.unarchive_outlined
-                  : Icons.archive_outlined,
+              archived ? Icons.unarchive_outlined : Icons.archive_outlined,
               color: AppColors.primary,
             ),
             title: Text(archived ? 'Move back to inbox' : 'Archive chat'),
@@ -117,7 +115,10 @@ Future<void> showChatThreadActions(
             },
           ),
           ListTile(
-            leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+            leading: const Icon(
+              Icons.delete_outline_rounded,
+              color: AppColors.error,
+            ),
             title: const Text(
               'Delete conversation',
               style: TextStyle(
@@ -136,7 +137,9 @@ Future<void> showChatThreadActions(
                 context: context,
                 builder: (BuildContext dialog) => AlertDialog(
                   backgroundColor: AppColors.chatCanvasTop,
-                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.lgAll),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.lgAll,
+                  ),
                   title: const Text('Delete conversation?'),
                   content: Text(
                     'This removes your chat with ${thread.participant.name} '
@@ -146,7 +149,10 @@ Future<void> showChatThreadActions(
                   actions: <Widget>[
                     TextButton(
                       onPressed: () => Navigator.pop(dialog, false),
-                      child: const Text('Cancel', style: TextStyle(color: AppColors.primary)),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(color: AppColors.primary),
+                      ),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(dialog, true),
@@ -204,10 +210,7 @@ class ChatInboxView extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: Theme.of(context).brightness == Brightness.dark
-                ? <Color>[
-                    AppColors.darkBackground,
-                    AppColors.darkBackground,
-                  ]
+                ? <Color>[AppColors.darkBackground, AppColors.darkBackground]
                 : const <Color>[
                     AppColors.chatCanvasTop,
                     AppColors.chatCanvasBottom,
@@ -219,16 +222,17 @@ class ChatInboxView extends StatelessWidget {
             if (!standalone) const InboxHeader(),
             const Padding(
               padding: EdgeInsets.fromLTRB(
-                  AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                0,
+              ),
               child: InboxTabs(),
             ),
             const SizedBox(height: AppSpacing.xs),
             const Expanded(
               child: TabBarView(
-                children: <Widget>[
-                  ChatsTab(),
-                  CallHistoryView(),
-                ],
+                children: <Widget>[ChatsTab(), CallHistoryView()],
               ),
             ),
           ],
@@ -238,10 +242,7 @@ class ChatInboxView extends StatelessWidget {
 
     if (!standalone) return content;
     return Scaffold(
-      appBar: const PremiumAppBar(
-        title: 'Chat',
-        subtitle: 'Conversations',
-      ),
+      appBar: const PremiumAppBar(title: 'Chat', subtitle: 'Conversations'),
       body: content,
     );
   }
@@ -255,87 +256,56 @@ class InboxHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool dark = Theme.of(context).brightness == Brightness.dark;
-    final Color ink = dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk;
     Widget chip(IconData icon, String tip, VoidCallback onTap) => Tooltip(
-          message: tip,
-          child: Material(
-            color: dark ? AppColors.darkSurfaceAlt : AppColors.primaryLight,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: onTap,
-              child: SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(icon, size: 21, color: dark ? ink : AppColors.primaryInk),
-              ),
+      message: tip,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.55),
+        shape: CircleBorder(
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.8)),
+        ),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, size: 21, color: AppColors.primaryInk),
+          ),
+        ),
+      ),
+    );
+    return Stack(
+      children: <Widget>[
+        const Positioned.fill(child: PremiumBarBackground()),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+            child: Row(
+              children: <Widget>[
+                chip(Icons.menu_rounded, 'Menu', () {
+                  final ScaffoldState? shell = Scaffold.maybeOf(context);
+                  if (shell != null && shell.hasDrawer) shell.openDrawer();
+                }),
+                const Expanded(
+                  child: PremiumBarTitle(
+                    title: 'Chat Conversations',
+                    subtitle: 'Your messages & calls',
+                    center: true,
+                  ),
+                ),
+                // Archived chats live behind their own folder rather than a
+                // third pill, so the Chats/Calls pair stays intact.
+                chip(
+                  Icons.inventory_2_outlined,
+                  'Archived chats',
+                  () => Get.to<void>(() => const ChatArchivedView()),
+                ),
+              ],
             ),
           ),
-        );
-    return Container(
-      decoration: BoxDecoration(
-        gradient: dark
-            ? null
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[Colors.white, Color(0xFFFFF1F6)],
-              ),
-        color: dark ? AppColors.darkSurface : null,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(AppRadius.xl)),
-        border: Border(
-          bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.7)),
         ),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x1FB25C82),
-            blurRadius: 20,
-            offset: Offset(0, 6),
-            spreadRadius: -4,
-          ),
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: Row(
-            children: <Widget>[
-              chip(Icons.menu_rounded, 'Menu', () {
-                final ScaffoldState? shell = Scaffold.maybeOf(context);
-                if (shell != null && shell.hasDrawer) shell.openDrawer();
-              }),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      'Chat Conversations',
-                      textAlign: TextAlign.center,
-                      style: AppTextStyles.displaySerif.copyWith(fontSize: 21, color: ink, height: 1.15),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'YOUR MESSAGES & CALLS',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.primaryDark,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Archived chats live behind their own folder rather than a
-              // third pill, so the Chats/Calls pair stays intact.
-              chip(Icons.inventory_2_outlined, 'Archived chats',
-                  () => Get.to<void>(() => const ChatArchivedView())),
-            ],
-          ),
-        ),
-      ),
+      ],
     );
   }
 }
@@ -452,7 +422,9 @@ class _InboxPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool dark = Theme.of(context).brightness == Brightness.dark;
-    final Color idleInk = dark ? AppColors.darkTextSecondary : AppColors.chatPillIdleInk;
+    final Color idleInk = dark
+        ? AppColors.darkTextSecondary
+        : AppColors.chatPillIdleInk;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -493,7 +465,11 @@ class _InboxPill extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(icon, size: 17, color: selected ? AppColors.chatPillInk : idleInk),
+              Icon(
+                icon,
+                size: 17,
+                color: selected ? AppColors.chatPillInk : idleInk,
+              ),
               const SizedBox(width: 7),
               Text(
                 label,
@@ -527,7 +503,11 @@ class ChatsTab extends StatelessWidget {
         // Search pill — plain white with the rose magnifier, per the reference.
         Padding(
           padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.xs, AppSpacing.md, AppSpacing.xs),
+            AppSpacing.md,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xs,
+          ),
           child: Container(
             height: 52,
             decoration: BoxDecoration(
@@ -555,8 +535,11 @@ class ChatsTab extends StatelessWidget {
                       : AppColors.chatPillIdleInk,
                   fontSize: 14.5,
                 ),
-                prefixIcon: const Icon(Icons.search_rounded,
-                    color: AppColors.primary, size: 22),
+                prefixIcon: const Icon(
+                  Icons.search_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
                 suffixIcon: Obx(() {
                   if (controller.searchQuery.value.isEmpty) {
                     return const SizedBox.shrink();
@@ -568,7 +551,9 @@ class ChatsTab extends StatelessWidget {
                 }),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: 15),
+                  horizontal: AppSpacing.sm,
+                  vertical: 15,
+                ),
               ),
             ),
           ),
@@ -577,7 +562,8 @@ class ChatsTab extends StatelessWidget {
         // Conversation list
         Expanded(
           child: Obx(() {
-            final ApiState<List<ChatThread>> state = controller.threadsState.value;
+            final ApiState<List<ChatThread>> state =
+                controller.threadsState.value;
 
             switch (state.status) {
               case ApiStatus.initial:
@@ -595,7 +581,8 @@ class ChatsTab extends StatelessWidget {
               case ApiStatus.empty:
                 return EmptyStateWidget(
                   title: 'No Conversations Yet',
-                  message: state.message ??
+                  message:
+                      state.message ??
                       'When someone accepts your interest or messages you, your conversations will appear here.',
                   onRefresh: controller.loadThreads,
                 );
@@ -609,14 +596,18 @@ class ChatsTab extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          Icon(Icons.search_off_rounded,
-                              size: 40, color: theme.hintColor),
+                          Icon(
+                            Icons.search_off_rounded,
+                            size: 40,
+                            color: theme.hintColor,
+                          ),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             'No conversations match "${controller.searchQuery.value}"',
                             textAlign: TextAlign.center,
-                            style: AppTextStyles.body
-                                .copyWith(color: theme.hintColor),
+                            style: AppTextStyles.body.copyWith(
+                              color: theme.hintColor,
+                            ),
                           ),
                         ],
                       ),
@@ -720,12 +711,16 @@ class ChatThreadCard extends StatelessWidget {
     final bool dark = theme.brightness == Brightness.dark;
     final bool hasUnread = thread.unreadCount > 0;
     final bool isVoice = thread.lastMessage?.isVoice ?? false;
-    final String timeStr =
-        formatTimestamp(thread.lastMessageAt ?? thread.createdAt);
+    final String timeStr = formatTimestamp(
+      thread.lastMessageAt ?? thread.createdAt,
+    );
 
-    final Color nameInk = dark ? AppColors.darkTextPrimary : AppColors.roseTitleInk;
-    final Color previewInk =
-        dark ? AppColors.darkTextSecondary : AppColors.chatPreviewInk;
+    final Color nameInk = dark
+        ? AppColors.darkTextPrimary
+        : AppColors.roseTitleInk;
+    final Color previewInk = dark
+        ? AppColors.darkTextSecondary
+        : AppColors.chatPreviewInk;
     final Color timeInk = dark ? AppColors.darkTextHint : AppColors.chatTimeInk;
 
     return Material(
@@ -743,7 +738,9 @@ class ChatThreadCard extends StatelessWidget {
             ),
             boxShadow: <BoxShadow>[
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: hasUnread ? 0.10 : 0.05),
+                color: AppColors.primary.withValues(
+                  alpha: hasUnread ? 0.10 : 0.05,
+                ),
                 blurRadius: 18,
                 spreadRadius: -4,
                 offset: const Offset(0, 8),
@@ -772,8 +769,8 @@ class ChatThreadCard extends StatelessWidget {
                             ),
                       color: dark
                           ? (hasUnread
-                              ? AppColors.primary
-                              : AppColors.darkBorder)
+                                ? AppColors.primary
+                                : AppColors.darkBorder)
                           : (hasUnread ? null : Colors.transparent),
                       borderRadius: BorderRadius.circular(AppRadius.pill),
                     ),
@@ -784,8 +781,9 @@ class ChatThreadCard extends StatelessWidget {
                     children: <Widget>[
                       CircleAvatar(
                         radius: 28,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.14),
+                        backgroundColor: AppColors.primary.withValues(
+                          alpha: 0.14,
+                        ),
                         backgroundImage: thread.participant.hasPhoto
                             ? NetworkImage(thread.participant.photo!)
                             : null,
@@ -832,8 +830,9 @@ class ChatThreadCard extends StatelessWidget {
                           thread.participant.displayName,
                           style: AppTextStyles.bodyStrong.copyWith(
                             fontSize: 16.5,
-                            fontWeight:
-                                hasUnread ? FontWeight.w800 : FontWeight.w700,
+                            fontWeight: hasUnread
+                                ? FontWeight.w800
+                                : FontWeight.w700,
                             color: nameInk,
                           ),
                           maxLines: 1,
@@ -843,15 +842,19 @@ class ChatThreadCard extends StatelessWidget {
                         Row(
                           children: <Widget>[
                             if (thread.isBlocked) ...<Widget>[
-                              const Icon(Icons.block_rounded,
-                                  size: 13, color: AppColors.error),
+                              const Icon(
+                                Icons.block_rounded,
+                                size: 13,
+                                color: AppColors.error,
+                              ),
                               const SizedBox(width: 4),
                               const Text(
                                 'Blocked • ',
                                 style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.error,
-                                    fontWeight: FontWeight.w600),
+                                  fontSize: 12.5,
+                                  color: AppColors.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                             // A voice note is marked with a miniature of its own
@@ -868,11 +871,16 @@ class ChatThreadCard extends StatelessWidget {
                               child: thread.blurIncoming && hasUnread
                                   ? GestureDetector(
                                       onTap: () => Get.to<void>(
-                                          () => const MembershipPlansView()),
+                                        () => const MembershipPlansView(),
+                                      ),
                                       child: ShaderMask(
-                                        shaderCallback: (Rect r) => const LinearGradient(
-                                          colors: <Color>[Color(0x884B5563), Color(0x884B5563)],
-                                        ).createShader(r),
+                                        shaderCallback: (Rect r) =>
+                                            const LinearGradient(
+                                              colors: <Color>[
+                                                Color(0x884B5563),
+                                                Color(0x884B5563),
+                                              ],
+                                            ).createShader(r),
                                         child: Text(
                                           thread.previewText,
                                           style: AppTextStyles.body.copyWith(
@@ -938,15 +946,20 @@ class ChatThreadCard extends StatelessWidget {
                         Container(
                           constraints: const BoxConstraints(minWidth: 26),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             // Same dark rose as the chat composer's mic.
                             color: AppColors.primaryInk,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(AppRadius.pill)),
+                            borderRadius: const BorderRadius.all(
+                              Radius.circular(AppRadius.pill),
+                            ),
                             boxShadow: <BoxShadow>[
                               BoxShadow(
-                                color: AppColors.primaryInk.withValues(alpha: 0.28),
+                                color: AppColors.primaryInk.withValues(
+                                  alpha: 0.28,
+                                ),
                                 blurRadius: 8,
                                 offset: const Offset(0, 3),
                                 spreadRadius: -2,

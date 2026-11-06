@@ -64,7 +64,7 @@ class InterestsView extends StatelessWidget {
               SliverToBoxAdapter(
                 child: SizedBox(
                   height:
-                      MediaQuery.paddingOf(context).top + kToolbarHeight + 10,
+                      MediaQuery.paddingOf(context).top + kToolbarHeight + 14,
                   child: Padding(
                     padding: EdgeInsets.only(
                       top: MediaQuery.paddingOf(context).top,

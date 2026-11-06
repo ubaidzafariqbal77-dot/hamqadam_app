@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../features/profile_activity/views/profile_activity_view.dart';
 import '../../../models/appreciation_model.dart';
 import 'package:get/get.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
 import '../../../constants/app_text_styles.dart';
@@ -56,69 +57,110 @@ class _NotificationsViewState extends State<NotificationsView> {
   Widget _buildIcon(NotificationModel notif) {
     final String lower = notif.type.toLowerCase();
 
-    IconData iconData = Icons.notifications_rounded;
-    Color color = AppColors.regAccent;
+    // Premium tile: Iconsax glyph in white on a soft two-tone gradient
+    // squircle, tinted per category so the list scans at a glance.
+    const List<Color> rose = <Color>[Color(0xFFF7A8C4), Color(0xFFB25C82)];
+    const List<Color> berry = <Color>[Color(0xFFD98BB0), Color(0xFF8E3D60)];
+    const List<Color> violet = <Color>[Color(0xFFC9B6F2), Color(0xFF7E5BC9)];
+    const List<Color> gold = <Color>[Color(0xFFF8D88A), Color(0xFFD99A2B)];
+    const List<Color> mint = <Color>[Color(0xFF9BE3C3), Color(0xFF2F9E73)];
+    const List<Color> sky = <Color>[Color(0xFFA8D4F7), Color(0xFF3E83C9)];
+    const List<Color> coral = <Color>[Color(0xFFF8B2A8), Color(0xFFD9534F)];
+
+    IconData icon = Iconsax.notification;
+    List<Color> g = rose;
 
     if (notif.isChatMessage) {
-      iconData = Icons.chat_bubble_rounded;
-      color = AppColors.fieldIconGlyph;
+      icon = Iconsax.message_text_1;
+      g = berry;
+    } else if (lower.contains('gift')) {
+      icon = Iconsax.gift;
+      g = rose;
     } else if (lower.contains('interest') || lower.contains('mutual')) {
-      iconData = Icons.favorite_rounded;
-      color = AppColors.regAccent;
+      icon = Iconsax.heart;
+      g = rose;
     } else if (lower.contains('proposal')) {
-      iconData = Icons.mail_rounded;
-      color = AppColors.success;
+      icon = Iconsax.sms_tracking;
+      g = berry;
     } else if (lower.contains('shortlist')) {
-      iconData = Icons.bookmark_rounded;
-      color = AppColors.regAccent;
+      icon = Iconsax.archive_tick;
+      g = violet;
     } else if (lower.contains('view')) {
-      iconData = Icons.visibility_rounded;
-      color = AppColors.fieldIconGlyph;
+      icon = Iconsax.eye;
+      g = sky;
     } else if (lower.contains('coin') || lower.contains('bonus') || lower.contains('credit')) {
-      iconData = Icons.monetization_on_rounded;
-      color = AppColors.warning;
+      icon = Iconsax.coin_1;
+      g = gold;
     } else if (lower.contains('payment') || lower.contains('package') || lower.contains('plan') || lower.contains('subscription')) {
-      iconData = Icons.workspace_premium_rounded;
-      color = AppColors.regAccent;
+      icon = Iconsax.crown_1;
+      g = gold;
     } else if (lower.contains('call')) {
-      iconData = Icons.phone_missed_rounded;
-      color = AppColors.error;
+      icon = Iconsax.call_slash;
+      g = coral;
     } else if (lower.contains('match')) {
-      iconData = Icons.people_alt_rounded;
-      color = AppColors.regAccent;
+      icon = Iconsax.profile_2user;
+      g = rose;
     } else if (lower.contains('referral') || lower.contains('achievement')) {
-      iconData = Icons.emoji_events_rounded;
-      color = AppColors.warning;
+      icon = Iconsax.cup;
+      g = gold;
     } else if (lower.contains('verification') || lower.contains('identity')) {
-      iconData = Icons.verified_user_rounded;
-      color = AppColors.success;
+      icon = Iconsax.shield_tick;
+      g = mint;
     } else if (lower.contains('support') || lower.contains('ticket')) {
-      iconData = Icons.support_agent_rounded;
-      color = AppColors.fieldIconGlyph;
+      icon = Iconsax.headphone;
+      g = sky;
     } else if (lower.contains('family') || lower.contains('guardian')) {
-      iconData = Icons.family_restroom_rounded;
-      color = AppColors.fieldIconGlyph;
+      icon = Iconsax.people;
+      g = violet;
     } else if (lower.contains('wallet') || lower.contains('refund')) {
-      iconData = Icons.account_balance_wallet_rounded;
-      color = AppColors.warning;
+      icon = Iconsax.wallet_3;
+      g = gold;
     } else if (lower.contains('security') || lower.contains('login') || lower.contains('device')) {
-      iconData = Icons.security_rounded;
-      color = AppColors.error;
+      icon = Iconsax.security_safe;
+      g = coral;
     } else if (lower.contains('profile')) {
-      iconData = Icons.person_rounded;
-      color = AppColors.fieldIconGlyph;
+      icon = Iconsax.user;
+      g = berry;
     }
 
     return Container(
-      width: 44,
-      height: 44,
+      width: 46,
+      height: 46,
       decoration: BoxDecoration(
-        color: notif.isChatMessage
-            ? AppColors.fieldIconDisc
-            : color.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: g,
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 1.2),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: g.last.withValues(alpha: 0.30),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+            spreadRadius: -3,
+          ),
+        ],
       ),
-      child: Icon(iconData, color: color, size: 21),
+      child: Stack(
+        children: <Widget>[
+          // Soft top-left gloss.
+          Positioned(
+            top: 3,
+            left: 5,
+            child: Container(
+              width: 18,
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          Center(child: Icon(icon, color: Colors.white, size: 21)),
+        ],
+      ),
     );
   }
 

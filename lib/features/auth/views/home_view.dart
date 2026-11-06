@@ -515,7 +515,7 @@ class _AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '${AppStrings.appName}  •  v1.0.0',
+                  '${AppStrings.appName}  •  v1.0.32',
                   style: AppTextStyles.caption.copyWith(
                     color: AppColors.primaryDark.withValues(alpha: 0.75),
                     fontWeight: FontWeight.w600,

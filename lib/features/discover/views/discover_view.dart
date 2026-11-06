@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -610,7 +611,7 @@ class _SearchBarHeader extends StatelessWidget {
             children: <Widget>[
               const Center(
                 child: Icon(
-                  Icons.notifications_none_rounded,
+                  Iconsax.notification_bing_copy,
                   color: _Soul.ink900,
                   size: 20,
                 ),

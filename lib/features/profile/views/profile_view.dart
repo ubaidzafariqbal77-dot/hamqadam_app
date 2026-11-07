@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_dimensions.dart';
@@ -84,10 +85,6 @@ class _Ink {
   /// Field labels and captions.
   static Color muted(BuildContext c) =>
       _dark(c) ? const Color(0xFF8E939C) : const Color(0xFF767D8B);
-
-  /// Hairlines between rows.
-  static Color line(BuildContext c) =>
-      _dark(c) ? const Color(0xFF2A2C31) : const Color(0xFFECEDF0);
 
   /// Card border.
   static Color border(BuildContext c) =>
@@ -1598,17 +1595,25 @@ class _TrustChecklistCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           const _CardHeader(icon: Icons.fact_check_rounded, title: 'Trust & Verification'),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: 12),
+          _TrustProgress(
+            done: <bool?>[
+              checks.identity, checks.face, checks.liveness, checks.phone,
+              checks.email, checks.profile, checks.intent,
+            ].where((bool? b) => b == true).length,
+            total: 7,
+          ),
+          const SizedBox(height: 10),
           // Every row: green check = verified, red cross = rejected, amber
           // hourglass = submitted and awaiting the reviewer, grey ring = not
           // submitted. The colour IS the verdict at a glance.
-          _TrustRow(label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', pendingText: 'Under review', ink: ink, muted: muted),
-          _TrustRow(label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', pendingText: 'Awaiting review', ink: ink, muted: muted),
-          _TrustRow(label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', pendingText: 'Checking…', ink: ink, muted: muted),
-          _TrustRow(label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
-          _TrustRow(label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
-          _TrustRow(label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
-          _TrustRow(label: 'Intent', passed: checks.intent, passedText: 'Marriage intention confirmed', failedText: 'Not on record', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.card, label: 'Identity', passed: checks.identity, passedText: 'CNIC verified', failedText: 'Not verified', pendingText: 'Under review', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.user_tick, label: 'Face', passed: checks.face, passedText: 'Selfie verified', failedText: 'Selfie not verified', pendingText: 'Awaiting review', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.scan, label: 'Liveness', passed: checks.liveness, passedText: 'Live verification passed', failedText: 'Not yet verified', pendingText: 'Checking…', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.call_calling, label: 'Contact', passed: checks.phone, passedText: 'Phone verified', failedText: 'Phone not verified', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.sms, label: 'Email', passed: checks.email, passedText: 'Email verified', failedText: 'Email not verified', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.profile_tick, label: 'Profile', passed: checks.profile, passedText: 'Admin reviewed', failedText: 'Awaiting review', ink: ink, muted: muted),
+          _TrustRow(icon: Iconsax.heart_tick, label: 'Intent', passed: checks.intent, passedText: 'Marriage intention confirmed', failedText: 'Not on record', ink: ink, muted: muted),
         ],
       ),
     );
@@ -1622,6 +1627,7 @@ class _TrustChecklistCard extends StatelessWidget {
 /// meaning alongside the colour, so it survives colour-blind reading too.
 class _TrustRow extends StatelessWidget {
   const _TrustRow({
+    required this.icon,
     required this.label,
     required this.passed,
     required this.passedText,
@@ -1631,6 +1637,7 @@ class _TrustRow extends StatelessWidget {
     this.pendingText,
   });
 
+  final IconData icon;
   final String label;
   final bool? passed;
   final String passedText;
@@ -1644,45 +1651,186 @@ class _TrustRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (IconData icon, Color color) = switch (passed) {
-      true => (Icons.check_circle_rounded, AppColors.success),
-      false => (Icons.cancel_rounded, AppColors.error),
-      null => (pendingText != null
-          ? Icons.hourglass_top_rounded
-          : Icons.radio_button_unchecked_rounded, AppColors.warning),
-    };
     final String text = switch (passed) {
       true => passedText,
       false => failedText,
       null => pendingText ?? failedText,
     };
-    final Color verdictColor = switch (passed) {
-      true => AppColors.success,
-      false => AppColors.error,
-      null => AppColors.warning,
+    final VerificationItemStatus st = switch (passed) {
+      true => VerificationItemStatus.passed,
+      false => VerificationItemStatus.failed,
+      null => pendingText != null
+          ? VerificationItemStatus.inReview
+          : VerificationItemStatus.missing,
     };
+    return _VerifyTile(icon: icon, title: label, subtitle: text, status: st);
+  }
+}
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
+/// "5 of 7 verified" with a brand-gradient progress bar.
+class _TrustProgress extends StatelessWidget {
+  const _TrustProgress({required this.done, required this.total});
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final double v = total == 0 ? 0 : done / total;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: <Color>[Color(0xFFFFF7FA), Color(0xFFFBE3EC)]),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF8D3E0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(
-            width: 86,
-            child: Text(
-              label,
-              style: AppTextStyles.bodyStrong.copyWith(color: ink, fontWeight: FontWeight.w700),
+          Row(
+            children: <Widget>[
+              const Icon(Iconsax.verify, size: 18, color: Color(0xFF1D9BF0)),
+              const SizedBox(width: 6),
+              Text(
+                done == total ? 'Fully verified profile' : '$done of $total checks verified',
+                style: AppTextStyles.bodyStrong.copyWith(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryInk,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${(v * 100).round()}%',
+                style: AppTextStyles.bodyStrong.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: Stack(
+              children: <Widget>[
+                Container(height: 7, color: Colors.white),
+                FractionallySizedBox(
+                  widthFactor: v.clamp(0.0, 1.0),
+                  child: Container(
+                    height: 7,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(colors: <Color>[AppColors.primary, AppColors.primaryDark]),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 6),
+        ],
+      ),
+    );
+  }
+}
+
+/// Premium verification row: brand icon squircle, title + verdict, and a
+/// status seal on the right (blue verified seal, amber timer, red cross,
+/// grey dash).
+class _VerifyTile extends StatelessWidget {
+  const _VerifyTile({
+    required this.icon,
+    required this.title,
+    required this.status,
+    this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VerificationItemStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final (IconData seal, Color c, String word) = switch (status) {
+      VerificationItemStatus.passed => (Iconsax.verify, const Color(0xFF1D9BF0), 'Verified'),
+      VerificationItemStatus.inReview => (Iconsax.timer_1, AppColors.warning, 'In review'),
+      VerificationItemStatus.failed => (Iconsax.close_circle, AppColors.error, 'Rejected'),
+      VerificationItemStatus.missing => (Iconsax.minus_cirlce, AppColors.lightTextHint, 'Pending'),
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: dark ? _Ink.wash(context) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: status == VerificationItemStatus.passed
+              ? const Color(0xFFD6ECFB)
+              : AppColors.primaryLight,
+        ),
+        boxShadow: dark
+            ? null
+            : <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.primaryDark.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Row(
+        children: <Widget>[
+          _BrandIcon(icon: icon, size: 36),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: AppTextStyles.caption.copyWith(
-                color: verdictColor,
-                fontWeight: FontWeight.w700,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: AppTextStyles.bodyStrong.copyWith(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: _Ink.strong(context),
+                  ),
+                ),
+                if ((subtitle ?? '').isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 12,
+                      color: _Ink.muted(context),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 4, 9, 4),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(seal, size: 17, color: c),
+                const SizedBox(width: 4),
+                Text(
+                  word,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: c,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1739,7 +1887,7 @@ class _VerificationCard extends StatelessWidget {
               record.exists ? record.headline : _fallbackHeadline(gate),
               style: AppTextStyles.caption.copyWith(color: Theme.of(context).hintColor),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 12),
 
             // The individual checks.
             if (record.exists)
@@ -1822,29 +1970,18 @@ class _CheckRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color color = _VerificationCard._colorFor(status);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: <Widget>[
-          Icon(_icon, size: 17, color: color),
-          const SizedBox(width: 8),
-          Expanded(child: Text(label, style: AppTextStyles.body)),
-          Text(
-            status.label,
-            style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
-    );
+    final String l = label.toLowerCase();
+    final IconData icon = l.contains('cnic') || l.contains('id card')
+        ? Iconsax.card
+        : l.contains('selfie')
+            ? Iconsax.user_tick
+            : l.contains('live') || l.contains('face')
+                ? Iconsax.scan
+                : l.contains('ai')
+                    ? Iconsax.cpu
+                    : Iconsax.shield_tick;
+    return _VerifyTile(icon: icon, title: label, status: status);
   }
-
-  IconData get _icon => switch (status) {
-    VerificationItemStatus.passed => Icons.check_circle_rounded,
-    VerificationItemStatus.failed => Icons.cancel_rounded,
-    VerificationItemStatus.inReview => Icons.hourglass_top_rounded,
-    VerificationItemStatus.missing => Icons.radio_button_unchecked_rounded,
-  };
 }
 
 /// Pill showing the overall verification verdict.
@@ -1898,15 +2035,15 @@ class _PrivacyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<_Priv> all = <_Priv>[
-      _Priv('Profile photo', Icons.account_circle_rounded, privacy.showPhoto),
-      _Priv('Photo gallery', Icons.photo_library_rounded, privacy.showGallery),
-      _Priv('Contact details', Icons.contact_page_rounded, privacy.showContact),
-      _Priv('Email address', Icons.alternate_email_rounded, privacy.showEmail),
-      _Priv('Phone number', Icons.phone_rounded, privacy.showPhone),
-      _Priv('Location', Icons.place_rounded, privacy.showLocation),
+      _Priv('Profile photo', Iconsax.profile_circle, privacy.showPhoto),
+      _Priv('Photo gallery', Iconsax.gallery, privacy.showGallery),
+      _Priv('Contact details', Iconsax.personalcard, privacy.showContact),
+      _Priv('Email address', Iconsax.sms, privacy.showEmail),
+      _Priv('Phone number', Iconsax.call, privacy.showPhone),
+      _Priv('Location', Iconsax.location, privacy.showLocation),
       _Priv(
         'Profile-view alerts',
-        Icons.notifications_active_rounded,
+        Iconsax.notification_bing,
         privacy.allowProfileViewNotifications,
       ),
     ];
@@ -1925,49 +2062,49 @@ class _PrivacyCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Container(
-                height: 34,
-                width: 34,
-                decoration: BoxDecoration(
-                  color: AppColors.regAccent.withValues(alpha: 0.09),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.lock_outline_rounded,
-                  size: AppDimensions.iconSm,
-                  color: AppColors.regAccent,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Privacy & visibility',
-                  style: AppTextStyles.subtitle.copyWith(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.2,
-                    color: _Ink.strong(context),
-                  ),
-                ),
+              const Expanded(
+                child: _CardHeader(icon: Iconsax.lock_1, title: 'Privacy & visibility'),
               ),
               _ManageLink(onTap: () => Get.to<void>(() => const EditProfileView())),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 12),
 
-          // What a stranger sees, stated once, in a sentence.
-          Text(
-            shown.isEmpty
-                ? 'Nothing on your profile is visible to other members.'
-                : '${shown.length} of ${all.length} details are visible to other members.',
-            style: AppTextStyles.caption.copyWith(
-              color: _Ink.muted(context),
-              height: 1.4,
+          // What a stranger sees, stated once, with a segmented meter.
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: <Color>[Color(0xFFFFF7FA), Color(0xFFFBE3EC)]),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF8D3E0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const Icon(Iconsax.eye, size: 17, color: AppColors.primaryDark),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        shown.isEmpty
+                            ? 'Nothing is visible to other members'
+                            : '${shown.length} of ${all.length} details visible to members',
+                        style: AppTextStyles.bodyStrong.copyWith(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 9),
+                _VisibilityMeter(shown: shown.length, total: all.length),
+              ],
             ),
           ),
-          const SizedBox(height: 10),
-          _VisibilityMeter(shown: shown.length, total: all.length),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 14),
 
           if (shown.isNotEmpty)
             _PrivGroup(title: 'Visible to members', items: shown, on: true),
@@ -1998,11 +2135,12 @@ class _VisibilityMeter extends StatelessWidget {
         if (i > 0) const SizedBox(width: 4),
         Expanded(
           child: Container(
-            height: 5,
+            height: 7,
             decoration: BoxDecoration(
-              color: i < shown
-                  ? AppColors.success.withValues(alpha: 0.85)
-                  : _Ink.line(context),
+              gradient: i < shown
+                  ? const LinearGradient(colors: <Color>[AppColors.primary, AppColors.primaryDark])
+                  : null,
+              color: i < shown ? null : Colors.white,
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -2021,53 +2159,40 @@ class _PrivGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color accent = on ? AppColors.success : _Ink.muted(context);
+    final Color accent = on ? const Color(0xFF2F9E73) : _Ink.muted(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
-            Icon(
-              on ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-              size: 14,
-              color: accent,
-            ),
+            Icon(on ? Iconsax.eye : Iconsax.eye_slash, size: 15, color: accent),
             const SizedBox(width: 6),
             Text(
               title.toUpperCase(),
               style: AppTextStyles.badge.copyWith(
                 color: accent,
-                letterSpacing: 0.7,
+                letterSpacing: 1.1,
                 fontWeight: FontWeight.w800,
                 fontSize: 11,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(99),
+              ),
+              child: Text(
+                '${items.length}',
+                style: AppTextStyles.badge.copyWith(color: accent, fontWeight: FontWeight.w800),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: _Ink.wash(context),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: on
-                  ? AppColors.success.withValues(alpha: 0.18)
-                  : _Ink.border(context),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              for (int i = 0; i < items.length; i++) ...<Widget>[
-                if (i > 0)
-                  Divider(height: 1, thickness: 1, color: _Ink.line(context)),
-                _PrivRow(priv: items[i], accent: accent),
-              ],
-            ],
-          ),
-        ),
+        for (final _Priv p in items) _PrivRow(priv: p, accent: accent),
       ],
     );
   }
@@ -2087,35 +2212,71 @@ class _PrivRow extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Row(
-      children: <Widget>[
-        // The icon tile carries the state now, which is why the row needs no
-        // tag: a lit tile reads as "on" faster than a word does.
-        Container(
-          height: 30,
-          width: 30,
-          decoration: BoxDecoration(
-            color: accent.withValues(alpha: priv.on ? 0.12 : 0.08),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(priv.icon, size: 16, color: accent),
+  Widget build(BuildContext context) {
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final Color c = priv.on ? const Color(0xFF2F9E73) : AppColors.lightTextHint;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      decoration: BoxDecoration(
+        color: dark ? _Ink.wash(context) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: priv.on ? const Color(0xFFCDEBDD) : AppColors.primaryLight,
         ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            priv.label,
-            style: AppTextStyles.bodyStrong.copyWith(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w600,
-              color: _Ink.strong(context),
+        boxShadow: dark
+            ? null
+            : <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.primaryDark.withValues(alpha: 0.06),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: Row(
+        children: <Widget>[
+          Opacity(
+            opacity: priv.on ? 1 : 0.55,
+            child: _BrandIcon(icon: priv.icon, size: 34),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              priv.label,
+              style: AppTextStyles.bodyStrong.copyWith(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: priv.on ? _Ink.strong(context) : _Ink.muted(context),
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
+          Container(
+            padding: const EdgeInsets.fromLTRB(6, 4, 9, 4),
+            decoration: BoxDecoration(
+              color: c.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(priv.on ? Iconsax.eye : Iconsax.lock_1, size: 15, color: c),
+                const SizedBox(width: 4),
+                Text(
+                  priv.on ? 'Visible' : 'Private',
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: c,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// The way out of a read-only card: these settings live on the edit screen.
@@ -2137,12 +2298,12 @@ class _ManageLink extends StatelessWidget {
             Text(
               'Manage',
               style: AppTextStyles.caption.copyWith(
-                color: AppColors.regAccent,
-                fontWeight: FontWeight.w700,
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.regAccent),
+            const Icon(Icons.chevron_right_rounded, size: 17, color: AppColors.primaryDark),
           ],
         ),
       ),

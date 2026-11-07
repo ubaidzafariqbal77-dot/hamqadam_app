@@ -133,9 +133,9 @@ class _ProfileBody extends StatelessWidget {
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
+          10,
           AppSpacing.md,
-          AppSpacing.md,
-          AppSpacing.md,
+          10,
           // Clear the floating bottom nav.
           AppSpacing.xxxl + AppSpacing.xl,
         ),
@@ -329,9 +329,9 @@ class _HeroCard extends StatelessWidget {
               const Positioned(bottom: -70, left: -50, child: _Bloom(size: 150)),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
+                  14,
                   10,
-                  AppSpacing.lg,
+                  14,
                   AppSpacing.md,
                 ),
                 child: Column(
@@ -2402,7 +2402,7 @@ class _Surface extends StatelessWidget {
                 ),
               ),
             ),
-            Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: child),
+            Padding(padding: const EdgeInsets.fromLTRB(14, 18, 14, 16), child: child),
           ],
         ),
       ),

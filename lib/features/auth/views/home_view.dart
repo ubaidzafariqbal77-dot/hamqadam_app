@@ -222,22 +222,27 @@ class _HomeViewState extends State<HomeView> {
               }
             }
           },
+          // Iconsax: outline when idle, bold when selected.
           items: <PremiumNavItem>[
-            const PremiumNavItem(icon: Icons.explore_outlined, activeIcon: Icons.explore_rounded, label: 'Discover'),
             const PremiumNavItem(
-              icon: Icons.favorite_outline_rounded,
-              activeIcon: Icons.favorite_rounded,
+              icon: Iconsax.discover_copy,
+              activeIcon: Iconsax.discover,
+              label: 'Discover',
+            ),
+            const PremiumNavItem(
+              icon: Iconsax.lovely_copy,
+              activeIcon: Iconsax.lovely,
               label: 'Matches',
             ),
             PremiumNavItem(
-              icon: Icons.chat_bubble_outline_rounded,
-              activeIcon: Icons.chat_bubble_rounded,
+              icon: Iconsax.messages_3_copy,
+              activeIcon: Iconsax.messages_3,
               label: 'Chat',
               badge: unread,
             ),
             const PremiumNavItem(
-              icon: Icons.person_outline_rounded,
-              activeIcon: Icons.person_rounded,
+              icon: Iconsax.profile_circle_copy,
+              activeIcon: Iconsax.profile_circle,
               label: 'Profile',
             ),
           ],

@@ -11,7 +11,6 @@ import '../../../core/api/api_response.dart';
 import '../../../models/gift_model.dart';
 import '../../../widgets/premium_app_bar.dart';
 import '../../../widgets/state_widgets.dart';
-import 'gift_detail_view.dart';
 
 /// Profile → My Gifts. Received | Sent tabs — the permanent gift location,
 /// independent of notifications.
@@ -154,17 +153,18 @@ class _GiftList extends StatelessWidget {
             return _GiftTile(
               transaction: t,
               isReceived: isReceived,
-              // Play the gift full screen (with sound); detail only if the
-              // catalog row is missing.
-              onTap: () => t.gift != null
-                  ? GiftPlayerOverlay.show(
-                      ctx,
-                      t.gift!,
-                      caption: isReceived
-                          ? '${t.senderName} sent you ${t.gift!.name}'
-                          : 'You sent ${t.gift!.name} to ${t.receiverName}',
-                    )
-                  : Get.to<void>(() => GiftDetailView(transactionId: t.id)),
+              // Play the gift full screen (with sound). A row whose catalog
+              // gift was removed has nothing to play.
+              onTap: () {
+                if (t.gift == null) return;
+                GiftPlayerOverlay.show(
+                  ctx,
+                  t.gift!,
+                  caption: isReceived
+                      ? '${t.senderName} sent you ${t.gift!.name}'
+                      : 'You sent ${t.gift!.name} to ${t.receiverName}',
+                );
+              },
             );
           },
         ),

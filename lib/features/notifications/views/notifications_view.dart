@@ -9,7 +9,11 @@ import '../../../constants/app_text_styles.dart';
 import '../../../controllers/chat_controller.dart';
 import '../../../controllers/notification_controller.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../features/gifts/views/gift_detail_view.dart';
+import '../../../controllers/gift_controller.dart';
+import '../../../core/api/api_response.dart';
+import '../../../models/gift_model.dart';
+import '../../gifts/widgets/gift_player_overlay.dart';
+import '../../discover/widgets/public_profile_detail_sheet.dart';
 import '../../../features/chat/views/chat_conversation_view.dart';
 import '../../../features/chat/views/chat_inbox_view.dart';
 import '../../../features/help_center/views/help_chat_view.dart';
@@ -164,6 +168,28 @@ class _NotificationsViewState extends State<NotificationsView> {
     );
   }
 
+  /// Loads the gift transaction and plays it in the full-screen player.
+  Future<void> _playGift(int txnId) async {
+    if (!Get.isRegistered<GiftController>()) {
+      Get.toNamed<void>(AppRoutes.myGifts);
+      return;
+    }
+    final GiftController gifts = Get.find<GiftController>();
+    await gifts.loadTransaction(txnId);
+    if (!mounted) return;
+    final ApiState<GiftTransactionModel> st = gifts.transactionState.value;
+    final GiftTransactionModel? t = st.data;
+    if (st.status != ApiStatus.success || t == null || t.gift == null) {
+      Get.toNamed<void>(AppRoutes.myGifts);
+      return;
+    }
+    await GiftPlayerOverlay.show(
+      context,
+      t.gift!,
+      caption: '${t.senderName} sent you ${t.gift!.name}',
+    );
+  }
+
   // ── navigation on tap ─────────────────────────────────────────────────────
   void _handleNotificationTap(NotificationModel notif) {
     // One tap = the notification is read on the server, whatever it is.
@@ -174,11 +200,11 @@ class _NotificationsViewState extends State<NotificationsView> {
 
     final String type = notif.type.toLowerCase();
 
-    // 0. Gift notifications → the gift's detail screen.
+    // 0. Gift notifications → play the gift full screen, same as My Gifts.
     if (type.contains('gift')) {
       final int? txnId = notif.infoId;
       if (txnId != null && txnId > 0) {
-        Get.to<void>(() => GiftDetailView(transactionId: txnId));
+        _playGift(txnId);
       } else {
         Get.toNamed<void>(AppRoutes.myGifts);
       }
@@ -192,12 +218,19 @@ class _NotificationsViewState extends State<NotificationsView> {
     }
 
     // Like / Super Like → Profile Activity → Received.
-    if (type.contains('super_like')) {
-      Get.to(() => const ProfileActivityView(initialType: AppreciationType.superLike));
-      return;
-    }
-    if (type.contains('profile_like') || type.contains('mutual_like')) {
-      Get.to(() => const ProfileActivityView());
+    // The backend stores the liker's user id in notify_by — open their
+    // profile directly; the activity list only as a fallback.
+    if (type.contains('super_like') ||
+        type.contains('profile_like') ||
+        type.contains('mutual_like')) {
+      final int? by = notif.notifyBy ?? notif.infoId;
+      if (by != null && by > 0) {
+        PublicProfileDetailSheet.open(context, profileId: by);
+      } else if (type.contains('super_like')) {
+        Get.to(() => const ProfileActivityView(initialType: AppreciationType.superLike));
+      } else {
+        Get.to(() => const ProfileActivityView());
+      }
       return;
     }
 
@@ -564,6 +597,7 @@ class _NotificationCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.bodyStrong.copyWith(
+                              fontSize: 14,
                               color: titleColor,
                               fontWeight: notif.isRead ? FontWeight.w600 : FontWeight.w800,
                             ),
@@ -593,7 +627,8 @@ class _NotificationCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       notif.message,
-                      maxLines: isChat ? 1 : 2,
+                      // One quiet line — the full text isn't needed here.
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: AppTextStyles.caption.copyWith(
                         color: Theme.of(context).textTheme.bodyMedium?.color,

@@ -280,7 +280,7 @@ class _HeroCard extends StatelessWidget {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 150,
+                height: 186,
                 child: Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
@@ -305,16 +305,19 @@ class _HeroCard extends StatelessWidget {
                       ),
                       // Large HamQadam brand mark across the whole cover,
                       // sitting behind the ID chip, Edit and the photo.
-                      const Positioned.fill(
+                      // HamQadam mark in the gap between the chips and the
+                      // photo, behind everything.
+                      const Positioned(
+                        top: 44,
+                        left: 16,
+                        right: 16,
+                        height: 58,
                         child: IgnorePointer(
                           child: Opacity(
                             opacity: 0.55,
                             child: FittedBox(
                               fit: BoxFit.scaleDown,
-                              child: Padding(
-                                padding: EdgeInsets.only(bottom: 30),
-                                child: _BrandMark(scale: 1.9),
-                              ),
+                              child: _BrandMark(scale: 1.9),
                             ),
                           ),
                         ),
@@ -327,7 +330,7 @@ class _HeroCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   AppSpacing.lg,
-                  AppSpacing.md,
+                  10,
                   AppSpacing.lg,
                   AppSpacing.md,
                 ),
@@ -341,7 +344,9 @@ class _HeroCard extends StatelessWidget {
                         const _EditButton(),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.sm),
+                    // Room for the HamQadam mark between the chips and the
+                    // photo, so the cover logo reads clearly.
+                    const SizedBox(height: 56),
                     _Avatar(
                       url: u.photoUrl,
                       initial: u.initial,

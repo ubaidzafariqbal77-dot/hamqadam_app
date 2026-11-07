@@ -223,7 +223,7 @@ class _HomeViewState extends State<HomeView> {
             }
           },
           items: <PremiumNavItem>[
-            const PremiumNavItem(icon: Icons.search_rounded, label: 'Discover'),
+            const PremiumNavItem(icon: Icons.explore_outlined, activeIcon: Icons.explore_rounded, label: 'Discover'),
             const PremiumNavItem(
               icon: Icons.favorite_outline_rounded,
               activeIcon: Icons.favorite_rounded,

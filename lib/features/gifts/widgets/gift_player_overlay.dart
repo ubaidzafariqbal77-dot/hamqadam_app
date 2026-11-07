@@ -161,14 +161,25 @@ class _GiftPlayerOverlayState extends State<GiftPlayerOverlay> with TickerProvid
     }
     if (_lottie != null) {
       return url == null
-          ? Lottie.asset(_gift.animatedAsset,
-              controller: _lottie, width: side, onLoaded: _onLottieLoaded, errorBuilder: (_, _, _) => thumb)
+          ? SizedBox.expand(
+              child: Lottie.asset(_gift.animatedAsset,
+                  controller: _lottie, fit: BoxFit.cover, onLoaded: _onLottieLoaded, errorBuilder: (_, _, _) => thumb),
+            )
           : _lottieFile == null
               ? const CircularProgressIndicator(color: Colors.white)
-              : Lottie.file(_lottieFile!,
-                  controller: _lottie, width: side, onLoaded: _onLottieLoaded, errorBuilder: (_, _, _) => thumb);
+              : SizedBox.expand(
+                  child: Lottie.file(_lottieFile!,
+                      controller: _lottie, fit: BoxFit.cover, onLoaded: _onLottieLoaded, errorBuilder: (_, _, _) => thumb),
+                );
     }
-    return CachedNetworkImage(imageUrl: url!, cacheManager: GiftAssetCache.instance.manager, width: side, fit: BoxFit.contain, errorWidget: (_, _, _) => thumb);
+    return SizedBox.expand(
+      child: CachedNetworkImage(
+        imageUrl: url!,
+        cacheManager: GiftAssetCache.instance.manager,
+        fit: BoxFit.cover,
+        errorWidget: (_, _, _) => thumb,
+      ),
+    );
   }
 
   @override
